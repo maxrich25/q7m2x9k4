@@ -2,6 +2,8 @@
 
 Night-cart arcade backup. Jump to dodge, sell packs at the dumpster, buy guns at the shop, heat calls cops.
 
+Feel pass: same vibe, slower heat/spawns, jump actually clears trouble, you get a few seconds on the block before it goes fubar.
+
 **Play:**
 
 - Grok: https://plum-rapid-kind-fjord.grok.me
