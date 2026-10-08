@@ -2,8 +2,10 @@
 
 Night-cart arcade backup. Jump to dodge, sell packs at the dumpster, buy guns at the shop, heat calls cops.
 
-**Play the live Grok copy (easiest on phone):**
-https://plum-rapid-kind-fjord.grok.me
+**Play:**
+
+- Grok: https://plum-rapid-kind-fjord.grok.me
+- GitHub Pages (once enabled): https://maxrich25.github.io/Steampunk-RPG-Guantlet/
 
 This folder is a local copy of that cart (sprites, map, and game code) so it is not stuck only on Grok.
 
