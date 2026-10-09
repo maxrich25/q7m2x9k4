@@ -1,5 +1,5 @@
-import { WEAPONS, CAR_HP } from "./config.js?v=18";
-import { isMuted, isUnlocked } from "./audio.js?v=18";
+import { WEAPONS, CAR_HP } from "./config.js?v=19";
+import { isMuted, isUnlocked } from "./audio.js?v=19";
 
 const TITLE_TIPS = [
   "JUMP TO DODGE",
