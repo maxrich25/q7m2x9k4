@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN,
-} from "./config.js?v=15";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=15";
+} from "./config.js?v=16";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=16";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -750,7 +750,7 @@ export function createWorld(canvas, sprites) {
   scene.add(buyerSprite);
   let buyerT = 0;
 
-  const playerSprite = makeBillboard(sprites.idle[0], 2.35);
+  const playerSprite = makeBillboard(sprites.idle[0], 2.65);
   scene.add(playerSprite);
   const packHeld = makeBillboard(sprites.pack, 0.45);
   packHeld.visible = false;
