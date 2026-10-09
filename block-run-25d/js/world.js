@@ -37,25 +37,25 @@ function brickTex(color, accent) {
   });
 }
 
-function asphaltTex() {
+  function asphaltTex() {
   return canvasTex(128, 128, (g, w, h) => {
-    g.fillStyle = "#1a1520";
+    g.fillStyle = "#2a2434";
     g.fillRect(0, 0, w, h);
-    g.fillStyle = "#221c2a";
+    g.fillStyle = "#322a3c";
     for (let i = 0; i < 200; i++) g.fillRect((i * 37) % w, (i * 53) % h, 2, 2);
-    g.fillStyle = "#2e2838";
+    g.fillStyle = "#3a3444";
     for (let i = 0; i < 80; i++) g.fillRect((i * 19) % w, (i * 29) % h, 1, 1);
   });
 }
 
 function sidewalkTex() {
   return canvasTex(64, 32, (g, w, h) => {
-    g.fillStyle = "#3a3644";
+    g.fillStyle = "#5a5664";
     g.fillRect(0, 0, w, h);
-    g.strokeStyle = "#2a2630";
+    g.strokeStyle = "#3a3644";
     g.lineWidth = 1;
     for (let x = 0; x < w; x += 16) g.strokeRect(x, 0, 16, h);
-    g.fillStyle = "#4a4654";
+    g.fillStyle = "#7a7684";
     g.fillRect(0, 0, w, 2);
   });
 }
@@ -69,7 +69,7 @@ function windowTex(lit) {
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const on = lit && Math.random() > 0.35;
-        g.fillStyle = on ? (Math.random() > 0.5 ? "#f0c430" : "#3de0ff") : "#0a0810";
+        g.fillStyle = on ? (Math.random() > 0.5 ? "#ffe06a" : "#7af0ff") : "#1a1424";
         g.fillRect(3 + c * 10, 4 + r * 11, 7, 8);
         if (on) {
           g.fillStyle = "rgba(255,255,255,0.25)";
@@ -156,19 +156,27 @@ function glowSprite(color, size) {
 }
 
 function makePalm() {
+  const tex = canvasTex(64, 96, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = "#6a4430";
+    g.fillRect(28, 40, 8, 56);
+    g.fillStyle = "#2f8a4a";
+    g.beginPath(); g.ellipse(32, 36, 26, 14, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(18, 42, 16, 8, -0.6, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(46, 42, 16, 8, 0.6, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(32, 22, 18, 10, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#3dff7a";
+    g.fillRect(20, 30, 4, 3);
+    g.fillRect(40, 28, 4, 3);
+  });
+  tex.wrapS = THREE.ClampToEdgeWrapping;
+  tex.wrapT = THREE.ClampToEdgeWrapping;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+  const s = new THREE.Sprite(mat);
+  s.center.set(0.5, 0);
+  s.scale.set(2.1, 3.15, 1);
   const g = new THREE.Group();
-  const trunkMat = new THREE.MeshLambertMaterial({ color: 0x6a4430 });
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 2.6, 6), trunkMat);
-  trunk.position.y = 1.3;
-  g.add(trunk);
-  const leafMat = new THREE.MeshLambertMaterial({ color: 0x2f8a4a, side: THREE.DoubleSide });
-  for (let i = 0; i < 7; i++) {
-    const leaf = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.35), leafMat);
-    leaf.position.y = 2.5;
-    leaf.rotation.z = (i / 7) * Math.PI * 2;
-    leaf.rotation.x = -0.7;
-    g.add(leaf);
-  }
+  g.add(s);
   return g;
 }
 
@@ -246,22 +254,22 @@ function makeDumpsterMesh() {
 function makeKiosk() {
   const g = new THREE.Group();
   const body = new THREE.Mesh(
-    new THREE.BoxGeometry(1.6, 1.8, 1.1),
+    new THREE.BoxGeometry(1.35, 1.45, 0.7),
     new THREE.MeshLambertMaterial({ color: 0x161022 }),
   );
-  body.position.y = 0.9;
+  body.position.y = 0.72;
   g.add(body);
   const awning = new THREE.Mesh(
-    new THREE.BoxGeometry(1.9, 0.08, 1.4),
+    new THREE.BoxGeometry(1.55, 0.08, 0.9),
     new THREE.MeshLambertMaterial({ color: 0x3de0ff }),
   );
-  awning.position.y = 1.86;
+  awning.position.set(0, 1.5, 0.05);
   g.add(awning);
   const window = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.0, 0.7),
+    new THREE.PlaneGeometry(0.85, 0.55),
     new THREE.MeshBasicMaterial({ color: 0x3de0ff }),
   );
-  window.position.set(0, 1.05, 0.56);
+  window.position.set(0, 0.85, 0.36);
   g.add(window);
   return g;
 }
@@ -313,7 +321,6 @@ export function createWorld(canvas, sprites) {
     antialias: false,
     alpha: false,
     powerPreference: "high-performance",
-    preserveDrawingBuffer: true,
     stencil: false,
     depth: true,
   });
@@ -322,18 +329,21 @@ export function createWorld(canvas, sprites) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x0a0814, 0.028);
-  scene.background = new THREE.Color(0x0a0716);
+  scene.fog = new THREE.FogExp2(0x120820, 0.016);
+  scene.background = new THREE.Color(0x140a28);
 
   const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 180);
   camera.position.set(0, 4.6, 11.5);
 
-  scene.add(new THREE.AmbientLight(0x2a1838, 0.55));
-  const hemi = new THREE.HemisphereLight(0x446688, 0x1a1018, 0.55);
+  scene.add(new THREE.AmbientLight(0x4a3068, 1.05));
+  const hemi = new THREE.HemisphereLight(0x7aa0d8, 0x2a1828, 0.85);
   scene.add(hemi);
-  const moonLight = new THREE.DirectionalLight(0xc8d8ff, 0.35);
-  moonLight.position.set(-8, 18, 6);
+  const moonLight = new THREE.DirectionalLight(0xe8f0ff, 0.7);
+  moonLight.position.set(-8, 18, 8);
   scene.add(moonLight);
+  const neonFill = new THREE.DirectionalLight(0xe21b7a, 0.25);
+  neonFill.position.set(6, 4, 10);
+  scene.add(neonFill);
 
   const stars = canvasTex(256, 256, (g, w, h) => {
     g.fillStyle = "#070614";
@@ -351,20 +361,20 @@ export function createWorld(canvas, sprites) {
   scene.add(sky);
 
   const moon = new THREE.Mesh(
-    new THREE.SphereGeometry(1.6, 16, 16),
+    new THREE.SphereGeometry(1.8, 16, 16),
     new THREE.MeshBasicMaterial({ color: 0xf4f0e8 }),
   );
-  moon.position.set(-14, 16, -48);
+  moon.position.set(-10, 12, -28);
   scene.add(moon);
-  const moonGlow = glowSprite("#f4e8c0", 7);
+  const moonGlow = glowSprite("#f4e8c0", 8);
   moonGlow.position.copy(moon.position);
   scene.add(moonGlow);
 
   const skyline = new THREE.Mesh(
-    new THREE.PlaneGeometry(90, 16),
+    new THREE.PlaneGeometry(90, 18),
     new THREE.MeshBasicMaterial({ map: skylineTex(), transparent: true }),
   );
-  skyline.position.set(0, 7.2, -42);
+  skyline.position.set(0, 8.4, -26);
   scene.add(skyline);
 
   const city = new THREE.Group();
@@ -408,16 +418,16 @@ export function createWorld(canvas, sprites) {
   city.add(dashes);
 
   const facades = [
-    { x: 4, w: 4.2, h: 5.2, d: 2.4, col: "#3a2a38" },
-    { x: 9, w: 3.6, h: 4.4, d: 2.2, col: "#2a2030" },
-    { x: 13.2, w: 4.6, h: 6.4, d: 2.6, col: "#241c28" },
-    { x: 18.4, w: 5.4, h: 3.6, d: 2.0, col: "#4a4638" },
-    { x: 24.2, w: 3.8, h: 5.8, d: 2.3, col: "#2e2438" },
-    { x: 28.6, w: 4.0, h: 4.8, d: 2.2, col: "#1e2430" },
-    { x: 33.4, w: 4.4, h: 6.0, d: 2.5, col: "#322028" },
-    { x: 38.6, w: 3.6, h: 4.2, d: 2.1, col: "#2a2230" },
-    { x: 43.2, w: 4.8, h: 5.4, d: 2.4, col: "#261a22" },
-    { x: 48.4, w: 3.4, h: 4.6, d: 2.2, col: "#1c1824" },
+    { x: 4, w: 4.2, h: 4.4, d: 2.4, col: "#6a4a58" },
+    { x: 9, w: 3.6, h: 3.8, d: 2.2, col: "#4a3a48" },
+    { x: 13.2, w: 4.6, h: 5.2, d: 2.6, col: "#3a2e40" },
+    { x: 18.4, w: 5.4, h: 3.2, d: 2.0, col: "#8a7a58" },
+    { x: 24.2, w: 3.8, h: 4.8, d: 2.3, col: "#4a3a60" },
+    { x: 28.6, w: 4.0, h: 4.0, d: 2.2, col: "#3a4a58" },
+    { x: 33.4, w: 4.4, h: 5.0, d: 2.5, col: "#5a3040" },
+    { x: 38.6, w: 3.6, h: 3.6, d: 2.1, col: "#4a3a50" },
+    { x: 43.2, w: 4.8, h: 4.6, d: 2.4, col: "#3a2838" },
+    { x: 48.4, w: 3.4, h: 3.9, d: 2.2, col: "#2a3848" },
   ];
   for (const b of facades) {
     const mesh = makeBuilding(b.w, b.h, b.d, brickTex(b.col, "#1a1420"));
@@ -425,11 +435,17 @@ export function createWorld(canvas, sprites) {
     city.add(mesh);
   }
 
+  const grafWall = new THREE.Mesh(
+    new THREE.BoxGeometry(7.2, 3.2, 0.45),
+    new THREE.MeshLambertMaterial({ color: 0x6a6258 }),
+  );
+  grafWall.position.set(gameToWorldX(200), 1.6, -1.35);
+  city.add(grafWall);
   const graffiti = new THREE.Mesh(
-    new THREE.PlaneGeometry(5.6, 2.6),
+    new THREE.PlaneGeometry(6.8, 3.0),
     new THREE.MeshBasicMaterial({ map: graffitiTex() }),
   );
-  graffiti.position.set(gameToWorldX(200), 1.5, -2.18);
+  graffiti.position.set(gameToWorldX(200), 1.7, -1.1);
   city.add(graffiti);
 
   function addNeon(text, color, x, y, z, lit = false) {
@@ -483,12 +499,12 @@ export function createWorld(canvas, sprites) {
   city.add(parked);
 
   const shop = makeKiosk();
-  shop.position.set(gameToWorldX(SHOP_X), 0, -0.2);
+  shop.position.set(gameToWorldX(SHOP_X), 0, -1.35);
   city.add(shop);
-  addNeon("SHOP", "#3de0ff", gameToWorldX(SHOP_X), 2.4, 0.4, true);
+  addNeon("SHOP", "#3de0ff", gameToWorldX(SHOP_X), 2.15, -0.95, true);
 
   const dump = makeDumpsterMesh();
-  dump.position.set(gameToWorldX(DUMPSTER_X), 0, 0.5);
+  dump.position.set(gameToWorldX(DUMPSTER_X), 0, -0.45);
   city.add(dump);
 
   function stripLights(root) {
@@ -511,8 +527,6 @@ export function createWorld(canvas, sprites) {
 
   const dumpSprite = makeBillboard(sprites.dumpster, 1.15);
   scene.add(dumpSprite);
-  const shopLabel = makeLabel("SHOP", "#3de0ff");
-  scene.add(shopLabel);
   const sellLabel = makeLabel("SELL", "#f0c430");
   scene.add(sellLabel);
   const fireLabel = makeLabel("FIRE", "#f0c430");
@@ -539,7 +553,7 @@ export function createWorld(canvas, sprites) {
 
   let bossSprite = null;
   const tmp = new THREE.Vector3();
-  let camX = gameToWorldX(80);
+  let camX = gameToWorldX(200);
   let camTilt = 0;
 
   function makeLabel(text, color) {
@@ -577,7 +591,7 @@ export function createWorld(canvas, sprites) {
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    camera.fov = w > h ? 42 : 50;
+    camera.fov = w > h ? 40 : 42;
     camera.updateProjectionMatrix();
   }
   resize();
@@ -602,43 +616,46 @@ export function createWorld(canvas, sprites) {
 
   function sync(state, dt) {
     const p = state.player;
-    const lookX = nearestWorldX(wrap(p.x + p.facing * 14, WORLD), camX);
-    const dx = wrapDelta(camX, lookX, STREET_LEN);
-    camX = wrap(camX + dx * (1 - Math.exp(-6 * dt)), STREET_LEN);
     camTilt += ((p.vx / 96) * 0.04 - camTilt) * Math.min(1, dt * 8);
 
-    const idlePan = state.mode !== "play";
-    if (idlePan) {
-      camX = wrap(camX + dt * 1.6, STREET_LEN);
-      camera.position.set(camX, 5.1, 13);
-      camera.lookAt(camX + 2, 1.4, -2);
-    } else {
-      const camY = 4.4 + gameToWorldY(p.y) * 0.15;
-      const camZ = camera.aspect < 1 ? 10.4 : 12.2;
-      camera.position.set(camX, camY, camZ);
-      tmp.set(camX + p.facing * 0.8, 1.15 + gameToWorldY(p.y) * 0.35, -1.4);
+    const playing = state.mode === "play";
+    const portrait = camera.aspect < 1;
+    const camZ = portrait ? 7.4 : 8.2;
+    const camY = portrait ? 2.55 : 2.55;
+    if (playing) {
+      const lead = portrait ? 0 : 10;
+      const lookX = nearestWorldX(wrap(p.x + p.facing * lead, WORLD), camX);
+      const dx = wrapDelta(camX, lookX, STREET_LEN);
+      camX = wrap(camX + dx * (1 - Math.exp(-6 * dt)), STREET_LEN);
+      camera.position.set(camX, camY + gameToWorldY(p.y) * 0.12, camZ);
+      tmp.set(camX, 1.15 + gameToWorldY(p.y) * 0.4, -0.2);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
+    } else {
+      camX = wrap(camX + dt * 0.35, STREET_LEN);
+      camera.position.set(camX, camY + 0.55, camZ + 2.4);
+      camera.lookAt(camX, 1.55, -0.9);
     }
 
-    moon.position.x = camX * 0.08 - 16;
+    moon.position.set(camX - 4.5, 7.8, -11);
     moonGlow.position.copy(moon.position);
-    skyline.position.x = camX * 0.22;
-    sky.position.x = camX * 0.05;
+    skyline.position.set(camX + 2, 5.6, -16);
+    sky.position.set(camX, 14, -22);
 
     const blink = state.invuln > 0 && Math.floor(state.invuln * 20) % 2 === 0;
-    playerSprite.visible = !blink;
+    playerSprite.visible = true;
+    playerSprite.material.opacity = blink ? 0.4 : 1;
     const animSet = state.muzzle > 0 ? sprites.shoot : Math.abs(p.vx) > 8 ? sprites.walk : sprites.idle;
     const rate = state.muzzle > 0 ? 12 : 8;
     setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate));
     playerSprite.scale.x = Math.abs(playerSprite.scale.x) * p.facing;
-    place(playerSprite, p.x, p.y, camX, 0);
+    place(playerSprite, p.x, p.y, camX, 0.55);
     playerSprite.material.color.set(p.flash > 0 ? 0xffffff : 0xffffff);
     if (p.flash > 0) playerSprite.material.color.setHex(0xffc8e8);
     else playerSprite.material.color.setHex(0xffffff);
 
     playerShadow.position.x = playerSprite.position.x;
-    playerShadow.position.z = 0.05;
+    playerShadow.position.z = 0.55;
     playerShadow.scale.setScalar(p.y < 198 ? 0.7 : 1);
 
     packHeld.visible = state.carrying;
@@ -647,10 +664,8 @@ export function createWorld(canvas, sprites) {
       packHeld.position.y = playerSprite.position.y + 1.55;
     }
 
-    place(dumpSprite, DUMPSTER_X, 198, camX, 0.55);
+    place(dumpSprite, DUMPSTER_X, 198, camX, -0.35);
     dumpSprite.position.y = 0;
-    place(shopLabel, SHOP_X, 154, camX, 0.2);
-    shopLabel.position.y = 2.55;
     place(sellLabel, DUMPSTER_X, 154, camX, 0.7);
     sellLabel.position.y = 1.55;
     place(fireLabel, DUMPSTER_X, 154, camX, 0.7);
@@ -673,14 +688,14 @@ export function createWorld(canvas, sprites) {
       const set = foe.kind === "runner" ? sprites.runner : sprites.thug;
       setBillboardFrame(spr, frameAt(set, foe.anim, 8));
       spr.scale.x = Math.abs(spr.scale.x) * foe.facing;
-      place(spr, foe.x, foe.y, camX, 0);
+      place(spr, foe.x, foe.y, camX, 0.55);
       spr.material.color.setHex(foe.kind === "cop" ? 0x7aa0ff : foe.flash > 0 ? 0xffffff : 0xffffff);
       if (foe.kind === "cop") spr.material.color.setHex(0x6690ff);
       if (foe.flash > 0) spr.material.color.setHex(0xffffff);
       if (spr.userData.shadow) {
         spr.userData.shadow.visible = true;
         spr.userData.shadow.position.x = spr.position.x;
-        spr.userData.shadow.position.z = 0.05;
+        spr.userData.shadow.position.z = 0.55;
       }
     }
     hideFrom(foePool, fi);
@@ -696,7 +711,7 @@ export function createWorld(canvas, sprites) {
       bossSprite.visible = true;
       setBillboardFrame(bossSprite, frameAt(sprites.boss, state.boss.anim, 6));
       bossSprite.scale.x = Math.abs(bossSprite.userData.baseW || 2.4) * state.boss.facing;
-      place(bossSprite, state.boss.x, state.boss.y, camX, 0.4);
+      place(bossSprite, state.boss.x, state.boss.y, camX, 1.1);
       bossSprite.position.y = 0.05;
       if (state.boss.flash > 0) bossSprite.material.color.setHex(0xffffff);
       else bossSprite.material.color.setHex(0xccf6ff);

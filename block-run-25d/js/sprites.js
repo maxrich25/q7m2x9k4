@@ -105,8 +105,9 @@ export function makeBillboard(texture, height = 1.7) {
   const mat = new THREE.SpriteMaterial({
     map: texture,
     transparent: true,
-    alphaTest: 0.15,
+    alphaTest: 0.12,
     depthWrite: false,
+    opacity: 1,
   });
   const sprite = new THREE.Sprite(mat);
   const img = texture.image;

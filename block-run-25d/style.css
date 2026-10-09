@@ -264,3 +264,8 @@ html, body {
   #overlay-title { font-size: 16px; }
   #pad { width: 150px; min-width: 150px; }
 }
+
+@media (min-width: 900px) and (min-height: 500px) {
+  #pad { display: none; }
+  #app { flex-direction: column; }
+}
