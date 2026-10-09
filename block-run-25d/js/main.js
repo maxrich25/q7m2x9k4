@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=19";
-import { bindAudioUnlock, unlockAudio, setMuted, isMuted } from "./audio.js?v=19";
-import { createInput } from "./input.js?v=19";
-import { createGame } from "./game.js?v=19";
-import { loadSprites } from "./sprites.js?v=19";
-import { createWorld } from "./world.js?v=19";
-import { createHud } from "./hud.js?v=19";
+import { TICK } from "./config.js?v=20";
+import { bindAudioUnlock, unlockAudio, setMuted, isMuted } from "./audio.js?v=20";
+import { createInput } from "./input.js?v=20";
+import { createGame } from "./game.js?v=20";
+import { loadSprites } from "./sprites.js?v=20";
+import { createWorld } from "./world.js?v=20";
+import { createHud } from "./hud.js?v=20";
 
 const canvas = document.getElementById("scene");
 const muteBtn = document.getElementById("btn-mute");
@@ -74,7 +74,11 @@ function frame(now) {
   const inp = input.poll();
   let first = true;
   while (acc >= TICK) {
-    const step = first ? inp : { ...inp, shoot: false, jump: false, start: false, mute: false, pause: false };
+    const step = first ? inp : {
+      ...inp,
+      shoot: false, jump: false, start: false, mute: false, pause: false,
+      exit: false, gearTap: null, shiftStep: 0,
+    };
     game.tick(TICK, step, view);
     acc -= TICK;
     first = false;
@@ -105,6 +109,8 @@ window.__br = {
   setHeat: (h) => game.setHeat(h),
   spawnOrder: (id, opts) => game.spawnOrder(id, opts),
   setInCar: (on) => game.setInCar(on),
+  setGear: (name) => game.setGear(name),
+  tryShift: (name, brake) => game.tryShift(name, brake),
   setPlayerX: (x) => game.setPlayerX(x),
   setFacing: (dir) => game.setFacing(dir),
   getView: () => world?.getView?.() || view,

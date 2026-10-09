@@ -353,6 +353,15 @@ html, body {
   min-height: 148px;
 }
 
+#pad-foot {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 10px;
+  flex: 1 1 auto;
+}
+#pad-foot.hidden, #pad-car.hidden { display: none; }
+
 #pad-move {
   display: grid;
   grid-template-columns: 1fr 1.15fr 1fr;
@@ -361,7 +370,97 @@ html, body {
   max-width: 280px;
 }
 
-#pad.driving .pad-btn { font-size: 8px; letter-spacing: 0; }
+#pad.driving {
+  min-height: 176px;
+}
+#pad-car {
+  display: grid;
+  grid-template-columns: 88px 1fr 1fr 62px;
+  gap: 8px;
+  width: 100%;
+  min-height: 156px;
+}
+#car-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+#car-steer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  flex: 1 1 auto;
+}
+#car-steer .pad-btn {
+  min-height: 64px;
+  font-size: 14px;
+  padding: 0;
+}
+#car-aux {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.pad-pedal {
+  min-height: 0;
+  font-size: 10px;
+}
+.pad-brake { color: var(--pink); }
+.pad-gas { color: var(--gold); }
+.pad-exit { font-size: 7px; min-height: 44px; color: var(--cream); }
+.pad-exit.off { opacity: 0.38; }
+#pad-car .pad-fire { width: auto; flex: 1 1 auto; min-height: 40px; font-size: 7px; }
+
+#shifter {
+  position: relative;
+  background: #121018;
+  border: 2px solid #3a3644;
+  touch-action: none;
+}
+#shift-track {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6px 4px 8px;
+}
+.gear {
+  font-family: var(--font);
+  font-size: 8px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  padding: 8px 0;
+  min-height: 28px;
+  z-index: 1;
+  touch-action: none;
+}
+.gear.on { color: var(--gold); }
+#shift-knob {
+  position: absolute;
+  left: 50%;
+  width: 22px;
+  height: 14px;
+  margin-left: -11px;
+  background: var(--cream);
+  border: 2px solid #3a3644;
+  pointer-events: none;
+  z-index: 2;
+  top: 8px;
+}
+#shift-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%);
+  width: max-content;
+  font-size: 6px;
+  color: var(--gold);
+  pointer-events: none;
+  z-index: 3;
+}
+#shift-hint.hidden { display: none; }
 .pad-btn {
   font-family: var(--font);
   font-size: 11px;
@@ -413,6 +512,7 @@ html, body {
     border-left: 2px solid #1e1a28;
     padding: calc(8px + var(--sat)) calc(10px + var(--sar)) calc(8px + var(--sab)) 10px;
   }
+  #pad-foot { flex-direction: column; }
   #pad-move {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto auto;
@@ -429,6 +529,15 @@ html, body {
     flex: 0 0 auto;
     min-height: 72px;
   }
+  #pad.driving { min-width: 200px; width: 200px; }
+  #pad-car {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr 1fr;
+    min-height: 0;
+    height: 100%;
+  }
+  #car-col { grid-column: 1 / -1; flex-direction: row; }
+  #shifter { grid-column: 1 / -1; min-height: 88px; }
 }
 
 @media (max-width: 400px) {
