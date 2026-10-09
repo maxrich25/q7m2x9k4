@@ -148,6 +148,8 @@ export const sfx = {
   jump() { tone({ freq: 520, dur: 0.1, vol: 0.18, slide: 180 }); },
   buy() { tone({ freq: 440, dur: 0.1, vol: 0.2 }); tone({ freq: 660, dur: 0.14, vol: 0.18 }); tone({ freq: 880, dur: 0.16, vol: 0.16 }); },
   siren() { tone({ freq: 740, dur: 0.18, vol: 0.2, slide: 220 }); },
+  ping() { tone({ freq: 880, dur: 0.07, vol: 0.16 }); tone({ freq: 1320, dur: 0.1, vol: 0.14 }); },
+  honk() { tone({ freq: 310, dur: 0.16, vol: 0.22, type: "square" }); tone({ freq: 380, dur: 0.18, vol: 0.16, type: "square" }); },
 };
 
 export function stopMusic() {

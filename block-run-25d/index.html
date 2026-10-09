@@ -8,11 +8,11 @@
   <meta http-equiv="Cache-Control" content="no-cache" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="description" content="2.5D night-street prototype of BLOCK RUN. Jump to dodge, sell packs, buy guns." />
+  <meta name="description" content="2.5D night-street prototype of BLOCK RUN. Jump to dodge, sell packs, drive deals, buy guns." />
   <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <!-- Cache bust: GitHub Pages max-age=600. Bump ?v= here, on js/main.js, and every relative import in js/*.js (see README). -->
-  <link rel="stylesheet" href="style.css?v=3" />
+  <link rel="stylesheet" href="style.css?v=7" />
   <script type="importmap">
   {
     "imports": {
@@ -32,16 +32,25 @@
           <span id="hud-heat" title="heat"></span>
           <span id="hud-wave">W1</span>
           <span id="hud-hp"></span>
+          <span id="hud-car" class="hidden" title="car"></span>
           <button id="btn-mute" type="button" aria-label="mute">ON</button>
         </div>
+        <div id="phone" class="hidden">
+          <div id="phone-from">TXT</div>
+          <div id="phone-msg">yo need 2 packs, by the liquor store</div>
+          <div id="phone-timer">0:28</div>
+        </div>
+        <div id="prompt" class="hidden">ENTER</div>
         <div id="pops"></div>
         <div id="edge-left" class="edge-arrow hidden" aria-hidden="true">◀</div>
         <div id="edge-right" class="edge-arrow hidden" aria-hidden="true">▶</div>
+        <div id="dest-left" class="dest-arrow hidden" aria-hidden="true">◀ DEAL</div>
+        <div id="dest-right" class="dest-arrow hidden" aria-hidden="true">DEAL ▶</div>
         <div id="overlay">
           <div id="overlay-card">
             <h1 id="overlay-title">BLOCK<br><span>RUN</span></h1>
             <p id="overlay-sub">2.5D NIGHT BLOCK</p>
-            <p id="overlay-body">JUMP TO DODGE<br>SELL PACKS  BUY GUNS<br>HEAT CALLS COPS</p>
+            <p id="overlay-body">JUMP TO DODGE<br>SELL PACKS  BUY GUNS<br>DRIVE DEALS  HEAT CALLS COPS</p>
             <p id="overlay-hi"></p>
             <p id="overlay-prompt" class="blink">TAP FOR SOUND</p>
           </div>
@@ -58,6 +67,6 @@
     </div>
   </div>
   <p id="status" class="sr-only">title</p>
-  <script type="module" src="js/main.js?v=3"></script>
+  <script type="module" src="js/main.js?v=7"></script>
 </body>
 </html>

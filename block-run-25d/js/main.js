@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=3";
-import { bindAudioUnlock, unlockAudio, setMuted, isMuted } from "./audio.js?v=3";
-import { createInput } from "./input.js?v=3";
-import { createGame } from "./game.js?v=3";
-import { loadSprites } from "./sprites.js?v=3";
-import { createWorld } from "./world.js?v=3";
-import { createHud } from "./hud.js?v=3";
+import { TICK } from "./config.js?v=7";
+import { bindAudioUnlock, unlockAudio, setMuted, isMuted } from "./audio.js?v=7";
+import { createInput } from "./input.js?v=7";
+import { createGame } from "./game.js?v=7";
+import { loadSprites } from "./sprites.js?v=7";
+import { createWorld } from "./world.js?v=7";
+import { createHud } from "./hud.js?v=7";
 
 const canvas = document.getElementById("scene");
 const muteBtn = document.getElementById("btn-mute");
@@ -69,6 +69,11 @@ window.__br = {
   setKeys: (codes) => input.setKeys(codes),
   giveCash: (n) => game.giveCash(n),
   setGun: (name) => game.setGun(name),
+  setCarrying: (on) => game.setCarrying(on),
+  setHeat: (h) => game.setHeat(h),
+  spawnOrder: (id, opts) => game.spawnOrder(id, opts),
+  setInCar: (on) => game.setInCar(on),
+  setPlayerX: (x) => game.setPlayerX(x),
   getView: () => world?.getView?.() || view,
   unlockAudio,
 };
