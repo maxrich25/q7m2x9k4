@@ -1,5 +1,19 @@
-import { WEAPONS, CAR_HP } from "./config.js?v=16";
-import { isMuted, isUnlocked } from "./audio.js?v=16";
+import { WEAPONS, CAR_HP } from "./config.js?v=19";
+import { isMuted, isUnlocked } from "./audio.js?v=19";
+
+const TITLE_TIPS = [
+  "JUMP TO DODGE",
+  "SELL PACKS",
+  "BUY GUNS",
+  "DRIVE DEALS",
+  "HEAT CALLS COPS",
+];
+
+const CONTROL_TIPS = [
+  "ON FOOT: L / JUMP / R / FIRE",
+  "IN CAR: BRAKE / EXIT / GAS / SHOOT",
+  "JUMP TURNS THE CAR",
+];
 
 export function createHud() {
   const cashEl = document.getElementById("hud-cash");
@@ -15,6 +29,7 @@ export function createHud() {
   const bodyEl = document.getElementById("overlay-body");
   const hiEl = document.getElementById("overlay-hi");
   const promptEl = document.getElementById("overlay-prompt");
+  const pauseActions = document.getElementById("pause-actions");
   const popsEl = document.getElementById("pops");
   const edgeL = document.getElementById("edge-left");
   const edgeR = document.getElementById("edge-right");
@@ -29,6 +44,10 @@ export function createHud() {
   const dealMe = document.getElementById("deal-me");
   const dealPin = document.getElementById("deal-pin");
   const status = document.getElementById("status");
+  const padLeft = document.querySelector('[data-role="left"]');
+  const padJump = document.querySelector('[data-role="jump"]');
+  const padRight = document.querySelector('[data-role="right"]');
+  const padFire = document.querySelector('[data-role="fire"]');
 
   function pips(el, count, filled, cls) {
     if (!el) return;
@@ -40,6 +59,13 @@ export function createHud() {
     [...el.children].forEach((n, i) => {
       n.className = "pip" + (i < filled ? ` on ${cls}` : "");
     });
+  }
+
+  function tipsHtml(lines, extra = []) {
+    return [...lines, ...extra].map((line, i) => {
+      const dim = extra.includes(line) || i >= lines.length ? " class=\"tip-dim\"" : "";
+      return `<p${dim}>${line}</p>`;
+    }).join("");
   }
 
   let popNodes = [];
@@ -67,8 +93,18 @@ export function createHud() {
     destL?.classList.toggle("hidden", state.destSide !== -1);
     destR?.classList.toggle("hidden", state.destSide !== 1);
 
+    const driving = !!(state.inCar && state.mode === "play");
+    if (padLeft) padLeft.textContent = driving ? "BRAKE" : "L";
+    if (padRight) padRight.textContent = driving ? "GAS" : "R";
+    if (padFire) padFire.textContent = driving ? "SHOOT" : "FIRE";
+    if (padJump) {
+      if (!driving) padJump.textContent = "JUMP";
+      else padJump.textContent = Math.abs(state.car?.vx || 0) < 36 ? "EXIT" : "TURN";
+    }
+    document.getElementById("pad")?.classList.toggle("driving", driving);
+
     if (phone) {
-      const on = !!(state.order && state.mode === "play");
+      const on = !!(state.order && (state.mode === "play" || state.mode === "paused"));
       phone.classList.toggle("hidden", !on);
       if (on) {
         phoneMsg.textContent = state.order.text;
@@ -80,11 +116,11 @@ export function createHud() {
       }
     }
     if (dealNav) {
-      const on = !!(state.order && state.mode === "play");
+      const on = !!(state.order && (state.mode === "play" || state.mode === "paused"));
       dealNav.classList.toggle("hidden", !on);
       if (on && dealDist) {
         const arrow = state.dealDir < 0 ? "<<" : ">>";
-        dealDist.textContent = `DEAL ${state.dealM}m ${arrow}`;
+        dealDist.textContent = `DEAL ${state.dealLabel || (state.dealM + " ft")} ${arrow}`;
       }
       if (on && dealMe) dealMe.style.left = `${Math.max(0, Math.min(100, state.dealMe * 100))}%`;
       if (on && dealPin) dealPin.style.left = `${Math.max(0, Math.min(100, state.dealAt * 100))}%`;
@@ -97,13 +133,24 @@ export function createHud() {
 
     const show = state.mode !== "play";
     overlay.classList.toggle("hidden", !show);
+    overlay.classList.toggle("pause-mode", state.mode === "paused");
+    pauseActions?.classList.toggle("hidden", state.mode !== "paused");
     titleEl.classList.remove("wasted", "clear");
+    bodyEl.classList.remove("tips");
     if (state.mode === "title") {
       titleEl.innerHTML = "BLOCK<br><span>RUN</span>";
       subEl.textContent = "2.5D NIGHT BLOCK";
-      bodyEl.innerHTML = "JUMP TO DODGE<br>SELL PACKS  BUY GUNS<br>DRIVE DEALS  HEAT CALLS COPS";
+      bodyEl.classList.add("tips");
+      bodyEl.innerHTML = tipsHtml(TITLE_TIPS, CONTROL_TIPS);
       hiEl.textContent = "HI $" + state.hi;
       promptEl.textContent = isUnlocked() ? "PRESS START" : "TAP FOR SOUND";
+    } else if (state.mode === "paused") {
+      titleEl.textContent = "PAUSED";
+      subEl.textContent = "";
+      bodyEl.classList.add("tips");
+      bodyEl.innerHTML = tipsHtml(CONTROL_TIPS, ["ESC OR P TO PAUSE"]);
+      hiEl.textContent = "CASH $" + state.cash;
+      promptEl.textContent = "";
     } else if (state.mode === "dead") {
       titleEl.textContent = "WASTED";
       titleEl.classList.add("wasted");

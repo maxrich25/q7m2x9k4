@@ -1,13 +1,16 @@
-import { TICK } from "./config.js?v=16";
-import { bindAudioUnlock, unlockAudio, setMuted, isMuted } from "./audio.js?v=16";
-import { createInput } from "./input.js?v=16";
-import { createGame } from "./game.js?v=16";
-import { loadSprites } from "./sprites.js?v=16";
-import { createWorld } from "./world.js?v=16";
-import { createHud } from "./hud.js?v=16";
+import { TICK } from "./config.js?v=19";
+import { bindAudioUnlock, unlockAudio, setMuted, isMuted } from "./audio.js?v=19";
+import { createInput } from "./input.js?v=19";
+import { createGame } from "./game.js?v=19";
+import { loadSprites } from "./sprites.js?v=19";
+import { createWorld } from "./world.js?v=19";
+import { createHud } from "./hud.js?v=19";
 
 const canvas = document.getElementById("scene");
 const muteBtn = document.getElementById("btn-mute");
+const pauseBtn = document.getElementById("btn-pause");
+const resumeBtn = document.getElementById("btn-resume");
+const restartBtn = document.getElementById("btn-restart");
 
 bindAudioUnlock();
 
@@ -15,11 +18,36 @@ const input = createInput(document.getElementById("app"));
 const game = createGame();
 const hud = createHud();
 
-muteBtn.addEventListener("pointerdown", (e) => {
+function stopHudClick(e) {
   e.preventDefault();
   e.stopPropagation();
+}
+
+muteBtn.addEventListener("pointerdown", (e) => {
+  stopHudClick(e);
   setMuted(!isMuted());
   muteBtn.textContent = isMuted() ? "OFF" : "ON";
+});
+
+pauseBtn?.addEventListener("pointerdown", (e) => {
+  stopHudClick(e);
+  const mode = game.getState().mode;
+  if (mode === "play") game.pause();
+  else if (mode === "paused") game.resume();
+});
+
+resumeBtn?.addEventListener("pointerdown", (e) => {
+  stopHudClick(e);
+  game.resume();
+});
+
+restartBtn?.addEventListener("pointerdown", (e) => {
+  stopHudClick(e);
+  game.restart();
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) game.pause();
 });
 
 let world = null;
@@ -46,14 +74,15 @@ function frame(now) {
   const inp = input.poll();
   let first = true;
   while (acc >= TICK) {
-    const step = first ? inp : { ...inp, shoot: false, jump: false, start: false, mute: false };
+    const step = first ? inp : { ...inp, shoot: false, jump: false, start: false, mute: false, pause: false };
     game.tick(TICK, step, view);
     acc -= TICK;
     first = false;
   }
   const state = game.getState();
+  const alpha = state.mode === "paused" ? 1 : Math.max(0, Math.min(1, acc / TICK));
   if (world) {
-    const info = world.sync(state, dt);
+    const info = world.sync(state, dt, alpha);
     lastProject = info.project;
     view = world.getView();
   }
@@ -66,6 +95,9 @@ requestAnimationFrame(frame);
 window.__br = {
   getState: () => game.getState(),
   start: () => game.start(),
+  pause: () => game.pause(),
+  resume: () => game.resume(),
+  restart: () => game.restart(),
   setKeys: (codes) => input.setKeys(codes),
   giveCash: (n) => game.giveCash(n),
   setGun: (name) => game.setGun(name),

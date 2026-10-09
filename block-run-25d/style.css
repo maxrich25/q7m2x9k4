@@ -64,21 +64,31 @@ html, body {
 #hud-top {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: calc(8px + var(--sat)) 10px 8px calc(10px + var(--sal));
+  flex-wrap: nowrap;
+  gap: 6px;
+  padding: calc(8px + var(--sat)) 8px 8px calc(8px + var(--sal));
   background: linear-gradient(to bottom, rgba(7, 6, 12, 0.82), rgba(7, 6, 12, 0));
-  font-size: 9px;
+  font-size: 8px;
   line-height: 1;
   text-shadow: 0 0 8px #07060c;
+  min-width: 0;
 }
 
-#hud-cash { color: var(--gold); }
-#hud-gun { color: var(--muted); flex: 1; }
+#hud-cash { color: var(--gold); flex: 0 0 auto; }
+#hud-gun {
+  color: var(--muted);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 #hud-gun.pack { color: var(--cyan); }
-#hud-wave { color: var(--cyan); }
+#hud-wave { color: var(--cyan); flex: 0 0 auto; }
 #hud-heat, #hud-hp {
   display: flex;
-  gap: 4px;
+  gap: 3px;
+  flex: 0 0 auto;
 }
 .pip {
   width: 8px;
@@ -91,7 +101,8 @@ html, body {
 .pip.on.car { background: #8a6cff; box-shadow: 0 0 8px #5a3cff; }
 #hud-car {
   display: flex;
-  gap: 4px;
+  gap: 3px;
+  flex: 0 0 auto;
 }
 #hud-car.hidden { display: none; }
 
@@ -193,17 +204,23 @@ html, body {
 #dest-left { left: 8px; }
 #dest-right { right: 8px; }
 
-#btn-mute {
+#btn-mute, #btn-pause {
   pointer-events: auto;
   font-family: var(--font);
   font-size: 8px;
   color: var(--cyan);
   background: #124048;
   border: 2px solid #3a3644;
-  padding: 6px 8px;
-  min-width: 40px;
-  min-height: 28px;
+  padding: 5px 6px;
+  min-width: 32px;
+  min-height: 26px;
+  flex: 0 0 auto;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
+#btn-pause { color: var(--gold); background: #2a2430; }
 
 #pops {
   position: absolute;
@@ -254,8 +271,8 @@ html, body {
 }
 
 #overlay-title {
-  margin: 0 0 10px;
-  font-size: 22px;
+  margin: 0 0 8px;
+  font-size: 20px;
   line-height: 1.25;
   color: var(--cream);
   letter-spacing: 2px;
@@ -267,7 +284,7 @@ html, body {
 #overlay-sub {
   color: var(--cyan);
   font-size: 8px;
-  margin: 0 0 16px;
+  margin: 0 0 12px;
 }
 #overlay-body {
   color: var(--cream);
@@ -275,6 +292,39 @@ html, body {
   line-height: 1.9;
   margin: 0 0 14px;
 }
+#overlay-body.tips {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  line-height: 1.35;
+}
+#overlay-body.tips p { margin: 0; }
+#overlay-body.tips .tip-dim {
+  color: var(--muted);
+}
+#overlay-body.tips .tip-dim:first-of-type {
+  margin-top: 6px;
+}
+#overlay.pause-mode { pointer-events: auto; background: rgba(7, 6, 12, 0.78); }
+#pause-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+#pause-actions.hidden { display: none; }
+#pause-actions button, #pause-actions a {
+  font-family: var(--font);
+  font-size: 9px;
+  color: var(--cream);
+  background: #1a1620;
+  border: 2px solid #3a3644;
+  padding: 12px 10px;
+  text-decoration: none;
+}
+#pause-actions #btn-resume { color: #07060c; background: var(--gold); border-color: var(--gold); }
+#pause-actions #btn-restart { color: var(--cyan); }
+#pause-actions #btn-mainmenu { color: var(--pink); }
 #overlay-hi {
   color: var(--muted);
   font-size: 8px;
@@ -311,6 +361,7 @@ html, body {
   max-width: 280px;
 }
 
+#pad.driving .pad-btn { font-size: 8px; letter-spacing: 0; }
 .pad-btn {
   font-family: var(--font);
   font-size: 11px;
@@ -378,6 +429,11 @@ html, body {
     flex: 0 0 auto;
     min-height: 72px;
   }
+}
+
+@media (max-width: 400px) {
+  #hud-top { gap: 5px; padding-left: calc(6px + var(--sal)); padding-right: 6px; }
+  #btn-mute, #btn-pause { min-width: 30px; padding: 5px; }
 }
 
 @media (orientation: landscape) and (max-height: 430px) {

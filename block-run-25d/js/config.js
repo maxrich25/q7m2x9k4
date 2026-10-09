@@ -94,5 +94,15 @@ export function nearestWorldX(gameX, camX) {
 }
 
 export function dealMeters(fromX, toX) {
-  return Math.round(Math.abs(wrapDelta(fromX, toX, WORLD)) * (STREET_LEN / WORLD));
+  return Math.abs(wrapDelta(fromX, toX, WORLD)) * (STREET_LEN / WORLD);
+}
+
+export function dealFeet(fromX, toX) {
+  return dealMeters(fromX, toX) * 3.28084;
+}
+
+export function formatDeal(fromX, toX) {
+  const feet = dealFeet(fromX, toX);
+  if (feet >= 0.2 * 5280) return `${(feet / 5280).toFixed(1)} mi`;
+  return `${Math.round(feet)} ft`;
 }

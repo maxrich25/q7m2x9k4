@@ -1,8 +1,9 @@
-import { unlockAudio } from "./audio.js?v=16";
+import { unlockAudio } from "./audio.js?v=19";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyJ", "KeyK", "KeyZ", "KeyX",
   "Space", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "KeyM",
+  "Escape", "KeyP",
 ]);
 
 export function createInput(root = document) {
@@ -13,10 +14,12 @@ export function createInput(root = document) {
   let jumpWas = false;
   let startWas = false;
   let muteWas = false;
+  let pauseWas = false;
   let shootPulse = false;
   let jumpPulse = false;
   let startPulse = false;
   let mutePulse = false;
+  let pausePulse = false;
 
   function roleOf(target) {
     const btn = target?.closest?.("[data-role]");
@@ -32,6 +35,7 @@ export function createInput(root = document) {
     if (e.code === "Space" || e.code === "KeyJ" || e.code === "KeyK" || e.code === "KeyZ") shootPulse = true;
     if (e.code === "ArrowUp" || e.code === "KeyW" || e.code === "KeyX") jumpPulse = true;
     if (e.code === "KeyM") mutePulse = true;
+    if (e.code === "Escape" || e.code === "KeyP") pausePulse = true;
   }
 
   function onKeyUp(e) {
@@ -46,7 +50,8 @@ export function createInput(root = document) {
   function onPointerDown(e) {
     const role = roleOf(e.target);
     if (!role) {
-      if (e.target.closest("#btn-mute")) return;
+      if (e.target.closest("#btn-mute, #btn-pause, #pause-actions, a.menu-link")) return;
+      if (e.target.closest("#overlay.pause-mode")) return;
       if (e.target.closest("#view")) startPulse = true;
       unlockAudio();
       return;
@@ -134,8 +139,14 @@ export function createInput(root = document) {
     muteWas = muteHeld || held("KeyM");
     mutePulse = false;
 
+    const pauseHeld = pausePulse || held("Escape") || held("KeyP");
+    const pauseEdge = (pauseHeld && !pauseWas) || pausePulse;
+    pauseWas = pauseHeld;
+    pausePulse = false;
+
     start = startEdge;
     mute = muteEdge;
+    const pause = pauseEdge;
 
     root.querySelectorAll(".pad-btn").forEach((btn) => {
       const role = btn.dataset.role;
@@ -147,7 +158,7 @@ export function createInput(root = document) {
       btn.classList.toggle("held", on);
     });
 
-    return { moveX, shoot: shootEdge, shootHeld: shoot, jump: jumpEdge, start, mute };
+    return { moveX, shoot: shootEdge, shootHeld: shoot, jump: jumpEdge, start, mute, pause };
   }
 
   function setKeys(codes) {
