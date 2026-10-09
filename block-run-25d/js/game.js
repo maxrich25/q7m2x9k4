@@ -5,8 +5,8 @@ import {
   MOVE_SPEED, TELEGRAPH, BOSS_CASH_BASE, BOSS_CASH_PER_WAVE, HI_KEY,
   SHOP_X, DUMPSTER_X, CAR_X, ORDER_SPOTS, WEAPONS, wrap, wrapDelta, hitWrap,
   formatDeal, dealFeet,
-} from "./config.js?v=20";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=20";
+} from "./config.js?v=21";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=21";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }

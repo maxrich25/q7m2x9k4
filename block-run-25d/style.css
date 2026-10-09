@@ -397,8 +397,8 @@ html, body {
   padding: 0;
 }
 #car-aux {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 .pad-pedal {
@@ -407,9 +407,14 @@ html, body {
 }
 .pad-brake { color: var(--pink); }
 .pad-gas { color: var(--gold); }
-.pad-exit { font-size: 7px; min-height: 44px; color: var(--cream); }
+.pad-exit { font-size: 8px; min-height: 36px; color: var(--cream); width: 100%; }
 .pad-exit.off { opacity: 0.38; }
-#pad-car .pad-fire { width: auto; flex: 1 1 auto; min-height: 40px; font-size: 7px; }
+#pad-car .pad-fire {
+  width: 100%;
+  flex: 0 0 auto;
+  min-height: 36px;
+  font-size: 8px;
+}
 
 #shifter {
   position: relative;
@@ -420,34 +425,48 @@ html, body {
 #shift-track {
   position: relative;
   height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 16px;
+  gap: 2px;
+  padding: 4px 3px 6px 4px;
+}
+#shift-gears {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 6px 4px 8px;
+  min-width: 0;
+}
+#shift-rail {
+  position: relative;
+  margin: 4px 0;
+  background: #0a0810;
+  border: 1px solid #2a2630;
 }
 .gear {
   font-family: var(--font);
-  font-size: 8px;
+  font-size: 9px;
   color: var(--muted);
   background: transparent;
   border: 0;
-  padding: 8px 0;
+  padding: 6px 0;
   min-height: 28px;
   z-index: 1;
   touch-action: none;
+  text-align: left;
 }
 .gear.on { color: var(--gold); }
 #shift-knob {
   position: absolute;
-  left: 50%;
-  width: 22px;
-  height: 14px;
-  margin-left: -11px;
+  left: 1px;
+  right: 1px;
+  width: auto;
+  height: 12px;
+  margin-left: 0;
   background: var(--cream);
   border: 2px solid #3a3644;
   pointer-events: none;
   z-index: 2;
-  top: 8px;
+  top: 4px;
 }
 #shift-hint {
   position: absolute;
@@ -537,6 +556,7 @@ html, body {
     height: 100%;
   }
   #car-col { grid-column: 1 / -1; flex-direction: row; }
+  #car-aux { flex: 1 1 auto; }
   #shifter { grid-column: 1 / -1; min-height: 88px; }
 }
 

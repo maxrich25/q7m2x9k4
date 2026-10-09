@@ -1,5 +1,5 @@
-import { WEAPONS, CAR_HP, GEARS } from "./config.js?v=20";
-import { isMuted, isUnlocked } from "./audio.js?v=20";
+import { WEAPONS, CAR_HP, GEARS } from "./config.js?v=21";
+import { isMuted, isUnlocked } from "./audio.js?v=21";
 
 const TITLE_TIPS = [
   "JUMP TO DODGE",
@@ -73,12 +73,15 @@ export function createHud() {
   function placeKnob(gear) {
     if (!shiftKnob) return;
     const btn = document.querySelector(`.gear[data-gear="${gear}"]`);
-    if (btn) {
-      shiftKnob.style.top = `${btn.offsetTop + btn.offsetHeight / 2 - shiftKnob.offsetHeight / 2}px`;
+    const rail = document.getElementById("shift-rail");
+    if (btn && rail) {
+      const mid = btn.getBoundingClientRect().top + btn.getBoundingClientRect().height / 2;
+      const top = mid - rail.getBoundingClientRect().top - shiftKnob.offsetHeight / 2;
+      shiftKnob.style.top = `${Math.max(2, top)}px`;
       return;
     }
     const i = Math.max(0, GEARS.indexOf(gear));
-    shiftKnob.style.top = `${8 + i * 28}px`;
+    shiftKnob.style.top = `${4 + i * 28}px`;
   }
 
   let popNodes = [];
