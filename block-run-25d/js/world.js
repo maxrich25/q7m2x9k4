@@ -534,7 +534,7 @@ export function createWorld(canvas, sprites) {
   scene.add(fireLabel);
   const bangPool = [];
 
-  const playerSprite = makeBillboard(sprites.idle[0], 1.75);
+  const playerSprite = makeBillboard(sprites.idle[0], 2.35);
   scene.add(playerSprite);
   const packHeld = makeBillboard(sprites.pack, 0.45);
   packHeld.visible = false;
@@ -592,7 +592,7 @@ export function createWorld(canvas, sprites) {
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    camera.fov = w > h ? 48 : 72;
+    camera.fov = w > h ? 46 : 64;
     camera.updateProjectionMatrix();
   }
   resize();
@@ -621,21 +621,21 @@ export function createWorld(canvas, sprites) {
 
     const playing = state.mode === "play";
     const portrait = camera.aspect < 1;
-    const camZ = portrait ? 32 : 20;
-    const camY = portrait ? 7.2 : 4.8;
+    const camZ = portrait ? 30 : 18;
+    const camY = portrait ? 4.8 : 3.6;
     if (playing) {
       const leadGame = portrait ? 42 : 36;
       const lookX = nearestWorldX(wrap(p.x + p.facing * leadGame, WORLD), camX);
       const dx = wrapDelta(camX, lookX, STREET_LEN);
       camX = wrap(camX + dx * (1 - Math.exp(-4.2 * dt)), STREET_LEN);
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.1, camZ);
-      tmp.set(camX + p.facing * 1.6, 1.15 + gameToWorldY(p.y) * 0.25, -0.6);
+      tmp.set(camX + p.facing * 1.4, 1.35 + gameToWorldY(p.y) * 0.25, -0.8);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
     } else {
       camX = wrap(camX + dt * 0.35, STREET_LEN);
-      camera.position.set(camX, camY + 0.4, camZ + 4);
-      camera.lookAt(camX, 1.6, -1.2);
+      camera.position.set(camX, camY + 0.3, camZ + 3);
+      camera.lookAt(camX, 1.7, -1.4);
     }
 
     moon.position.set(camX - 4.5, 7.8, -11);
@@ -681,7 +681,7 @@ export function createWorld(canvas, sprites) {
     let bangI = 0;
     for (const foe of state.foes) {
       const spr = take(foePool, () => {
-        const s = makeBillboard(sprites.thug[0], 1.65);
+        const s = makeBillboard(sprites.thug[0], 2.2);
         scene.add(s);
         const sh = new THREE.Mesh(shadowGeo, shadowMat.clone());
         sh.rotation.x = -Math.PI / 2;
@@ -722,7 +722,7 @@ export function createWorld(canvas, sprites) {
 
     if (state.boss) {
       if (!bossSprite) {
-        bossSprite = makeBillboard(sprites.boss[0], 1.35);
+        bossSprite = makeBillboard(sprites.boss[0], 1.8);
         scene.add(bossSprite);
       }
       bossSprite.visible = true;
