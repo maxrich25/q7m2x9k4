@@ -65,15 +65,15 @@ function windowTex(lit) {
     g.fillStyle = "#141018";
     g.fillRect(0, 0, w, h);
     const cols = 3;
-    const rows = 4;
+    const rows = 6;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const on = lit && Math.random() > 0.35;
         g.fillStyle = on ? (Math.random() > 0.5 ? "#ffe06a" : "#7af0ff") : "#1a1424";
-        g.fillRect(3 + c * 10, 4 + r * 11, 7, 8);
+        g.fillRect(3 + c * 10, 2 + r * 7.5, 7, 6);
         if (on) {
           g.fillStyle = "rgba(255,255,255,0.25)";
-          g.fillRect(4 + c * 10, 5 + r * 11, 3, 2);
+          g.fillRect(4 + c * 10, 3 + r * 7.5, 3, 2);
         }
       }
     }
@@ -379,28 +379,28 @@ export function createWorld(canvas, sprites) {
 
   const city = new THREE.Group();
   const asphalt = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 36),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 24),
     new THREE.MeshLambertMaterial({ map: asphaltTex() }),
   );
   asphalt.rotation.x = -Math.PI / 2;
-  asphalt.position.set(STREET_LEN / 2, 0, 12.5);
-  asphalt.material.map.repeat.set(8, 5);
+  asphalt.position.set(STREET_LEN / 2, 0, 20.8);
+  asphalt.material.map.repeat.set(8, 3);
   city.add(asphalt);
 
   const walk = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 9.2),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 12.6),
     new THREE.MeshLambertMaterial({ map: sidewalkTex() }),
   );
   walk.rotation.x = -Math.PI / 2;
-  walk.position.set(STREET_LEN / 2, 0.02, 2.15);
-  walk.material.map.repeat.set(24, 3);
+  walk.position.set(STREET_LEN / 2, 0.02, 4.05);
+  walk.material.map.repeat.set(24, 4);
   city.add(walk);
 
   const curb = new THREE.Mesh(
     new THREE.BoxGeometry(STREET_LEN + 4, 0.12, 0.18),
     new THREE.MeshLambertMaterial({ color: 0x4a4654 }),
   );
-  curb.position.set(STREET_LEN / 2, 0.06, 6.7);
+  curb.position.set(STREET_LEN / 2, 0.06, 10.3);
   city.add(curb);
 
   const dashTex = canvasTex(32, 8, (g) => {
@@ -414,20 +414,20 @@ export function createWorld(canvas, sprites) {
     new THREE.MeshBasicMaterial({ map: dashTex, transparent: true }),
   );
   dashes.rotation.x = -Math.PI / 2;
-  dashes.position.set(STREET_LEN / 2, 0.03, 8.6);
+  dashes.position.set(STREET_LEN / 2, 0.03, 12.4);
   city.add(dashes);
 
   const facades = [
-    { x: 4, w: 4.2, h: 4.4, d: 2.4, col: "#6a4a58" },
-    { x: 9, w: 3.6, h: 3.8, d: 2.2, col: "#4a3a48" },
-    { x: 13.2, w: 4.6, h: 5.2, d: 2.6, col: "#3a2e40" },
-    { x: 18.4, w: 5.4, h: 3.2, d: 2.0, col: "#8a7a58" },
-    { x: 24.2, w: 3.8, h: 4.8, d: 2.3, col: "#4a3a60" },
-    { x: 28.6, w: 4.0, h: 4.0, d: 2.2, col: "#3a4a58" },
-    { x: 33.4, w: 4.4, h: 5.0, d: 2.5, col: "#5a3040" },
-    { x: 38.6, w: 3.6, h: 3.6, d: 2.1, col: "#4a3a50" },
-    { x: 43.2, w: 4.8, h: 4.6, d: 2.4, col: "#3a2838" },
-    { x: 48.4, w: 3.4, h: 3.9, d: 2.2, col: "#2a3848" },
+    { x: 4, w: 4.2, h: 7.4, d: 2.4, col: "#6a4a58" },
+    { x: 9, w: 3.6, h: 6.4, d: 2.2, col: "#4a3a48" },
+    { x: 13.2, w: 4.6, h: 8.6, d: 2.6, col: "#3a2e40" },
+    { x: 18.4, w: 5.4, h: 5.6, d: 2.0, col: "#8a7a58" },
+    { x: 24.2, w: 3.8, h: 8.0, d: 2.3, col: "#4a3a60" },
+    { x: 28.6, w: 4.0, h: 6.8, d: 2.2, col: "#3a4a58" },
+    { x: 33.4, w: 4.4, h: 8.4, d: 2.5, col: "#5a3040" },
+    { x: 38.6, w: 3.6, h: 6.2, d: 2.1, col: "#4a3a50" },
+    { x: 43.2, w: 4.8, h: 7.8, d: 2.4, col: "#3a2838" },
+    { x: 48.4, w: 3.4, h: 6.6, d: 2.2, col: "#2a3848" },
   ];
   for (const b of facades) {
     const mesh = makeBuilding(b.w, b.h, b.d, brickTex(b.col, "#1a1420"));
@@ -468,10 +468,10 @@ export function createWorld(canvas, sprites) {
       city.add(light);
     }
   }
-  addNeon("LIQUOR", "#e21b7a", 9.2, 4.6, -2.15, true);
-  addNeon("MOTEL", "#3de0ff", 24.4, 5.2, -2.15, true);
-  addNeon("OPEN", "#f0c430", 33.6, 4.8, -2.15, false);
-  addNeon("BLOCK", "#e21b7a", 43.4, 4.2, -2.15, false);
+  addNeon("LIQUOR", "#e21b7a", 9.2, 6.8, -2.15, true);
+  addNeon("MOTEL", "#3de0ff", 24.4, 7.6, -2.15, true);
+  addNeon("OPEN", "#f0c430", 33.6, 7.2, -2.15, false);
+  addNeon("BLOCK", "#e21b7a", 43.4, 6.4, -2.15, false);
 
   const palms = [
     [6.5, -2.5], [17.8, -5.8], [21.2, -2.3],
@@ -494,7 +494,7 @@ export function createWorld(canvas, sprites) {
   }
 
   const parked = makeCar();
-  parked.position.set(5.5, 0, 7.8);
+  parked.position.set(5.5, 0, 3.6);
   parked.rotation.y = Math.PI * 0.02;
   city.add(parked);
 
@@ -622,26 +622,26 @@ export function createWorld(canvas, sprites) {
     const playing = state.mode === "play";
     const portrait = camera.aspect < 1;
     const camZ = portrait ? 16.4 : 13.2;
-    const camY = portrait ? 2.42 : 2.35;
+    const camY = portrait ? 2.48 : 2.36;
     if (playing) {
       const leadGame = portrait ? 16 : 24;
       const lookX = nearestWorldX(wrap(p.x + p.facing * leadGame, WORLD), camX);
       const dx = wrapDelta(camX, lookX, STREET_LEN);
       camX = wrap(camX + dx * (1 - Math.exp(-4.2 * dt)), STREET_LEN);
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.08, camZ);
-      tmp.set(camX + p.facing * 0.85, 0.88 + gameToWorldY(p.y) * 0.12, 0.45);
+      tmp.set(camX + p.facing * 0.85, 1.28 + gameToWorldY(p.y) * 0.12, 0.7);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
     } else {
       camX = wrap(camX + dt * 0.35, STREET_LEN);
-      camera.position.set(camX, camY + 0.08, camZ + 1.1);
-      camera.lookAt(camX, 0.95, 0.35);
+      camera.position.set(camX, camY + 0.06, camZ + 1.1);
+      camera.lookAt(camX, 1.32, 0.55);
     }
 
-    moon.position.set(camX - 4.5, 7.8, -11);
+    moon.position.set(camX - 4.5, 9.2, -11);
     moonGlow.position.copy(moon.position);
-    skyline.position.set(camX + 2, 5.6, -16);
-    sky.position.set(camX, 14, -22);
+    skyline.position.set(camX + 2, 8.4, -16);
+    sky.position.set(camX, 16, -22);
 
     const blink = state.invuln > 0 && Math.floor(state.invuln * 20) % 2 === 0;
     playerSprite.visible = true;
