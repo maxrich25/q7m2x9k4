@@ -1,5 +1,5 @@
-import { WEAPONS, CAR_HP } from "./config.js?v=5";
-import { isMuted, isUnlocked } from "./audio.js?v=5";
+import { WEAPONS, CAR_HP } from "./config.js?v=6";
+import { isMuted, isUnlocked } from "./audio.js?v=6";
 
 export function createHud() {
   const cashEl = document.getElementById("hud-cash");

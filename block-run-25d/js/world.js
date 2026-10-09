@@ -669,12 +669,12 @@ export function createWorld(canvas, sprites) {
     const camZ = portrait ? 16.4 : 13.2;
     const camY = portrait ? 2.48 : 2.36;
     if (playing) {
-      const leadGame = state.inCar ? (portrait ? 38 : 52) : (portrait ? 16 : 24);
+      const leadGame = state.inCar ? (portrait ? 22 : 34) : (portrait ? 16 : 24);
       const lookX = nearestWorldX(wrap(p.x + p.facing * leadGame, WORLD), camX);
       const dx = wrapDelta(camX, lookX, STREET_LEN);
       camX = wrap(camX + dx * (1 - Math.exp(-4.2 * dt)), STREET_LEN);
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.08, camZ);
-      tmp.set(camX + p.facing * (state.inCar ? 1.6 : 0.85), 1.28 + gameToWorldY(p.y) * 0.12, 0.7);
+      tmp.set(camX + p.facing * (state.inCar ? 1.15 : 0.85), 1.28 + gameToWorldY(p.y) * 0.12, 0.7);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
     } else {
