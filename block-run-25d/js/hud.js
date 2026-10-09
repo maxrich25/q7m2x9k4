@@ -15,6 +15,8 @@ export function createHud() {
   const hiEl = document.getElementById("overlay-hi");
   const promptEl = document.getElementById("overlay-prompt");
   const popsEl = document.getElementById("pops");
+  const edgeL = document.getElementById("edge-left");
+  const edgeR = document.getElementById("edge-right");
   const status = document.getElementById("status");
 
   function pips(el, count, filled, cls) {
@@ -43,6 +45,8 @@ export function createHud() {
     pips(hpEl, 3, state.hp, "hp");
     waveEl.textContent = "W" + state.wave;
     muteBtn.textContent = isMuted() ? "OFF" : "ON";
+    edgeL?.classList.toggle("hidden", !state.edgeL);
+    edgeR?.classList.toggle("hidden", !state.edgeR);
 
     const show = state.mode !== "play";
     overlay.classList.toggle("hidden", !show);
