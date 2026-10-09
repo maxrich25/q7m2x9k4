@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN,
-} from "./config.js?v=13";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=13";
+} from "./config.js?v=14";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=14";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -573,7 +573,7 @@ export function createWorld(canvas, sprites) {
     tex.wrapS = THREE.ClampToEdgeWrapping;
     tex.wrapT = THREE.ClampToEdgeWrapping;
     const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.8, 0.7),
+      new THREE.PlaneGeometry(3.6, 0.9),
       new THREE.MeshBasicMaterial({ map: tex, transparent: true }),
     );
     sign.position.set(x, y, z);
@@ -589,17 +589,81 @@ export function createWorld(canvas, sprites) {
     }
   }
 
+  const boxGeo = new Map();
+  function propBox(w, h, d, color, x, y, z) {
+    const key = `${w}|${h}|${d}`;
+    if (!boxGeo.has(key)) boxGeo.set(key, new THREE.BoxGeometry(w, h, d));
+    const mesh = new THREE.Mesh(boxGeo.get(key), new THREE.MeshLambertMaterial({ color }));
+    mesh.position.set(x, y, z);
+    city.add(mesh);
+    return mesh;
+  }
+
+  function stampLandmark(theme, xOff) {
+    const x = xOff + 26;
+    if (theme.id === "liquor") {
+      propBox(5.4, 3.1, 2.0, 0x4a2030, x, 1.55, -1.55);
+      propBox(5.8, 0.14, 2.5, 0xe21b7a, x, 3.2, -1.4);
+      for (let i = 0; i < 4; i++) {
+        const pane = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.72, 1.35),
+          new THREE.MeshBasicMaterial({ color: i % 2 ? 0x3de0ff : 0xf0c430 }),
+        );
+        pane.position.set(x - 1.7 + i * 1.12, 1.55, -0.52);
+        city.add(pane);
+      }
+    } else if (theme.id === "motel") {
+      propBox(16.5, 3.4, 2.3, 0x3a3048, x + 1, 1.7, -1.85);
+      propBox(16.9, 0.22, 2.7, 0x2a2438, x + 1, 3.5, -1.85);
+      for (let i = 0; i < 7; i++) {
+        propBox(0.72, 1.45, 0.08, 0x1a1424, x - 6.2 + i * 2.15, 0.95, -0.68);
+        propBox(0.22, 0.22, 0.06, 0xf0c430, x - 5.95 + i * 2.15, 1.15, -0.64);
+      }
+      addNeon("VACANCY", "#3de0ff", x + 5.2, 4.15, -1.45, false);
+    } else if (theme.id === "studio") {
+      propBox(8.4, 4.6, 2.5, 0x8a7a58, x - 1.2, 2.3, -1.75);
+      propBox(2.2, 3.2, 0.2, 0x1a1420, x - 1.2, 1.7, -0.48);
+    } else if (theme.id === "taco") {
+      propBox(3.6, 1.85, 1.7, 0x6a3a20, x, 0.92, -1.05);
+      propBox(4.1, 0.1, 2.15, 0xf0c430, x, 1.92, -0.95);
+      propBox(4.1, 0.1, 2.15, 0xe21b7a, x, 2.08, -0.95);
+      propBox(1.7, 0.08, 0.85, 0x4a3020, x + 3.4, 0.52, 0.35);
+      propBox(0.12, 0.5, 0.85, 0x4a3020, x + 2.7, 0.25, 0.35);
+      propBox(0.12, 0.5, 0.85, 0x4a3020, x + 4.1, 0.25, 0.35);
+    } else if (theme.id === "gas") {
+      propBox(9.2, 0.16, 4.4, 0xe21b7a, x, 3.15, 0.15);
+      propBox(0.22, 3.15, 0.22, 0x2a2430, x - 4.2, 1.57, 2.0);
+      propBox(0.22, 3.15, 0.22, 0x2a2430, x + 4.2, 1.57, 2.0);
+      propBox(0.75, 1.25, 0.55, 0x2a3848, x - 1.3, 0.62, 0.7);
+      propBox(0.75, 1.25, 0.55, 0x2a3848, x + 1.3, 0.62, 0.7);
+      propBox(0.2, 0.35, 0.2, 0xf0c430, x - 1.3, 1.38, 0.7);
+      propBox(0.2, 0.35, 0.2, 0xf0c430, x + 1.3, 1.38, 0.7);
+    } else if (theme.id === "park") {
+      const grass = new THREE.Mesh(
+        new THREE.BoxGeometry(20, 0.08, 7.2),
+        new THREE.MeshLambertMaterial({ color: 0x1a4a2a }),
+      );
+      grass.position.set(x, 0.04, -1.1);
+      city.add(grass);
+      propBox(1.9, 0.08, 0.55, 0x3a2a18, x + 2.2, 0.46, 0.5);
+      propBox(0.12, 0.42, 0.55, 0x3a2a18, x + 1.4, 0.21, 0.5);
+      propBox(0.12, 0.42, 0.55, 0x3a2a18, x + 3.0, 0.21, 0.5);
+    }
+  }
+
   function stampTheme(theme, xOff, lit) {
-    const layout = theme.park ? facadeLayout.filter((_, i) => i % 3 === 0) : facadeLayout;
+    const skip = theme.park || theme.id === "motel" || theme.id === "gas" || theme.id === "taco";
+    const layout = skip ? facadeLayout.filter((_, i) => i % 3 === 0) : facadeLayout;
     for (let i = 0; i < layout.length; i++) {
       const b = layout[i];
       const col = theme.cols[i % theme.cols.length];
-      const h = theme.park ? Math.min(b.h, 5.2) : b.h;
+      const h = theme.park ? Math.min(b.h, 5.2) : theme.id === "motel" ? Math.min(b.h, 5.4) : b.h;
       const mesh = makeBuilding(b.w, h, b.d, brick(col));
       mesh.position.set(b.x + xOff, 0, -3.4);
       city.add(mesh);
     }
-    addNeon(theme.neon[0], theme.neon[1], 24.4 + xOff, theme.park ? 5.4 : 7.2, -2.15, lit);
+    stampLandmark(theme, xOff);
+    addNeon(theme.neon[0], theme.neon[1], 24.4 + xOff, theme.park ? 5.4 : 7.4, -2.15, lit);
     if (theme.graf) {
       const grafWall = new THREE.Mesh(
         new THREE.BoxGeometry(7.2, 3.2, 0.45),
