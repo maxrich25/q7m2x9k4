@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN,
-} from "./config.js?v=14";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=14";
+} from "./config.js?v=15";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=15";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -593,7 +593,7 @@ export function createWorld(canvas, sprites) {
   function propBox(w, h, d, color, x, y, z) {
     const key = `${w}|${h}|${d}`;
     if (!boxGeo.has(key)) boxGeo.set(key, new THREE.BoxGeometry(w, h, d));
-    const mesh = new THREE.Mesh(boxGeo.get(key), new THREE.MeshLambertMaterial({ color }));
+    const mesh = new THREE.Mesh(boxGeo.get(key), new THREE.MeshBasicMaterial({ color }));
     mesh.position.set(x, y, z);
     city.add(mesh);
     return mesh;

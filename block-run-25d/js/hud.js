@@ -1,5 +1,5 @@
-import { WEAPONS, CAR_HP } from "./config.js?v=14";
-import { isMuted, isUnlocked } from "./audio.js?v=14";
+import { WEAPONS, CAR_HP } from "./config.js?v=15";
+import { isMuted, isUnlocked } from "./audio.js?v=15";
 
 export function createHud() {
   const cashEl = document.getElementById("hud-cash");
@@ -83,7 +83,7 @@ export function createHud() {
       const on = !!(state.order && state.mode === "play");
       dealNav.classList.toggle("hidden", !on);
       if (on && dealDist) {
-        const arrow = state.dealDir < 0 ? "←" : "→";
+        const arrow = state.dealDir < 0 ? "<<" : ">>";
         dealDist.textContent = `DEAL ${state.dealM}m ${arrow}`;
       }
       if (on && dealMe) dealMe.style.left = `${Math.max(0, Math.min(100, state.dealMe * 100))}%`;
