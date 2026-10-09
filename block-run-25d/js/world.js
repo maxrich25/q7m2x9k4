@@ -2,8 +2,8 @@ import * as THREE from "three";
 import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
-} from "./config.js?v=8";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=8";
+} from "./config.js?v=9";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=9";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -665,12 +665,12 @@ export function createWorld(canvas, sprites) {
   const destPin = makePin();
   destPin.visible = false;
   scene.add(destPin);
-  const buyerSprite = makeBillboard(sprites.buyers[0].idle[0], 2.25);
+  const buyerSprite = makeBillboard(sprites.buyers[0].idle[0], 2.55);
   buyerSprite.visible = false;
   scene.add(buyerSprite);
   let buyerT = 0;
 
-  const playerSprite = makeBillboard(sprites.idle[0], 2.35);
+  const playerSprite = makeBillboard(sprites.idle[0], 2.65);
   scene.add(playerSprite);
   const packHeld = makeBillboard(sprites.pack, 0.45);
   packHeld.visible = false;
@@ -865,7 +865,7 @@ export function createWorld(canvas, sprites) {
     let bangI = 0;
     for (const foe of state.foes) {
       const spr = take(foePool, () => {
-        const s = makeBillboard(sprites.thug.walk[0], 2.25);
+        const s = makeBillboard(sprites.thug.walk[0], 2.55);
         scene.add(s);
         const sh = new THREE.Mesh(shadowGeo, shadowMat.clone());
         sh.rotation.x = -Math.PI / 2;

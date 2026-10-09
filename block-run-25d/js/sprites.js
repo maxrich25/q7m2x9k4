@@ -88,8 +88,8 @@ async function loadOne(file, kind) {
   return texturize(img || fallbackFrame(kind, 0));
 }
 
-const CW = 32;
-const CH = 48;
+const CW = 40;
+const CH = 56;
 
 function px(g, x, y, w, h, c) {
   if (!c || w === 0 || h === 0) return;
@@ -100,12 +100,12 @@ function px(g, x, y, w, h, c) {
 }
 
 const PLAYER_PAL = {
-  skin: "#e0b090", skinDk: "#c48868",
-  hair: "#1a1210",
-  hat: "#c81e3a", brim: "#8a1428",
-  shirt: "#161018", shirtDk: "#0c0a10",
-  pants: "#1c1a24",
-  shoes: "#2a2434",
+  skin: "#f0c8a0", skinDk: "#d4a078",
+  hair: "#2a1810",
+  hat: "#e21b7a", brim: "#8a1428",
+  shirt: "#3a3048", shirtDk: "#241828",
+  pants: "#2a2438",
+  shoes: "#141018",
   accent: "#e21b7a",
   role: "player",
 };
@@ -204,11 +204,11 @@ export const BUYER_PALS = [
 ];
 
 const WALK = [
-  { lf: 5, lb: -4, af: -4, ab: 5, bob: 0 },
-  { lf: 3, lb: -2, af: -3, ab: 3, bob: 1 },
+  { lf: 6, lb: -5, af: -5, ab: 6, bob: 0 },
+  { lf: 4, lb: -3, af: -4, ab: 4, bob: 1 },
   { lf: 0, lb: 0, af: 0, ab: 0, bob: 0 },
-  { lf: -4, lb: 5, af: 5, ab: -4, bob: 0 },
-  { lf: -2, lb: 3, af: 3, ab: -3, bob: 1 },
+  { lf: -5, lb: 6, af: 6, ab: -5, bob: 0 },
+  { lf: -3, lb: 4, af: 4, ab: -4, bob: 1 },
   { lf: 0, lb: 0, af: 0, ab: 0, bob: 0 },
 ];
 
@@ -232,93 +232,94 @@ const SHOOT = [
 function paintChar(g, pose, pal) {
   const bob = pose.bob || 0;
   const lean = pose.lean || 0;
-  const cx = 15 + lean;
-  const hipY = 31 + bob;
-  const shY = 18 + bob;
-  const outline = "#07060c";
+  const cx = 19 + lean;
+  const hipY = 34 + bob;
+  const shY = 20 + bob;
+  const ink = "#07060c";
 
-  function limb(x, y, w, h, c) {
-    px(g, x - 1, y, 1, h, outline);
+  function block(x, y, w, h, c) {
+    px(g, x - 1, y, 1, h, ink);
+    px(g, x + w, y, 1, h, ink);
+    px(g, x - 1, y - 1, w + 2, 1, ink);
     px(g, x, y, w, h, c);
   }
 
-  const backLegX = cx - 1 + (pose.lb || 0);
-  const frontLegX = cx + 2 + (pose.lf || 0);
-  const backArmX = cx - 3 + (pose.ab || 0);
-  const frontArmX = cx + 6 + (pose.af || 0);
-  const legH = pose.jump ? 9 : 13;
-  const footY = pose.jump ? hipY + 9 : 44;
+  const backLegX = cx - 2 + (pose.lb || 0);
+  const frontLegX = cx + 3 + (pose.lf || 0);
+  const backArmX = cx - 6 + (pose.ab || 0);
+  const frontArmX = cx + 8 + (pose.af || 0);
+  const legH = pose.jump ? 11 : 16;
+  const footY = hipY + legH - 1;
 
-  limb(backLegX, hipY, 3, legH, pal.pants);
-  px(g, backLegX - 1, footY, 5, 3, pal.shoes);
-  limb(frontLegX, hipY, 3, legH, pal.pants);
-  px(g, frontLegX - 1, footY, 5, 3, pal.shoes);
+  block(backLegX, hipY, 5, legH, pal.pants);
+  px(g, backLegX - 1, footY, 7, 4, pal.shoes);
+  block(frontLegX, hipY, 5, legH, pal.pants);
+  px(g, frontLegX - 1, footY, 7, 4, pal.shoes);
 
-  limb(backArmX, shY, 3, 11, pal.shirt);
-  px(g, backArmX, shY + 11, 3, 3, pal.skin);
+  block(backArmX, shY, 4, 13, pal.shirt);
+  px(g, backArmX, shY + 13, 4, 4, pal.skin);
 
   const wide = pal.role === "buyer" || pal.role === "thug" || pal.hood;
-  const tw = wide ? 12 : 10;
-  const tx = cx - (wide ? 5 : 4);
-  px(g, tx - 1, 16 + bob, 1, 16, outline);
-  px(g, tx, 16 + bob, tw, 16, pal.shirt);
-  px(g, tx, 16 + bob, tw, 3, pal.shirtDk);
+  const tw = wide ? 16 : 14;
+  const tx = cx - (wide ? 7 : 6);
+  block(tx, 18 + bob, tw, 18, pal.shirt);
+  px(g, tx, 18 + bob, tw, 4, pal.shirtDk);
   if (pal.role === "buyer" || pal.hood) {
-    px(g, tx + 2, 24 + bob, tw - 4, 5, pal.shirtDk);
+    px(g, tx + 3, 28 + bob, tw - 6, 6, pal.shirtDk);
   }
   if (pal.role === "thug") {
-    px(g, cx - 2, 20 + bob, 6, 2, pal.accent);
+    px(g, cx - 3, 24 + bob, 8, 3, pal.accent);
   }
   if (pal.role === "cop") {
-    px(g, cx - 1, 22 + bob, 3, 3, pal.accent);
+    px(g, cx, 26 + bob, 4, 4, pal.accent);
   }
   if (pal.role === "player") {
-    px(g, tx + 2, 28 + bob, 3, 2, pal.accent);
+    px(g, tx + 3, 32 + bob, 5, 3, pal.accent);
   }
 
   if (pal.hood) {
-    px(g, cx - 5, 8 + bob, 12, 8, pal.shirtDk);
+    px(g, cx - 7, 8 + bob, 16, 10, pal.shirtDk);
   }
 
-  px(g, cx - 4, 8 + bob, 10, 9, outline);
-  px(g, cx - 3, 9 + bob, 8, 8, pal.skin);
-  px(g, cx - 3, 9 + bob, 8, 2, pal.skinDk);
-  px(g, cx + 2, 12 + bob, 2, 2, "#1a1210");
+  block(cx - 6, 8 + bob, 13, 12, pal.skin);
+  px(g, cx - 6, 8 + bob, 13, 3, pal.skinDk);
+  px(g, cx + 3, 13 + bob, 3, 3, "#1a1210");
+  px(g, cx - 4, 16 + bob, 4, 2, pal.skinDk);
 
   if (pal.role === "runner") {
-    px(g, cx - 3, 8 + bob, 8, 3, pal.hair);
-    px(g, cx - 4, 10 + bob, 2, 4, pal.hair);
+    px(g, cx - 6, 7 + bob, 13, 4, pal.hair);
+    px(g, cx - 7, 10 + bob, 3, 6, pal.hair);
   } else if (pal.hair === "#e21b7a") {
-    px(g, cx - 4, 6 + bob, 10, 4, pal.hair);
-    px(g, cx + 5, 9 + bob, 2, 6, pal.hair);
-    px(g, cx - 5, 10 + bob, 2, 5, pal.hair);
+    px(g, cx - 7, 5 + bob, 15, 5, pal.hair);
+    px(g, cx + 7, 9 + bob, 3, 8, pal.hair);
+    px(g, cx - 8, 10 + bob, 3, 7, pal.hair);
   } else {
-    px(g, cx - 3, 8 + bob, 8, 3, pal.hair);
+    px(g, cx - 6, 7 + bob, 13, 4, pal.hair);
   }
 
   if (pal.hat) {
     if (pal.role === "cop") {
-      px(g, cx - 5, 7 + bob, 12, 3, pal.hat);
-      px(g, cx - 3, 4 + bob, 8, 4, pal.hat);
-      px(g, cx - 5, 9 + bob, 12, 1, pal.brim || pal.hat);
+      px(g, cx - 7, 7 + bob, 16, 4, pal.hat);
+      px(g, cx - 5, 3 + bob, 12, 5, pal.hat);
+      px(g, cx - 8, 10 + bob, 18, 2, pal.brim || pal.hat);
     } else if (pal.hat === "#3de0ff") {
-      px(g, cx - 5, 8 + bob, 12, 2, pal.hat);
-      px(g, cx - 2, 5 + bob, 6, 3, pal.brim || pal.hat);
+      px(g, cx - 8, 8 + bob, 18, 3, pal.hat);
+      px(g, cx - 3, 4 + bob, 8, 4, pal.brim || pal.hat);
     } else {
-      px(g, cx - 5, 6 + bob, 12, 4, pal.hat);
-      px(g, cx - 6, 9 + bob, 14, 2, pal.brim || pal.hat);
+      px(g, cx - 8, 5 + bob, 18, 5, pal.hat);
+      px(g, cx - 9, 9 + bob, 20, 3, pal.brim || pal.hat);
     }
   }
 
-  limb(frontArmX, shY + (pose.gun ? 2 : 0), 3, pose.gun ? 5 : 11, pal.shirt);
-  px(g, frontArmX, shY + (pose.gun ? 6 : 11), 3, 3, pal.skin);
+  block(frontArmX, shY + (pose.gun ? 3 : 0), 4, pose.gun ? 6 : 13, pal.shirt);
+  px(g, frontArmX, shY + (pose.gun ? 8 : 13), 4, 4, pal.skin);
 
   if (pose.gun) {
-    const gx = frontArmX + 3;
-    const gy = shY + 5;
-    px(g, gx, gy, 8, 2, "#2a2434");
-    px(g, gx + 6, gy - 1, 3, 2, "#3de0ff");
-    px(g, gx + 1, gy + 2, 2, 3, "#1a1620");
+    const gx = frontArmX + 4;
+    const gy = shY + 6;
+    px(g, gx, gy, 10, 3, "#2a2434");
+    px(g, gx + 8, gy - 2, 4, 3, "#3de0ff");
+    px(g, gx + 1, gy + 3, 3, 4, "#1a1620");
   }
 }
 
