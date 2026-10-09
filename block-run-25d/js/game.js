@@ -1,9 +1,10 @@
 import {
-  WORLD, GROUND_Y, MAX_HP, GRAVITY, JUMP_VEL, COYOTE, JUMP_BUFFER,
+  WORLD, GROUND_Y, MAX_HP, CAR_HP, CAR_ACCEL, CAR_MAX, CAR_FRICTION,
+  GRAVITY, JUMP_VEL, COYOTE, JUMP_BUFFER,
   MOVE_SPEED, TELEGRAPH, BOSS_CASH_BASE, BOSS_CASH_PER_WAVE, HI_KEY,
-  SHOP_X, DUMPSTER_X, WEAPONS, wrap, wrapDelta, hitWrap,
-} from "./config.js?v=3";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=3";
+  SHOP_X, DUMPSTER_X, CAR_X, ORDER_SPOTS, WEAPONS, wrap, wrapDelta, hitWrap,
+} from "./config.js?v=4";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=4";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -13,12 +14,25 @@ function saveHi(value) {
   try { localStorage.setItem(HI_KEY, String(value)); } catch {}
 }
 
+const ORDER_LINES = [
+  (n, spot) => `yo need ${n} pack${n > 1 ? "s" : ""}, by ${spot}`,
+  (n, spot) => `u up? ${n} by ${spot} rn`,
+  (n, spot) => `bring ${n} to ${spot}`,
+];
+
 export function createGame() {
   let mode = "title";
   const player = {
     x: 80, y: GROUND_Y, vx: 0, vy: 0, facing: 1,
     hp: MAX_HP, anim: 0, flash: 0,
   };
+  const car = { x: CAR_X, vx: 0, facing: 1, hp: CAR_HP };
+  let inCar = false;
+  let wreckT = 0;
+  let order = null;
+  let orderCd = 6;
+  let needPackT = 0;
+  let copCar = null;
   let invuln = 0;
   let shootCd = 0;
   let carrying = false;
@@ -50,6 +64,7 @@ export function createGame() {
   function snapshot() {
     let edgeL = false;
     let edgeR = false;
+    let destSide = 0;
     if (lastView && mode === "play") {
       for (const f of foes) {
         const side = edgeSide(f.x, lastView);
@@ -61,11 +76,25 @@ export function createGame() {
         if (side < 0) edgeL = true;
         if (side > 0) edgeR = true;
       }
+      if (order) destSide = edgeSide(order.x, lastView);
+    }
+    const nearCar = !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && player.y >= 197.5;
+    const slowCar = Math.abs(car.vx) < 36;
+    let prompt = "";
+    if (mode === "play") {
+      if (inCar && slowCar) prompt = "EXIT";
+      else if (nearCar) prompt = "ENTER";
+      else if (order && needPackT > 0) prompt = "NEED PACK";
     }
     return {
       mode, cash, hi, hp: player.hp, carrying, wave, gun,
       heat, muted: isMuted(),
       player: { ...player },
+      car: { ...car },
+      inCar,
+      order: order ? { ...order } : null,
+      copCar: copCar ? { ...copCar } : null,
+      prompt, destSide,
       foes: foes.map((f) => ({ ...f })),
       shots: shots.map((s) => ({ ...s })),
       loot: loot.map((l) => ({ ...l })),
@@ -101,6 +130,16 @@ export function createGame() {
       hi = cash;
       saveHi(hi);
     }
+  }
+
+  function resetCar() {
+    car.x = CAR_X;
+    car.vx = 0;
+    car.facing = 1;
+    car.hp = CAR_HP;
+    inCar = false;
+    wreckT = 0;
+    copCar = null;
   }
 
   function reset(keepWave) {
@@ -139,6 +178,10 @@ export function createGame() {
     muzzle = 0;
     coyote = 0;
     jumpBuf = 0;
+    order = null;
+    orderCd = 6;
+    needPackT = 0;
+    resetCar();
   }
 
   function spawnFoe(kind) {
@@ -154,6 +197,7 @@ export function createGame() {
       flash: 0,
       shootCd: 0.4 + Math.random() * 0.6,
       telegraph: 0,
+      stun: 0,
       kind: k,
     });
   }
@@ -172,8 +216,76 @@ export function createGame() {
     shake = Math.min(1, shake + 0.4);
   }
 
+  function spawnOrder(spotId, opts = {}) {
+    if (mode !== "play") return null;
+    let spot = ORDER_SPOTS.find((s) => s.id === spotId);
+    if (!spot) {
+      const far = ORDER_SPOTS.filter((s) => Math.abs(wrapDelta(player.x, s.x, WORLD)) > 90);
+      const pool = far.length ? far : ORDER_SPOTS;
+      spot = pool[Math.floor(Math.random() * pool.length)];
+    }
+    const packs = opts.packs ?? (Math.random() < 0.42 ? 2 : 1);
+    const dist = Math.abs(wrapDelta(player.x, spot.x, WORLD));
+    const line = ORDER_LINES[Math.floor(Math.random() * ORDER_LINES.length)];
+    order = {
+      id: spot.id,
+      x: spot.x,
+      label: spot.label,
+      packs,
+      t: opts.t ?? 28,
+      maxT: opts.t ?? 28,
+      dist,
+      text: opts.text || line(packs, spot.label),
+    };
+    orderCd = 18 + Math.random() * 8;
+    sfx.ping();
+    return order;
+  }
+
+  function completeOrder() {
+    if (!order) return;
+    const pay = Math.round(160 + order.dist * 0.55 + (order.packs - 1) * 40);
+    carrying = false;
+    cash += pay;
+    heat = Math.min(3, heat + 0.4);
+    pop(order.x, 150, "SOLD +" + pay);
+    sfx.drop();
+    burst(order.x, 178, 14, "#f0c430");
+    maybeHi();
+    order = null;
+    orderCd = 12 + Math.random() * 10;
+    needPackT = 0;
+  }
+
+  function hurtCar(amount = 1) {
+    if (car.hp <= 0) return;
+    car.hp -= amount;
+    shake = Math.min(1, shake + 0.4);
+    hitstop = reduced ? 0 : 4;
+    sfx.hurt();
+    burst(car.x, GROUND_Y - 10, 8, "#5a3cff");
+    if (car.hp <= 0) {
+      car.hp = 0;
+      car.vx = 0;
+      wreckT = 8;
+      if (inCar) {
+        inCar = false;
+        player.x = car.x;
+        player.y = GROUND_Y;
+        player.vy = -80;
+        pop(car.x, 148, "WRECK");
+        sfx.boom();
+      }
+    }
+  }
+
   function hurtPlayer() {
     if (invuln > 0 || mode !== "play") return;
+    if (inCar) {
+      hurtCar(1);
+      invuln = 1.1;
+      return;
+    }
     player.hp -= 1;
     invuln = 2.1;
     player.flash = 0.2;
@@ -300,31 +412,85 @@ export function createGame() {
       return snapshot();
     }
 
-    if (input.moveX < 0) player.facing = -1;
-    if (input.moveX > 0) player.facing = 1;
-    player.vx = input.moveX * MOVE_SPEED;
-    player.x = wrap(player.x + player.vx * dt, WORLD);
-
-    coyote = onGround() ? COYOTE : Math.max(0, coyote - dt);
-    jumpBuf = input.jump ? JUMP_BUFFER : Math.max(0, jumpBuf - dt);
-    if (jumpBuf > 0 && coyote > 0) {
-      player.vy = JUMP_VEL;
-      jumpBuf = 0;
-      coyote = 0;
-      sfx.jump();
-    }
-    player.vy += GRAVITY * dt;
-    player.y += player.vy * dt;
-    if (player.y > GROUND_Y) {
+    const nearCar = !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && onGround();
+    let usedJump = false;
+    if (inCar) {
+      if (input.jump && Math.abs(car.vx) < 36) {
+        inCar = false;
+        player.x = car.x;
+        player.vx = 0;
+        player.y = GROUND_Y;
+        player.vy = 0;
+        usedJump = true;
+        jumpBuf = 0;
+      }
+    } else if (nearCar && input.jump) {
+      inCar = true;
       player.y = GROUND_Y;
       player.vy = 0;
+      player.x = car.x;
+      usedJump = true;
+      jumpBuf = 0;
+      coyote = 0;
     }
-    player.anim += dt;
 
-    const atShop = hitWrap(player.x, player.y - 10, 16, 24, SHOP_X, 188, 22, 28, WORLD);
-    if (input.shootHeld && atShop) {
+    if (inCar) {
+      car.vx += input.moveX * CAR_ACCEL * dt;
+      car.vx -= car.vx * Math.min(1, CAR_FRICTION * dt);
+      if (Math.abs(car.vx) > CAR_MAX) car.vx = Math.sign(car.vx) * CAR_MAX;
+      if (input.moveX !== 0) car.facing = input.moveX > 0 ? 1 : -1;
+      else if (Math.abs(car.vx) > 8) car.facing = Math.sign(car.vx);
+      car.x = wrap(car.x + car.vx * dt, WORLD);
+      player.x = car.x;
+      player.vx = car.vx;
+      player.facing = car.facing;
+      player.y = GROUND_Y;
+      player.vy = 0;
+      player.anim += dt;
+      if (input.shoot) {
+        sfx.honk();
+        pop(car.x, 158, "HONK");
+        shootCd = 0.2;
+      }
+    } else {
+      if (input.moveX < 0) player.facing = -1;
+      if (input.moveX > 0) player.facing = 1;
+      player.vx = input.moveX * MOVE_SPEED;
+      player.x = wrap(player.x + player.vx * dt, WORLD);
+
+      coyote = onGround() ? COYOTE : Math.max(0, coyote - dt);
+      jumpBuf = usedJump ? 0 : (input.jump ? JUMP_BUFFER : Math.max(0, jumpBuf - dt));
+      if (!usedJump && jumpBuf > 0 && coyote > 0) {
+        player.vy = JUMP_VEL;
+        jumpBuf = 0;
+        coyote = 0;
+        sfx.jump();
+      }
+      player.vy += GRAVITY * dt;
+      player.y += player.vy * dt;
+      if (player.y > GROUND_Y) {
+        player.y = GROUND_Y;
+        player.vy = 0;
+      }
+      player.anim += dt;
+      if (car.hp > 0) car.vx = 0;
+    }
+
+    if (car.hp <= 0) {
+      wreckT -= dt;
+      if (wreckT <= 0) {
+        car.hp = CAR_HP;
+        car.x = CAR_X;
+        car.vx = 0;
+        car.facing = 1;
+        pop(car.x, 150, "CAR");
+      }
+    }
+
+    const atShop = !inCar && hitWrap(player.x, player.y - 10, 16, 24, SHOP_X, 188, 22, 28, WORLD);
+    if (!inCar && input.shootHeld && atShop) {
       if (input.shoot) buyGun();
-    } else if (input.shootHeld) {
+    } else if (!inCar && input.shootHeld) {
       fire();
     }
 
@@ -334,6 +500,7 @@ export function createGame() {
     player.flash = Math.max(0, player.flash - dt);
     clock += dt;
     heat = Math.max(0, heat - dt * 0.055);
+    needPackT = Math.max(0, needPackT - dt);
 
     spawnCd -= dt;
     if (!boss && clock > 3.2 && spawnCd <= 0) {
@@ -354,17 +521,77 @@ export function createGame() {
       pop(player.x, 150, "HEAT");
     }
 
+    orderCd -= dt;
+    if (!order && orderCd <= 0) spawnOrder();
+    if (order) {
+      order.t -= dt;
+      if (order.t <= 0) {
+        pop(player.x, 152, "LATE");
+        order = null;
+        orderCd = 10 + Math.random() * 8;
+      } else {
+        const nearDeal = Math.abs(wrapDelta(player.x, order.x, WORLD)) < 28;
+        const slow = Math.abs(player.vx) < 42;
+        if (nearDeal && slow) {
+          if (carrying) completeOrder();
+          else if (needPackT <= 0) {
+            needPackT = 1.2;
+            pop(order.x, 154, "NEED PACK");
+          }
+        }
+      }
+    }
+
+    if (heat >= 2 && !copCar) {
+      const behind = player.facing !== 0 ? -player.facing : -1;
+      copCar = {
+        x: wrap(player.x + behind * 150, WORLD),
+        vx: 0,
+        facing: -behind,
+        bumpCd: 0,
+      };
+      sfx.siren();
+      pop(player.x, 146, "5-0");
+    }
+    if (copCar) {
+      if (heat < 1.15) {
+        copCar = null;
+      } else {
+        const dx = wrapDelta(copCar.x, player.x, WORLD);
+        const chase = Math.sign(dx || 1) * Math.min(CAR_MAX * 0.92, 90 + Math.abs(dx) * 0.35);
+        copCar.vx += (chase - copCar.vx) * Math.min(1, dt * 2.4);
+        copCar.facing = Math.abs(copCar.vx) > 8 ? Math.sign(copCar.vx) : (dx >= 0 ? 1 : -1);
+        copCar.x = wrap(copCar.x + copCar.vx * dt, WORLD);
+        copCar.bumpCd = Math.max(0, copCar.bumpCd - dt);
+        if (inCar && copCar.bumpCd <= 0 && hitWrap(car.x, GROUND_Y - 8, 34, 18, copCar.x, GROUND_Y - 8, 34, 18, WORLD)) {
+          copCar.bumpCd = 0.85;
+          car.vx += Math.sign(copCar.vx || copCar.facing) * 70;
+          hurtCar(1);
+        }
+      }
+    }
+
     for (const foe of foes) {
       const dx = wrapDelta(foe.x, player.x, WORLD);
       const ranged = foe.kind === "runner" || foe.kind === "cop";
       const dist = Math.abs(dx);
+      foe.flash = Math.max(0, foe.flash - dt);
+      foe.shootCd = Math.max(0, foe.shootCd - dt);
+      foe.anim += dt;
+
+      if (foe.stun > 0) {
+        foe.stun -= dt;
+        foe.x = wrap(foe.x + foe.vx * dt, WORLD);
+        foe.vx *= Math.exp(-5 * dt);
+        foe.facing = Math.abs(foe.vx) > 0.5 ? Math.sign(foe.vx) : (dx >= 0 ? 1 : -1);
+        foe.telegraph = 0;
+        continue;
+      }
+
       let spd = foe.kind === "cop" ? 28 : foe.kind === "runner" ? 30 + wave : 18 + wave;
       if (ranged && dist < 100 && dist > 36) spd *= 0.15;
       foe.vx = Math.sign(dx) * spd;
       foe.x = wrap(foe.x + foe.vx * dt, WORLD);
-      foe.anim += dt;
-      foe.flash = Math.max(0, foe.flash - dt);
-      foe.shootCd = Math.max(0, foe.shootCd - dt);
 
       const visible = inView(foe.x, view);
       if (!visible) {
@@ -388,8 +615,18 @@ export function createGame() {
         foe.facing = Math.abs(foe.vx) > 0.5 ? Math.sign(foe.vx) : (dx >= 0 ? 1 : -1);
       }
 
-      if (!(player.y < 182) && invuln <= 0 && hitWrap(player.x, player.y - 14, 10, 22, foe.x, foe.y - 14, 10, 22, WORLD)) {
+      if (!inCar && !(player.y < 182) && invuln <= 0 && hitWrap(player.x, player.y - 14, 10, 22, foe.x, foe.y - 14, 10, 22, WORLD)) {
         hurtPlayer();
+      }
+
+      if (inCar && Math.abs(car.vx) > 50 && hitWrap(car.x, GROUND_Y - 10, 30, 20, foe.x, foe.y - 14, 12, 24, WORLD)) {
+        foe.hp -= 1;
+        foe.flash = 0.12;
+        foe.stun = 0.4;
+        foe.vx = Math.sign(car.vx) * 150;
+        booms.push({ x: foe.x, y: foe.y - 16, t: 0 });
+        sfx.hit();
+        if (foe.hp <= 0) killFoe(foe);
       }
     }
 
@@ -425,8 +662,25 @@ export function createGame() {
         boss.facing = Math.abs(boss.vx) > 0.5 ? Math.sign(boss.vx) : (dx >= 0 ? 1 : -1);
       }
 
-      if (!(player.y < 190) && invuln <= 0 && hitWrap(player.x, player.y - 14, 12, 26, boss.x, boss.y - 12, 50, 18, WORLD)) {
+      if (!inCar && !(player.y < 190) && invuln <= 0 && hitWrap(player.x, player.y - 14, 12, 26, boss.x, boss.y - 12, 50, 18, WORLD)) {
         hurtPlayer();
+      }
+      if (inCar && Math.abs(car.vx) > 50 && hitWrap(car.x, GROUND_Y - 10, 30, 20, boss.x, boss.y - 12, 50, 18, WORLD)) {
+        boss.hp -= 1;
+        boss.flash = 0.12;
+        boss.x = wrap(boss.x + Math.sign(car.vx) * 18, WORLD);
+        sfx.hit();
+        shake = Math.min(1, shake + 0.2);
+        if (boss.hp <= 0) {
+          burst(boss.x, boss.y - 18, 22, "#3de0ff");
+          sfx.boom();
+          cash += 200;
+          pop(boss.x, boss.y - 40, "+200");
+          maybeHi();
+          boss = null;
+          mode = "clear";
+          stopMusic();
+        }
       }
     }
 
@@ -490,7 +744,7 @@ export function createGame() {
     }
     loot = loot.filter((l) => l.y > 0);
 
-    if (carrying && input.shoot && hitWrap(player.x, player.y - 10, 16, 24, DUMPSTER_X, 188, 22, 28, WORLD)) {
+    if (!inCar && carrying && input.shoot && hitWrap(player.x, player.y - 10, 16, 24, DUMPSTER_X, 188, 22, 28, WORLD)) {
       carrying = false;
       cash += 100;
       heat = Math.min(3, heat + 0.07);
@@ -525,5 +779,21 @@ export function createGame() {
     start: () => beginPlay(false),
     giveCash(n) { cash += n; maybeHi(); },
     setGun(name) { if (WEAPONS[name]) gun = name; },
+    setCarrying(on) { carrying = !!on; },
+    setHeat(h) { heat = Math.max(0, Math.min(3, h)); },
+    spawnOrder,
+    setInCar(on) {
+      inCar = !!on && car.hp > 0;
+      if (inCar) {
+        player.x = car.x;
+        player.y = GROUND_Y;
+        player.vy = 0;
+        player.vx = car.vx;
+      }
+    },
+    setPlayerX(x) {
+      player.x = wrap(x, WORLD);
+      if (inCar) car.x = player.x;
+    },
   };
 }
