@@ -2,8 +2,8 @@ import {
   WORLD, GROUND_Y, MAX_HP, GRAVITY, JUMP_VEL, COYOTE, JUMP_BUFFER,
   MOVE_SPEED, TELEGRAPH, BOSS_CASH_BASE, BOSS_CASH_PER_WAVE, HI_KEY,
   SHOP_X, DUMPSTER_X, WEAPONS, wrap, wrapDelta, hitWrap,
-} from "./config.js?v=2";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=2";
+} from "./config.js?v=3";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=3";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }

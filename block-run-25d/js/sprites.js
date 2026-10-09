@@ -101,8 +101,21 @@ export async function loadSprites() {
   return { idle, walk, shoot, thug, runner, boss, shot, boom, pack, cash, dumpster };
 }
 
-const BILLBOARD_GEO = new THREE.PlaneGeometry(1, 1);
-BILLBOARD_GEO.translate(0, 0.5, 0);
+function makeBillboardGeo(flipX) {
+  const geo = new THREE.PlaneGeometry(1, 1);
+  geo.translate(0, 0.5, 0);
+  if (flipX) {
+    const uv = geo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setX(i, 1 - uv.getX(i));
+    uv.needsUpdate = true;
+  }
+  return geo;
+}
+
+// PNG characters face right. Negative mesh.scale.x does not visually
+// mirror on a camera-quat billboard (winding + DoubleSide cancel it).
+const GEO_FACE_RIGHT = makeBillboardGeo(false);
+const GEO_FACE_LEFT = makeBillboardGeo(true);
 
 function textureSize(texture) {
   const img = texture?.image;
@@ -112,7 +125,7 @@ function textureSize(texture) {
   };
 }
 
-/** Camera-facing plane. Art faces left; use setBillboardFacing so scale.x flips it. */
+/** Camera-facing plane. Art faces right; setBillboardFacing swaps UV-flipped geometry. */
 export function makeBillboard(texture, height = 1.7) {
   const mat = new THREE.MeshBasicMaterial({
     map: texture,
@@ -120,9 +133,9 @@ export function makeBillboard(texture, height = 1.7) {
     alphaTest: 0.12,
     depthWrite: false,
     opacity: 1,
-    side: THREE.DoubleSide,
+    side: THREE.FrontSide,
   });
-  const mesh = new THREE.Mesh(BILLBOARD_GEO, mat);
+  const mesh = new THREE.Mesh(GEO_FACE_RIGHT, mat);
   const { w, h } = textureSize(texture);
   mesh.userData.height = height;
   mesh.userData.baseW = (w / h) * height;
@@ -138,13 +151,14 @@ export function setBillboardFrame(mesh, texture) {
   const { w, h } = textureSize(texture);
   const height = mesh.userData.height || 1.7;
   mesh.userData.baseW = (w / h) * height;
+  mesh.scale.x = mesh.userData.baseW;
   mesh.scale.y = height;
 }
 
 export function setBillboardFacing(mesh, facing) {
   const w = mesh.userData.baseW || Math.abs(mesh.scale.x) || 1;
-  // PNG characters look left. facing +1 (right) must flip.
-  mesh.scale.x = -Math.sign(facing || 1) * w;
+  mesh.scale.x = w;
+  mesh.geometry = facing < 0 ? GEO_FACE_LEFT : GEO_FACE_RIGHT;
 }
 
 export function orientBillboard(mesh, camera) {
