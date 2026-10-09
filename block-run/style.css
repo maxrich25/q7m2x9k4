@@ -36,7 +36,7 @@ body {
 
 #menu-home {
   position: fixed;
-  bottom: calc(10px + var(--sab));
+  bottom: calc(96px + var(--sab));
   left: calc(8px + var(--sal));
   z-index: 20;
   font-family: "Press Start 2P", ui-monospace, monospace;
