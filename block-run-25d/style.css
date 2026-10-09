@@ -115,6 +115,23 @@ html, body {
   white-space: nowrap;
 }
 
+.edge-arrow {
+  position: absolute;
+  top: 52%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  color: var(--gold);
+  text-shadow: 0 0 10px #e21b7a, 0 0 4px #07060c;
+  animation: nudge 0.6s steps(2) infinite;
+  pointer-events: none;
+}
+.edge-arrow.hidden { display: none; }
+#edge-left { left: 8px; }
+#edge-right { right: 8px; }
+@keyframes nudge {
+  50% { opacity: 0.35; }
+}
+
 #overlay {
   position: absolute;
   inset: 0;

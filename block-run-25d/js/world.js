@@ -3,7 +3,7 @@ import {
   WORLD, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
 } from "./config.js";
-import { makeBillboard, setBillboardFrame, frameAt } from "./sprites.js";
+import { makeBillboard, setBillboardFrame, setBillboardFacing, orientBillboard, frameAt } from "./sprites.js";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -532,6 +532,7 @@ export function createWorld(canvas, sprites) {
   const fireLabel = makeLabel("FIRE", "#f0c430");
   fireLabel.visible = false;
   scene.add(fireLabel);
+  const bangPool = [];
 
   const playerSprite = makeBillboard(sprites.idle[0], 1.75);
   scene.add(playerSprite);
@@ -591,7 +592,7 @@ export function createWorld(canvas, sprites) {
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    camera.fov = w > h ? 40 : 42;
+    camera.fov = w > h ? 48 : 72;
     camera.updateProjectionMatrix();
   }
   resize();
@@ -620,21 +621,21 @@ export function createWorld(canvas, sprites) {
 
     const playing = state.mode === "play";
     const portrait = camera.aspect < 1;
-    const camZ = portrait ? 7.4 : 8.2;
-    const camY = portrait ? 2.55 : 2.55;
+    const camZ = portrait ? 32 : 20;
+    const camY = portrait ? 7.2 : 4.8;
     if (playing) {
-      const lead = portrait ? 0 : 10;
-      const lookX = nearestWorldX(wrap(p.x + p.facing * lead, WORLD), camX);
+      const leadGame = portrait ? 42 : 36;
+      const lookX = nearestWorldX(wrap(p.x + p.facing * leadGame, WORLD), camX);
       const dx = wrapDelta(camX, lookX, STREET_LEN);
-      camX = wrap(camX + dx * (1 - Math.exp(-6 * dt)), STREET_LEN);
-      camera.position.set(camX, camY + gameToWorldY(p.y) * 0.12, camZ);
-      tmp.set(camX, 1.15 + gameToWorldY(p.y) * 0.4, -0.2);
+      camX = wrap(camX + dx * (1 - Math.exp(-4.2 * dt)), STREET_LEN);
+      camera.position.set(camX, camY + gameToWorldY(p.y) * 0.1, camZ);
+      tmp.set(camX + p.facing * 1.6, 1.15 + gameToWorldY(p.y) * 0.25, -0.6);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
     } else {
       camX = wrap(camX + dt * 0.35, STREET_LEN);
-      camera.position.set(camX, camY + 0.55, camZ + 2.4);
-      camera.lookAt(camX, 1.55, -0.9);
+      camera.position.set(camX, camY + 0.4, camZ + 4);
+      camera.lookAt(camX, 1.6, -1.2);
     }
 
     moon.position.set(camX - 4.5, 7.8, -11);
@@ -648,8 +649,9 @@ export function createWorld(canvas, sprites) {
     const animSet = state.muzzle > 0 ? sprites.shoot : Math.abs(p.vx) > 8 ? sprites.walk : sprites.idle;
     const rate = state.muzzle > 0 ? 12 : 8;
     setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate));
-    playerSprite.scale.x = Math.abs(playerSprite.scale.x) * p.facing;
     place(playerSprite, p.x, p.y, camX, 0.55);
+    orientBillboard(playerSprite, camera);
+    setBillboardFacing(playerSprite, p.facing);
     playerSprite.material.color.set(p.flash > 0 ? 0xffffff : 0xffffff);
     if (p.flash > 0) playerSprite.material.color.setHex(0xffc8e8);
     else playerSprite.material.color.setHex(0xffffff);
@@ -660,12 +662,14 @@ export function createWorld(canvas, sprites) {
 
     packHeld.visible = state.carrying;
     if (state.carrying) {
-      place(packHeld, p.x, p.y - 34, camX, 0.1);
+      place(packHeld, p.x, p.y - 34, camX, 0.2);
       packHeld.position.y = playerSprite.position.y + 1.55;
+      orientBillboard(packHeld, camera);
     }
 
     place(dumpSprite, DUMPSTER_X, 198, camX, -0.35);
     dumpSprite.position.y = 0;
+    orientBillboard(dumpSprite, camera);
     place(sellLabel, DUMPSTER_X, 154, camX, 0.7);
     sellLabel.position.y = 1.55;
     place(fireLabel, DUMPSTER_X, 154, camX, 0.7);
@@ -674,6 +678,7 @@ export function createWorld(canvas, sprites) {
     fireLabel.visible = state.carrying;
 
     let fi = 0;
+    let bangI = 0;
     for (const foe of state.foes) {
       const spr = take(foePool, () => {
         const s = makeBillboard(sprites.thug[0], 1.65);
@@ -687,8 +692,9 @@ export function createWorld(canvas, sprites) {
       }, fi++);
       const set = foe.kind === "runner" ? sprites.runner : sprites.thug;
       setBillboardFrame(spr, frameAt(set, foe.anim, 8));
-      spr.scale.x = Math.abs(spr.scale.x) * foe.facing;
       place(spr, foe.x, foe.y, camX, 0.55);
+      orientBillboard(spr, camera);
+      setBillboardFacing(spr, foe.facing);
       spr.material.color.setHex(foe.kind === "cop" ? 0x7aa0ff : foe.flash > 0 ? 0xffffff : 0xffffff);
       if (foe.kind === "cop") spr.material.color.setHex(0x6690ff);
       if (foe.flash > 0) spr.material.color.setHex(0xffffff);
@@ -696,6 +702,17 @@ export function createWorld(canvas, sprites) {
         spr.userData.shadow.visible = true;
         spr.userData.shadow.position.x = spr.position.x;
         spr.userData.shadow.position.z = 0.55;
+      }
+      if (foe.telegraph > 0) {
+        const bang = take(bangPool, () => {
+          const s = makeLabel("!", "#e21b7a");
+          s.scale.set(0.9, 0.9, 1);
+          scene.add(s);
+          return s;
+        }, bangI++);
+        bang.position.copy(spr.position);
+        bang.position.y = spr.position.y + 1.85;
+        bang.position.z += 0.15;
       }
     }
     hideFrom(foePool, fi);
@@ -710,14 +727,26 @@ export function createWorld(canvas, sprites) {
       }
       bossSprite.visible = true;
       setBillboardFrame(bossSprite, frameAt(sprites.boss, state.boss.anim, 6));
-      bossSprite.scale.x = Math.abs(bossSprite.userData.baseW || 2.4) * state.boss.facing;
       place(bossSprite, state.boss.x, state.boss.y, camX, 1.1);
       bossSprite.position.y = 0.05;
+      orientBillboard(bossSprite, camera);
+      setBillboardFacing(bossSprite, state.boss.facing);
       if (state.boss.flash > 0) bossSprite.material.color.setHex(0xffffff);
       else bossSprite.material.color.setHex(0xccf6ff);
+      if (state.boss.telegraph > 0) {
+        const bang = take(bangPool, () => {
+          const s = makeLabel("!", "#e21b7a");
+          s.scale.set(0.9, 0.9, 1);
+          scene.add(s);
+          return s;
+        }, bangI++);
+        bang.position.copy(bossSprite.position);
+        bang.position.y = 1.9;
+      }
     } else if (bossSprite) {
       bossSprite.visible = false;
     }
+    hideFrom(bangPool, bangI);
 
     let li = 0;
     for (const item of state.loot) {
@@ -729,6 +758,7 @@ export function createWorld(canvas, sprites) {
       setBillboardFrame(spr, item.kind === "pack" ? sprites.pack : sprites.cash);
       place(spr, item.x, item.y, camX, 0.15);
       spr.position.y = 0.35 + Math.sin(item.bob * 6) * 0.08;
+      orientBillboard(spr, camera);
     }
     hideFrom(lootPool, li);
 
@@ -743,9 +773,10 @@ export function createWorld(canvas, sprites) {
         return s;
       }, si++);
       setBillboardFrame(spr, frameAt(sprites.shot, 1 - shot.life, 14));
-      spr.scale.x = Math.abs(spr.userData.baseW || 0.35) * (shot.vx >= 0 ? 1 : -1);
       place(spr, shot.x, shot.y, camX, 0.1);
       spr.position.y = Math.max(0.4, gameToWorldY(shot.y));
+      orientBillboard(spr, camera);
+      setBillboardFacing(spr, shot.vx >= 0 ? 1 : -1);
       const col = shot.from === "foe" ? 0xff6a6a : 0x3de0ff;
       spr.material.color.setHex(col);
       if (spr.userData.glow) {
@@ -770,6 +801,7 @@ export function createWorld(canvas, sprites) {
       setBillboardFrame(spr, sprites.boom[frame]);
       place(spr, b.x, b.y + 8, camX, 0.2);
       spr.position.y = 0.9;
+      orientBillboard(spr, camera);
     }
     hideFrom(boomPool, bi);
 
@@ -799,5 +831,15 @@ export function createWorld(canvas, sprites) {
     return { camX, project: (gx, gy) => project(gx, gy, camX) };
   }
 
-  return { sync, resize, renderer, camera, scene };
+  function getView() {
+    const dist = Math.max(0.8, Math.abs(camera.position.z - 0.55));
+    const vFov = THREE.MathUtils.degToRad(camera.fov);
+    const hFov = 2 * Math.atan(Math.tan(vFov / 2) * camera.aspect);
+    const halfWorld = dist * Math.tan(hFov / 2);
+    const halfGame = (halfWorld / STREET_LEN) * WORLD;
+    const camGameX = wrap((camX / STREET_LEN) * WORLD, WORLD);
+    return { camGameX, halfWidth: halfGame };
+  }
+
+  return { sync, resize, getView, renderer, camera, scene };
 }

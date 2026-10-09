@@ -1,6 +1,6 @@
 import {
   WORLD, GROUND_Y, MAX_HP, GRAVITY, JUMP_VEL, COYOTE, JUMP_BUFFER,
-  MOVE_SPEED, BOSS_CASH_BASE, BOSS_CASH_PER_WAVE, HI_KEY,
+  MOVE_SPEED, TELEGRAPH, BOSS_CASH_BASE, BOSS_CASH_PER_WAVE, HI_KEY,
   SHOP_X, DUMPSTER_X, WEAPONS, wrap, wrapDelta, hitWrap,
 } from "./config.js";
 import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js";
@@ -44,9 +44,24 @@ export function createGame() {
   let muzzle = 0;
   let coyote = 0;
   let jumpBuf = 0;
+  let lastView = null;
   const reduced = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function snapshot() {
+    let edgeL = false;
+    let edgeR = false;
+    if (lastView && mode === "play") {
+      for (const f of foes) {
+        const side = edgeSide(f.x, lastView);
+        if (side < 0) edgeL = true;
+        if (side > 0) edgeR = true;
+      }
+      if (boss) {
+        const side = edgeSide(boss.x, lastView);
+        if (side < 0) edgeL = true;
+        if (side > 0) edgeR = true;
+      }
+    }
     return {
       mode, cash, hi, hp: player.hp, carrying, wave, gun,
       heat, muted: isMuted(),
@@ -59,6 +74,7 @@ export function createGame() {
       booms: booms.map((b) => ({ ...b })),
       boss: boss ? { ...boss } : null,
       shake, muzzle, invuln,
+      edgeL, edgeR, viewHalf: lastView?.halfWidth || 0,
     };
   }
 
@@ -137,6 +153,7 @@ export function createGame() {
       anim: Math.random(),
       flash: 0,
       shootCd: 0.4 + Math.random() * 0.6,
+      telegraph: 0,
       kind: k,
     });
   }
@@ -148,7 +165,7 @@ export function createGame() {
       y: GROUND_Y,
       vx: 0, vy: 0, facing: -1,
       hp: 4 + wave,
-      anim: 0, flash: 0, shootCd: 1.6,
+      anim: 0, flash: 0, shootCd: 1.6, telegraph: 0,
     };
     pop(player.x, 148, "BOSS");
     sfx.boom();
@@ -235,6 +252,19 @@ export function createGame() {
     return player.y >= 197.5;
   }
 
+  function inView(x, view) {
+    if (!view || !Number.isFinite(view.halfWidth) || view.halfWidth <= 0) return false;
+    const half = Math.max(20, view.halfWidth - 16);
+    return Math.abs(wrapDelta(x, view.camGameX, WORLD)) < half;
+  }
+
+  function edgeSide(x, view) {
+    if (!view || !Number.isFinite(view.halfWidth)) return 0;
+    const d = wrapDelta(view.camGameX, x, WORLD);
+    if (Math.abs(d) <= view.halfWidth) return 0;
+    return d > 0 ? 1 : -1;
+  }
+
   function beginPlay(keepWave) {
     unlockAudio();
     reset(keepWave);
@@ -243,7 +273,8 @@ export function createGame() {
     startMusic();
   }
 
-  function tick(dt, input) {
+  function tick(dt, input, view) {
+    if (view) lastView = view;
     if (hitstop > 0) {
       hitstop -= 1;
       return snapshot();
@@ -325,7 +356,6 @@ export function createGame() {
 
     for (const foe of foes) {
       const dx = wrapDelta(foe.x, player.x, WORLD);
-      foe.facing = dx >= 0 ? 1 : -1;
       const ranged = foe.kind === "runner" || foe.kind === "cop";
       const dist = Math.abs(dx);
       let spd = foe.kind === "cop" ? 28 : foe.kind === "runner" ? 30 + wave : 18 + wave;
@@ -335,14 +365,29 @@ export function createGame() {
       foe.anim += dt;
       foe.flash = Math.max(0, foe.flash - dt);
       foe.shootCd = Math.max(0, foe.shootCd - dt);
-      if (ranged && dist < 130 && dist > 28 && foe.shootCd <= 0) {
-        shots.push({
-          x: foe.x + foe.facing * 12, y: foe.y - 18,
-          vx: foe.facing * 52, vy: 0, from: "foe", life: 1.05,
-        });
-        foe.shootCd = foe.kind === "cop" ? 1.55 : 1.95;
-        sfx.shoot();
+
+      const visible = inView(foe.x, view);
+      if (!visible) {
+        foe.telegraph = 0;
+        foe.facing = Math.abs(foe.vx) > 0.5 ? Math.sign(foe.vx) : (dx >= 0 ? 1 : -1);
+      } else if (foe.telegraph > 0) {
+        foe.facing = dx >= 0 ? 1 : -1;
+        foe.telegraph -= dt;
+        if (foe.telegraph <= 0) {
+          shots.push({
+            x: foe.x + foe.facing * 12, y: foe.y - 18,
+            vx: foe.facing * 52, vy: 0, from: "foe", life: 1.05,
+          });
+          foe.shootCd = foe.kind === "cop" ? 1.55 : 1.95;
+          sfx.shoot();
+        }
+      } else if (ranged && dist < 130 && dist > 28 && foe.shootCd <= 0) {
+        foe.telegraph = TELEGRAPH;
+        foe.facing = dx >= 0 ? 1 : -1;
+      } else {
+        foe.facing = Math.abs(foe.vx) > 0.5 ? Math.sign(foe.vx) : (dx >= 0 ? 1 : -1);
       }
+
       if (!(player.y < 182) && invuln <= 0 && hitWrap(player.x, player.y - 14, 10, 22, foe.x, foe.y - 14, 10, 22, WORLD)) {
         hurtPlayer();
       }
@@ -350,7 +395,6 @@ export function createGame() {
 
     if (boss) {
       const dx = wrapDelta(boss.x, player.x, WORLD);
-      boss.facing = dx >= 0 ? 1 : -1;
       const dist = Math.abs(dx);
       const vx = dist > 120 ? Math.sign(dx) * 28 : dist < 80 ? -Math.sign(dx) * 24 : Math.sign(dx) * 6;
       boss.vx = vx;
@@ -358,14 +402,29 @@ export function createGame() {
       boss.anim += dt;
       boss.flash = Math.max(0, boss.flash - dt);
       boss.shootCd = Math.max(0, boss.shootCd - dt);
-      if (boss.shootCd <= 0) {
-        shots.push({
-          x: boss.x + boss.facing * 24, y: boss.y - 16,
-          vx: boss.facing * 48, vy: 0, from: "foe", life: 1.35,
-        });
-        boss.shootCd = 2.45;
-        sfx.shoot();
+
+      const visible = inView(boss.x, view);
+      if (!visible) {
+        boss.telegraph = 0;
+        boss.facing = Math.abs(boss.vx) > 0.5 ? Math.sign(boss.vx) : (dx >= 0 ? 1 : -1);
+      } else if (boss.telegraph > 0) {
+        boss.facing = dx >= 0 ? 1 : -1;
+        boss.telegraph -= dt;
+        if (boss.telegraph <= 0) {
+          shots.push({
+            x: boss.x + boss.facing * 24, y: boss.y - 16,
+            vx: boss.facing * 48, vy: 0, from: "foe", life: 1.35,
+          });
+          boss.shootCd = 2.45;
+          sfx.shoot();
+        }
+      } else if (boss.shootCd <= 0) {
+        boss.telegraph = TELEGRAPH;
+        boss.facing = dx >= 0 ? 1 : -1;
+      } else {
+        boss.facing = Math.abs(boss.vx) > 0.5 ? Math.sign(boss.vx) : (dx >= 0 ? 1 : -1);
       }
+
       if (!(player.y < 190) && invuln <= 0 && hitWrap(player.x, player.y - 14, 12, 26, boss.x, boss.y - 12, 50, 18, WORLD)) {
         hurtPlayer();
       }

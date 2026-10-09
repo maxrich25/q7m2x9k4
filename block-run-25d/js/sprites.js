@@ -101,34 +101,54 @@ export async function loadSprites() {
   return { idle, walk, shoot, thug, runner, boss, shot, boom, pack, cash, dumpster };
 }
 
+const BILLBOARD_GEO = new THREE.PlaneGeometry(1, 1);
+BILLBOARD_GEO.translate(0, 0.5, 0);
+
+function textureSize(texture) {
+  const img = texture?.image;
+  return {
+    w: img?.naturalWidth || img?.width || 32,
+    h: img?.naturalHeight || img?.height || 40,
+  };
+}
+
+/** Camera-facing plane. Art faces left; use setBillboardFacing so scale.x flips it. */
 export function makeBillboard(texture, height = 1.7) {
-  const mat = new THREE.SpriteMaterial({
+  const mat = new THREE.MeshBasicMaterial({
     map: texture,
     transparent: true,
     alphaTest: 0.12,
     depthWrite: false,
     opacity: 1,
+    side: THREE.DoubleSide,
   });
-  const sprite = new THREE.Sprite(mat);
-  const img = texture.image;
-  const w = img?.naturalWidth || img?.width || 32;
-  const h = img?.naturalHeight || img?.height || 40;
-  sprite.center.set(0.5, 0);
-  sprite.scale.set((w / h) * height, height, 1);
-  sprite.userData.height = height;
-  sprite.userData.baseW = (w / h) * height;
-  return sprite;
+  const mesh = new THREE.Mesh(BILLBOARD_GEO, mat);
+  const { w, h } = textureSize(texture);
+  mesh.userData.height = height;
+  mesh.userData.baseW = (w / h) * height;
+  mesh.userData.billboard = true;
+  mesh.scale.set(mesh.userData.baseW, height, 1);
+  return mesh;
 }
 
-export function setBillboardFrame(sprite, texture) {
-  if (sprite.material.map === texture) return;
-  sprite.material.map = texture;
-  sprite.material.needsUpdate = true;
-  const img = texture.image;
-  const w = img?.naturalWidth || img?.width || 32;
-  const h = img?.naturalHeight || img?.height || 40;
-  const height = sprite.userData.height || 1.7;
-  sprite.scale.set((w / h) * height, height, 1);
+export function setBillboardFrame(mesh, texture) {
+  if (mesh.material.map === texture) return;
+  mesh.material.map = texture;
+  mesh.material.needsUpdate = true;
+  const { w, h } = textureSize(texture);
+  const height = mesh.userData.height || 1.7;
+  mesh.userData.baseW = (w / h) * height;
+  mesh.scale.y = height;
+}
+
+export function setBillboardFacing(mesh, facing) {
+  const w = mesh.userData.baseW || Math.abs(mesh.scale.x) || 1;
+  // PNG characters look left. facing +1 (right) must flip.
+  mesh.scale.x = -Math.sign(facing || 1) * w;
+}
+
+export function orientBillboard(mesh, camera) {
+  mesh.quaternion.copy(camera.quaternion);
 }
 
 export function frameAt(frames, anim, rate) {
