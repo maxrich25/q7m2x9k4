@@ -3,8 +3,8 @@ import {
   GRAVITY, JUMP_VEL, COYOTE, JUMP_BUFFER, BUYER_COUNT,
   MOVE_SPEED, TELEGRAPH, BOSS_CASH_BASE, BOSS_CASH_PER_WAVE, HI_KEY,
   SHOP_X, DUMPSTER_X, CAR_X, ORDER_SPOTS, WEAPONS, wrap, wrapDelta, hitWrap,
-} from "./config.js?v=9";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=9";
+} from "./config.js?v=10";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=10";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -811,5 +811,7 @@ export function createGame() {
       player.x = wrap(x, WORLD);
       if (inCar) car.x = player.x;
     },
+    setFacing(dir) { player.facing = dir < 0 ? -1 : 1; },
+    setAnim(t) { player.anim = t; },
   };
 }

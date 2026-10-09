@@ -104,8 +104,8 @@ const PLAYER_PAL = {
   hair: "#2a1810",
   hat: "#e21b7a", brim: "#8a1428",
   shirt: "#3a3048", shirtDk: "#241828",
-  pants: "#2a2438",
-  shoes: "#141018",
+  pants: "#5a6a88",
+  shoes: "#f4f0e8",
   accent: "#e21b7a",
   role: "player",
 };
