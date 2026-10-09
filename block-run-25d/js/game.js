@@ -1,11 +1,12 @@
 import {
   WORLD, GROUND_Y, MAX_HP, CAR_HP, COP_CAR_HP, CAR_ACCEL, CAR_MAX, CAR_FRICTION,
+  CAR_CREEP, CAR_TURN_TIME, CAR_TURN_MAX, CAR_STOP, GEARS,
   GRAVITY, JUMP_VEL, COYOTE, JUMP_BUFFER, BUYER_COUNT,
   MOVE_SPEED, TELEGRAPH, BOSS_CASH_BASE, BOSS_CASH_PER_WAVE, HI_KEY,
   SHOP_X, DUMPSTER_X, CAR_X, ORDER_SPOTS, WEAPONS, wrap, wrapDelta, hitWrap,
   formatDeal, dealFeet,
-} from "./config.js?v=19";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=19";
+} from "./config.js?v=21";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=21";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -27,7 +28,10 @@ export function createGame() {
     x: 80, px: 80, y: GROUND_Y, vx: 0, vy: 0, facing: 1,
     hp: MAX_HP, anim: 0, flash: 0,
   };
-  const car = { x: CAR_X, px: CAR_X, vx: 0, facing: 1, hp: CAR_HP };
+  const car = {
+    x: CAR_X, px: CAR_X, vx: 0, facing: 1, hp: CAR_HP,
+    gear: "P", yaw: 0, turnT: 0, turnFrom: 0, turnTo: 0, shiftHint: 0,
+  };
   let inCar = false;
   let wreckT = 0;
   let order = null;
@@ -80,10 +84,10 @@ export function createGame() {
       if (order) destSide = edgeSide(order.x, lastView);
     }
     const nearCar = !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && player.y >= 197.5;
-    const slowCar = Math.abs(car.vx) < 36;
+    const exitOk = inCar && (car.gear === "P" || Math.abs(car.vx) < CAR_STOP);
     let prompt = "";
     if (mode === "play") {
-      if (inCar && slowCar) prompt = "EXIT";
+      if (exitOk) prompt = "EXIT";
       else if (nearCar) prompt = "ENTER";
       else if (order && needPackT > 0) prompt = "NEED PACK";
     }
@@ -111,6 +115,7 @@ export function createGame() {
       boss: boss ? { ...boss } : null,
       shake, muzzle, invuln,
       edgeL, edgeR, viewHalf: lastView?.halfWidth || 0,
+      exitOk,
     };
   }
 
@@ -145,9 +150,71 @@ export function createGame() {
     car.vx = 0;
     car.facing = 1;
     car.hp = CAR_HP;
+    car.gear = "P";
+    car.yaw = 0;
+    car.turnT = 0;
+    car.turnFrom = 0;
+    car.turnTo = 0;
+    car.shiftHint = 0;
     inCar = false;
     wreckT = 0;
     copCar = null;
+  }
+
+  function enterCar() {
+    inCar = true;
+    car.gear = "P";
+    car.vx = 0;
+    car.shiftHint = 0;
+    car.turnT = 0;
+    car.yaw = car.facing < 0 ? Math.PI : 0;
+    player.x = car.x;
+    player.y = GROUND_Y;
+    player.vy = 0;
+    player.vx = 0;
+    player.facing = car.facing;
+  }
+
+  function leaveCar() {
+    inCar = false;
+    player.x = car.x;
+    player.vx = 0;
+    player.y = GROUND_Y;
+    player.vy = 0;
+    player.facing = car.facing;
+  }
+
+  function tryShift(to, brakeHeld) {
+    if (!to || !GEARS.includes(to) || to === car.gear) return false;
+    const from = car.gear;
+    if (from === "P" && !brakeHeld) {
+      car.shiftHint = 1.15;
+      return false;
+    }
+    if (to === "P" && Math.abs(car.vx) > 18) {
+      car.vx = 0;
+      pop(car.x, 150, "CLUNK");
+      sfx.hit();
+    }
+    const crossingDrive = (from === "R" && to === "D") || (from === "D" && to === "R");
+    if (crossingDrive && Math.abs(car.vx) > 22) {
+      car.vx *= 0.28;
+      pop(car.x, 150, "CLUNK");
+      sfx.hit();
+    }
+    car.gear = to;
+    car.shiftHint = 0;
+    return true;
+  }
+
+  function requestTurn(dir) {
+    if (!dir || car.turnT > 0) return;
+    if (dir === car.facing) return;
+    if (Math.abs(car.vx) > CAR_TURN_MAX) return;
+    car.turnT = CAR_TURN_TIME;
+    car.turnFrom = car.facing < 0 ? Math.PI : 0;
+    car.turnTo = dir < 0 ? Math.PI : 0;
+    car.facing = dir;
   }
 
   function reset(keepWave) {
@@ -282,9 +349,7 @@ export function createGame() {
       car.vx = 0;
       wreckT = 8;
       if (inCar) {
-        inCar = false;
-        player.x = car.x;
-        player.y = GROUND_Y;
+        leaveCar();
         player.vy = -80;
         pop(car.x, 148, "WRECK");
         sfx.boom();
@@ -440,39 +505,66 @@ export function createGame() {
     const nearCar = !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && onGround();
     let usedJump = false;
     if (inCar) {
-      if (input.jump && Math.abs(car.vx) < 36) {
-        inCar = false;
-        player.x = car.x;
-        player.vx = 0;
-        player.y = GROUND_Y;
-        player.vy = 0;
-        usedJump = true;
-        jumpBuf = 0;
-      } else if (input.jump && Math.abs(car.vx) >= 36) {
-        car.facing *= -1;
-        car.vx = car.facing * Math.abs(car.vx);
-        usedJump = true;
-        jumpBuf = 0;
+      const want = input.gearTap || input.shiftGear;
+      if (want) tryShift(want, !!input.brake);
+      if (input.shiftStep) {
+        const i = GEARS.indexOf(car.gear);
+        const next = GEARS[i + input.shiftStep];
+        if (next) tryShift(next, !!input.brake);
+      }
+      if (input.steer) requestTurn(input.steer < 0 ? -1 : 1);
+      if (input.exit) {
+        if (car.gear === "P" || Math.abs(car.vx) < CAR_STOP) {
+          leaveCar();
+          usedJump = true;
+          jumpBuf = 0;
+        } else {
+          pop(car.x, 150, "PARK");
+        }
       }
     } else if (nearCar && input.jump) {
-      inCar = true;
-      player.y = GROUND_Y;
-      player.vy = 0;
-      player.x = car.x;
+      enterCar();
       usedJump = true;
       jumpBuf = 0;
       coyote = 0;
     }
 
     if (inCar) {
-      const gas = input.moveX > 0;
-      const brake = input.moveX < 0;
-      if (gas) car.vx += car.facing * CAR_ACCEL * dt;
-      if (brake) {
-        if (Math.abs(car.vx) > 14) car.vx -= Math.sign(car.vx) * CAR_ACCEL * 1.45 * dt;
-        else car.vx += -car.facing * CAR_ACCEL * 0.9 * dt;
+      car.shiftHint = Math.max(0, car.shiftHint - dt);
+      if (car.turnT > 0) {
+        car.turnT = Math.max(0, car.turnT - dt);
+        const u = 1 - car.turnT / CAR_TURN_TIME;
+        const s = u * u * (3 - 2 * u);
+        car.yaw = car.turnFrom + (car.turnTo - car.turnFrom) * s;
+        car.vx *= Math.exp(-5 * dt);
+      } else {
+        car.yaw = car.facing < 0 ? Math.PI : 0;
       }
-      car.vx -= car.vx * Math.min(1, CAR_FRICTION * dt);
+
+      const brake = !!input.brake;
+      const gas = !!input.gas;
+      if (car.gear === "P") {
+        car.vx = 0;
+      } else if (brake) {
+        if (Math.abs(car.vx) > 6) {
+          car.vx -= Math.sign(car.vx) * CAR_ACCEL * 1.7 * dt;
+          if (Math.abs(car.vx) < 6) car.vx = 0;
+        } else {
+          car.vx = 0;
+        }
+      } else if (car.gear === "N") {
+        car.vx -= car.vx * Math.min(1, CAR_FRICTION * dt);
+      } else {
+        const driveDir = car.gear === "D" ? car.facing : -car.facing;
+        if (gas) {
+          car.vx += driveDir * CAR_ACCEL * dt;
+        } else {
+          const target = driveDir * CAR_CREEP;
+          const diff = target - car.vx;
+          car.vx += Math.sign(diff) * Math.min(Math.abs(diff), CAR_ACCEL * 0.55 * dt);
+        }
+        car.vx -= car.vx * Math.min(1, CAR_FRICTION * 0.22 * dt);
+      }
       if (Math.abs(car.vx) > CAR_MAX) car.vx = Math.sign(car.vx) * CAR_MAX;
       car.x = wrap(car.x + car.vx * dt, WORLD);
       player.x = car.x;
@@ -512,6 +604,9 @@ export function createGame() {
         car.x = CAR_X;
         car.vx = 0;
         car.facing = 1;
+        car.gear = "P";
+        car.yaw = 0;
+        car.turnT = 0;
         pop(car.x, 150, "CAR");
       }
     }
@@ -834,13 +929,18 @@ export function createGame() {
     setHeat(h) { heat = Math.max(0, Math.min(3, h)); },
     spawnOrder,
     setInCar(on) {
-      inCar = !!on && car.hp > 0;
-      if (inCar) {
-        player.x = car.x;
-        player.y = GROUND_Y;
-        player.vy = 0;
-        player.vx = car.vx;
+      if (on && car.hp > 0) enterCar();
+      else if (inCar) leaveCar();
+    },
+    setGear(name) {
+      const g = String(name || "").toUpperCase();
+      if (GEARS.includes(g)) {
+        car.gear = g;
+        car.shiftHint = 0;
       }
+    },
+    tryShift(name, brakeHeld = true) {
+      return tryShift(String(name || "").toUpperCase(), !!brakeHeld);
     },
     setPlayerX(x) {
       player.x = wrap(x, WORLD);
@@ -850,7 +950,15 @@ export function createGame() {
         car.px = car.x;
       }
     },
-    setFacing(dir) { player.facing = dir < 0 ? -1 : 1; },
+    setFacing(dir) {
+      const d = dir < 0 ? -1 : 1;
+      player.facing = d;
+      if (inCar) {
+        car.facing = d;
+        car.yaw = d < 0 ? Math.PI : 0;
+        car.turnT = 0;
+      }
+    },
     setAnim(t) { player.anim = t; },
   };
 }

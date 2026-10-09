@@ -1,5 +1,5 @@
-import { WEAPONS, CAR_HP } from "./config.js?v=19";
-import { isMuted, isUnlocked } from "./audio.js?v=19";
+import { WEAPONS, CAR_HP, GEARS } from "./config.js?v=21";
+import { isMuted, isUnlocked } from "./audio.js?v=21";
 
 const TITLE_TIPS = [
   "JUMP TO DODGE",
@@ -11,8 +11,9 @@ const TITLE_TIPS = [
 
 const CONTROL_TIPS = [
   "ON FOOT: L / JUMP / R / FIRE",
-  "IN CAR: BRAKE / EXIT / GAS / SHOOT",
-  "JUMP TURNS THE CAR",
+  "IN CAR: STEER  BRAKE  GAS  P-R-N-D",
+  "HOLD BRAKE TO SHIFT",
+  "EXIT IN PARK",
 ];
 
 export function createHud() {
@@ -44,10 +45,11 @@ export function createHud() {
   const dealMe = document.getElementById("deal-me");
   const dealPin = document.getElementById("deal-pin");
   const status = document.getElementById("status");
-  const padLeft = document.querySelector('[data-role="left"]');
-  const padJump = document.querySelector('[data-role="jump"]');
-  const padRight = document.querySelector('[data-role="right"]');
-  const padFire = document.querySelector('[data-role="fire"]');
+  const padFoot = document.getElementById("pad-foot");
+  const padCar = document.getElementById("pad-car");
+  const shiftKnob = document.getElementById("shift-knob");
+  const shiftHint = document.getElementById("shift-hint");
+  const padExit = document.querySelector('[data-role="exit"]');
 
   function pips(el, count, filled, cls) {
     if (!el) return;
@@ -66,6 +68,20 @@ export function createHud() {
       const dim = extra.includes(line) || i >= lines.length ? " class=\"tip-dim\"" : "";
       return `<p${dim}>${line}</p>`;
     }).join("");
+  }
+
+  function placeKnob(gear) {
+    if (!shiftKnob) return;
+    const btn = document.querySelector(`.gear[data-gear="${gear}"]`);
+    const rail = document.getElementById("shift-rail");
+    if (btn && rail) {
+      const mid = btn.getBoundingClientRect().top + btn.getBoundingClientRect().height / 2;
+      const top = mid - rail.getBoundingClientRect().top - shiftKnob.offsetHeight / 2;
+      shiftKnob.style.top = `${Math.max(2, top)}px`;
+      return;
+    }
+    const i = Math.max(0, GEARS.indexOf(gear));
+    shiftKnob.style.top = `${4 + i * 28}px`;
   }
 
   let popNodes = [];
@@ -94,14 +110,16 @@ export function createHud() {
     destR?.classList.toggle("hidden", state.destSide !== 1);
 
     const driving = !!(state.inCar && state.mode === "play");
-    if (padLeft) padLeft.textContent = driving ? "BRAKE" : "L";
-    if (padRight) padRight.textContent = driving ? "GAS" : "R";
-    if (padFire) padFire.textContent = driving ? "SHOOT" : "FIRE";
-    if (padJump) {
-      if (!driving) padJump.textContent = "JUMP";
-      else padJump.textContent = Math.abs(state.car?.vx || 0) < 36 ? "EXIT" : "TURN";
-    }
     document.getElementById("pad")?.classList.toggle("driving", driving);
+    padFoot?.classList.toggle("hidden", driving);
+    padCar?.classList.toggle("hidden", !driving);
+    const gear = state.car?.gear || "P";
+    document.querySelectorAll("#shifter .gear").forEach((el) => {
+      el.classList.toggle("on", el.dataset.gear === gear);
+    });
+    if (driving) placeKnob(gear);
+    shiftHint?.classList.toggle("hidden", !(driving && (state.car?.shiftHint || 0) > 0));
+    padExit?.classList.toggle("off", driving && !state.exitOk);
 
     if (phone) {
       const on = !!(state.order && (state.mode === "play" || state.mode === "paused"));

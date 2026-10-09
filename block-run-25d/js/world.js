@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN,
-} from "./config.js?v=19";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=19";
+} from "./config.js?v=21";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=21";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -931,7 +931,8 @@ export function createWorld(canvas, sprites) {
       playerCar.visible = true;
       place(playerCar, cx, GROUND_Y, camX, 4.95);
       playerCar.position.y = state.car.hp > 0 ? 0 : -0.12;
-      playerCar.rotation.y = state.car.facing < 0 ? Math.PI : 0;
+      const yaw = Number.isFinite(state.car.yaw) ? state.car.yaw : (state.car.facing < 0 ? Math.PI : 0);
+      playerCar.rotation.y = yaw;
       const body = playerCar.getObjectByName("body");
       if (body) body.material.color.setHex(state.car.hp > 0 ? 0x1a1a1e : 0x2a2438);
       const speed = Math.min(1, Math.abs(state.car.vx) / 180);
