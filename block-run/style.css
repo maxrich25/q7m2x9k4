@@ -33,3 +33,18 @@ body {
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
 }
+
+#menu-home {
+  position: fixed;
+  top: calc(8px + var(--sat));
+  left: calc(8px + var(--sal));
+  z-index: 20;
+  font-family: "Press Start 2P", ui-monospace, monospace;
+  font-size: 8px;
+  color: #3de0ff;
+  text-decoration: none;
+  background: rgba(7, 6, 12, 0.82);
+  border: 2px solid #3a3644;
+  padding: 7px 8px;
+  pointer-events: auto;
+}

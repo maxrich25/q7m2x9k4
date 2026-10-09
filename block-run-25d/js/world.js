@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN,
-} from "./config.js?v=16";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=16";
+} from "./config.js?v=17";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=17";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -38,26 +38,28 @@ function brickTex(color, accent) {
   });
 }
 
-  function asphaltTex() {
+function asphaltTex() {
   return canvasTex(128, 128, (g, w, h) => {
-    g.fillStyle = "#2a2434";
+    g.fillStyle = "#1a1822";
     g.fillRect(0, 0, w, h);
-    g.fillStyle = "#322a3c";
-    for (let i = 0; i < 200; i++) g.fillRect((i * 37) % w, (i * 53) % h, 2, 2);
-    g.fillStyle = "#3a3444";
-    for (let i = 0; i < 80; i++) g.fillRect((i * 19) % w, (i * 29) % h, 1, 1);
+    g.fillStyle = "#24202c";
+    for (let i = 0; i < 220; i++) g.fillRect((i * 37) % w, (i * 53) % h, 2, 2);
+    g.fillStyle = "#2e2a36";
+    for (let i = 0; i < 90; i++) g.fillRect((i * 19) % w, (i * 29) % h, 1, 1);
   });
 }
 
 function sidewalkTex() {
   return canvasTex(64, 32, (g, w, h) => {
-    g.fillStyle = "#5a5664";
+    g.fillStyle = "#8a8694";
     g.fillRect(0, 0, w, h);
-    g.strokeStyle = "#3a3644";
-    g.lineWidth = 1;
-    for (let x = 0; x < w; x += 16) g.strokeRect(x, 0, 16, h);
-    g.fillStyle = "#7a7684";
-    g.fillRect(0, 0, w, 2);
+    g.strokeStyle = "#5a5664";
+    g.lineWidth = 2;
+    for (let x = 0; x < w; x += 16) g.strokeRect(x + 0.5, 1, 15, h - 2);
+    g.fillStyle = "#b8b4c0";
+    g.fillRect(0, 0, w, 3);
+    g.fillStyle = "#6a6674";
+    g.fillRect(0, h - 3, w, 3);
   });
 }
 
@@ -224,59 +226,56 @@ function chromeRim(x, z, radius = 0.22) {
   return g;
 }
 
-function makeLowrider() {
+function makeLuxuryCar() {
   const g = new THREE.Group();
-  const candy = new THREE.MeshLambertMaterial({ color: 0x3a14a0 });
-  const candyHi = new THREE.MeshLambertMaterial({ color: 0x6a38d8 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(3.35, 0.42, 1.18), candy);
-  body.position.y = 0.36;
+  const paint = new THREE.MeshLambertMaterial({ color: 0x141416 });
+  const chrome = new THREE.MeshBasicMaterial({ color: 0xe8eef4 });
+  const tint = new THREE.MeshBasicMaterial({ color: 0x0a1014 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(3.95, 0.46, 1.32), paint);
+  body.position.y = 0.4;
   body.name = "body";
   g.add(body);
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.16, 1.12), candyHi);
-  deck.position.set(-1.05, 0.62, 0);
+  const hood = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.12, 1.22), paint);
+  hood.position.set(1.15, 0.64, 0);
+  g.add(hood);
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.12, 1.22), paint);
+  deck.position.set(-1.25, 0.64, 0);
   g.add(deck);
-  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.18, 1.05), candy);
-  nose.position.set(1.45, 0.4, 0);
-  g.add(nose);
   const cabin = new THREE.Mesh(
-    new THREE.BoxGeometry(1.45, 0.42, 1.08),
-    new THREE.MeshLambertMaterial({ color: 0x0a1018 }),
+    new THREE.BoxGeometry(1.7, 0.46, 1.18),
+    new THREE.MeshLambertMaterial({ color: 0x0c0c10 }),
   );
-  cabin.position.set(-0.05, 0.78, 0);
+  cabin.position.set(-0.08, 0.86, 0);
   g.add(cabin);
-  const glass = new THREE.Mesh(
-    new THREE.BoxGeometry(1.28, 0.28, 1.02),
-    new THREE.MeshBasicMaterial({ color: 0x0c1824 }),
-  );
-  glass.position.set(-0.02, 0.86, 0);
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.32, 1.12), tint);
+  glass.position.set(-0.06, 0.94, 0);
   g.add(glass);
-  const stripe = new THREE.Mesh(
-    new THREE.BoxGeometry(3.0, 0.035, 1.2),
-    new THREE.MeshBasicMaterial({ color: 0xf0c430 }),
-  );
-  stripe.position.set(0.05, 0.5, 0);
-  g.add(stripe);
-  const chrome = new THREE.MeshBasicMaterial({ color: 0xe8eef4 });
-  const bumperF = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 1.16), chrome);
-  bumperF.position.set(1.72, 0.28, 0);
+  const belt = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.04, 1.2), chrome);
+  belt.position.set(-0.08, 0.66, 0);
+  g.add(belt);
+  const grille = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.72), chrome);
+  grille.position.set(2.0, 0.4, 0);
+  g.add(grille);
+  const bumperF = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 1.3), chrome);
+  bumperF.position.set(2.02, 0.26, 0);
   g.add(bumperF);
-  const bumperR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 1.16), chrome);
-  bumperR.position.set(-1.72, 0.28, 0);
+  const bumperR = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 1.3), chrome);
+  bumperR.position.set(-2.02, 0.26, 0);
   g.add(bumperR);
-  const lightMat = new THREE.MeshBasicMaterial({ color: 0xf0c430 });
-  for (const z of [-0.38, 0.38]) {
-    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.2), lightMat);
-    lamp.position.set(1.68, 0.42, z);
+  const lightMat = new THREE.MeshBasicMaterial({ color: 0xf4f0e8 });
+  for (const z of [-0.42, 0.42]) {
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.22), lightMat);
+    lamp.position.set(1.98, 0.46, z);
     g.add(lamp);
+    const tail = new THREE.Mesh(
+      new THREE.BoxGeometry(0.08, 0.08, 0.2),
+      new THREE.MeshBasicMaterial({ color: 0xe21b7a }),
+    );
+    tail.position.set(-1.98, 0.44, z);
+    g.add(tail);
   }
-  const skirt = new THREE.Mesh(
-    new THREE.BoxGeometry(3.1, 0.06, 1.22),
-    new THREE.MeshBasicMaterial({ color: 0x5a28c8 }),
-  );
-  skirt.position.set(0, 0.14, 0);
-  g.add(skirt);
-  for (const [x, z] of [[-1.05, 0.55], [-1.05, -0.55], [1.05, 0.55], [1.05, -0.55]]) {
-    g.add(chromeRim(x, z, 0.2));
+  for (const [x, z] of [[-1.2, 0.58], [-1.2, -0.58], [1.2, 0.58], [1.2, -0.58]]) {
+    g.add(chromeRim(x, z, 0.21));
   }
   return g;
 }
@@ -503,42 +502,49 @@ export function createWorld(canvas, sprites) {
 
   const city = new THREE.Group();
   const asphalt = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 24),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 12.4),
     new THREE.MeshLambertMaterial({ map: asphaltTex() }),
   );
   asphalt.rotation.x = -Math.PI / 2;
-  asphalt.position.set(STREET_LEN / 2, 0, 20.8);
-  asphalt.material.map.repeat.set(40, 3);
+  asphalt.position.set(STREET_LEN / 2, 0, 9.3);
+  asphalt.material.map.repeat.set(48, 2);
   city.add(asphalt);
 
   const walk = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 12.6),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 3.4),
     new THREE.MeshLambertMaterial({ map: sidewalkTex() }),
   );
   walk.rotation.x = -Math.PI / 2;
-  walk.position.set(STREET_LEN / 2, 0.02, 4.05);
-  walk.material.map.repeat.set(120, 4);
+  walk.position.set(STREET_LEN / 2, 0.03, 1.2);
+  walk.material.map.repeat.set(160, 1);
   city.add(walk);
 
   const curb = new THREE.Mesh(
-    new THREE.BoxGeometry(STREET_LEN + 4, 0.12, 0.18),
-    new THREE.MeshLambertMaterial({ color: 0x4a4654 }),
+    new THREE.BoxGeometry(STREET_LEN + 4, 0.16, 0.28),
+    new THREE.MeshLambertMaterial({ color: 0xc8c4b8 }),
   );
-  curb.position.set(STREET_LEN / 2, 0.06, 10.3);
+  curb.position.set(STREET_LEN / 2, 0.08, 2.95);
   city.add(curb);
+  const curbShadow = new THREE.Mesh(
+    new THREE.BoxGeometry(STREET_LEN + 4, 0.04, 0.18),
+    new THREE.MeshBasicMaterial({ color: 0x2a2430 }),
+  );
+  curbShadow.position.set(STREET_LEN / 2, 0.02, 3.18);
+  city.add(curbShadow);
 
-  const dashTex = canvasTex(32, 8, (g) => {
+  const dashTex = canvasTex(48, 8, (g) => {
+    g.clearRect(0, 0, 48, 8);
     g.fillStyle = "#f0c430";
-    g.fillRect(0, 2, 18, 4);
+    g.fillRect(0, 1, 26, 6);
   });
-  dashTex.repeat.set(110, 1);
+  dashTex.repeat.set(90, 1);
   dashTex.wrapS = THREE.RepeatWrapping;
   const dashes = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN, 0.12),
+    new THREE.PlaneGeometry(STREET_LEN, 0.22),
     new THREE.MeshBasicMaterial({ map: dashTex, transparent: true }),
   );
   dashes.rotation.x = -Math.PI / 2;
-  dashes.position.set(STREET_LEN / 2, 0.03, 12.4);
+  dashes.position.set(STREET_LEN / 2, 0.04, 7.55);
   city.add(dashes);
 
   const brickCache = new Map();
@@ -737,8 +743,28 @@ export function createWorld(canvas, sprites) {
   scene.add(fireLabel);
   const bangPool = [];
 
-  const playerCar = makeLowrider();
+  const playerCar = makeLuxuryCar();
   scene.add(playerCar);
+  const speedStreaks = [];
+  for (let i = 0; i < 4; i++) {
+    const streak = new THREE.Mesh(
+      new THREE.BoxGeometry(1.4 + i * 0.35, 0.05, 0.12),
+      new THREE.MeshBasicMaterial({ color: 0xf4f0e8, transparent: true, opacity: 0, depthWrite: false }),
+    );
+    streak.visible = false;
+    scene.add(streak);
+    speedStreaks.push(streak);
+  }
+  const buyerGlow = glowSprite("#f0c430", 3.2);
+  buyerGlow.visible = false;
+  scene.add(buyerGlow);
+  const buyerArrow = new THREE.Mesh(
+    new THREE.ConeGeometry(0.28, 0.7, 4),
+    new THREE.MeshBasicMaterial({ color: 0xf0c430 }),
+  );
+  buyerArrow.rotation.z = Math.PI;
+  buyerArrow.visible = false;
+  scene.add(buyerArrow);
   const copCarMesh = makeCopCar();
   copCarMesh.visible = false;
   scene.add(copCarMesh);
@@ -795,6 +821,16 @@ export function createWorld(canvas, sprites) {
     for (let i = start; i < pool.length; i++) pool[i].visible = false;
   }
 
+  function lerpWrap(a, b, t, len) {
+    return wrap(a + wrapDelta(a, b, len) * t, len);
+  }
+
+  function renderGameX(ent, alpha) {
+    if (!ent) return 0;
+    if (ent.px == null) return ent.x;
+    return lerpWrap(ent.px, ent.x, alpha, WORLD);
+  }
+
   function place(obj, gameX, gameY, cam, z = 0) {
     obj.position.x = nearestWorldX(gameX, cam);
     obj.position.y = Math.max(0, gameToWorldY(gameY));
@@ -831,27 +867,31 @@ export function createWorld(canvas, sprites) {
     };
   }
 
-  function sync(state, dt) {
+  function sync(state, dt, alpha = 1) {
     const p = state.player;
-    camTilt += ((p.vx / 96) * 0.04 - camTilt) * Math.min(1, dt * 8);
+    const px = renderGameX(p, alpha);
+    const paused = state.mode === "paused";
+    const stepDt = paused ? 0 : dt;
+    camTilt += ((p.vx / 140) * 0.028 - camTilt) * Math.min(1, stepDt * 10);
 
-    const playing = state.mode === "play";
+    const playing = state.mode === "play" || paused;
     const portrait = camera.aspect < 1;
     const camZ = portrait ? 16.4 : 13.2;
     const camY = portrait ? 2.48 : 2.36;
     if (playing) {
-      const leadGame = state.inCar ? (portrait ? 22 : 34) : (portrait ? 16 : 24);
-      const lookX = nearestWorldX(wrap(p.x + p.facing * leadGame, WORLD), camX);
+      const leadGame = state.inCar ? (portrait ? 18 : 28) : (portrait ? 14 : 22);
+      const lookX = nearestWorldX(wrap(px + p.facing * leadGame, WORLD), camX);
       const dx = wrapDelta(camX, lookX, STREET_LEN);
-      camX = wrap(camX + dx * (1 - Math.exp(-4.2 * dt)), STREET_LEN);
+      const follow = state.inCar ? 10.5 : 7.2;
+      camX = wrap(camX + dx * (1 - Math.exp(-follow * Math.max(stepDt, 0.0001) * (paused ? 0 : 1))), STREET_LEN);
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.08, camZ);
-      tmp.set(camX + p.facing * (state.inCar ? 1.15 : 0.85), 1.28 + gameToWorldY(p.y) * 0.12, 0.7);
+      tmp.set(camX + p.facing * (state.inCar ? 1.05 : 0.75), 1.28 + gameToWorldY(p.y) * 0.12, 2.15);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
     } else {
-      camX = wrap(camX + dt * 0.35, STREET_LEN);
+      camX = wrap(camX + stepDt * 0.35, STREET_LEN);
       camera.position.set(camX, camY + 0.06, camZ + 1.1);
-      camera.lookAt(camX, 1.32, 0.55);
+      camera.lookAt(camX, 1.32, 1.4);
     }
 
     moon.position.set(camX - 4.5, 9.2, -11);
@@ -869,7 +909,7 @@ export function createWorld(canvas, sprites) {
       : sprites.idle;
     const rate = state.muzzle > 0 ? 14 : airborne ? 8 : Math.abs(p.vx) > 8 ? 11 : 5;
     setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate), p.facing);
-    place(playerSprite, p.x, p.y, camX, 0.55);
+    place(playerSprite, px, p.y, camX, 1.15);
     orientBillboard(playerSprite, camera);
     playerSprite.material.color.set(p.flash > 0 ? 0xffffff : 0xffffff);
     if (p.flash > 0) playerSprite.material.color.setHex(0xffc8e8);
@@ -877,23 +917,34 @@ export function createWorld(canvas, sprites) {
 
     playerShadow.visible = !state.inCar;
     playerShadow.position.x = playerSprite.position.x;
-    playerShadow.position.z = 0.55;
+    playerShadow.position.z = 1.15;
     playerShadow.scale.setScalar(p.y < 198 ? 0.7 : 1);
 
     if (state.car) {
+      const cx = renderGameX(state.car, alpha);
       playerCar.visible = true;
-      place(playerCar, state.car.x, GROUND_Y, camX, 3.45);
-      const parked = state.car.hp > 0 && Math.abs(state.car.vx) < 10;
-      const bounce = parked ? Math.abs(Math.sin(performance.now() * 0.004)) * 0.14 : 0;
-      playerCar.position.y = (state.car.hp > 0 ? 0 : -0.12) + bounce;
+      place(playerCar, cx, GROUND_Y, camX, 7.45);
+      playerCar.position.y = state.car.hp > 0 ? 0 : -0.12;
       playerCar.rotation.y = state.car.facing < 0 ? Math.PI : 0;
       const body = playerCar.getObjectByName("body");
-      if (body) body.material.color.setHex(state.car.hp > 0 ? 0x3a14a0 : 0x2a2438);
+      if (body) body.material.color.setHex(state.car.hp > 0 ? 0x141416 : 0x2a2438);
+      const speed = Math.min(1, Math.abs(state.car.vx) / 180);
+      speedStreaks.forEach((streak, i) => {
+        const on = state.inCar && speed > 0.35;
+        streak.visible = on;
+        if (!on) return;
+        const back = -state.car.facing * (1.6 + i * 0.55);
+        streak.position.x = playerCar.position.x + back;
+        streak.position.y = 0.38 + (i % 2) * 0.12;
+        streak.position.z = 7.45 + (i - 1.5) * 0.16;
+        streak.rotation.y = state.car.facing < 0 ? Math.PI : 0;
+        streak.material.opacity = (0.18 - i * 0.03) * speed;
+      });
     }
 
     if (state.copCar) {
       copCarMesh.visible = true;
-      place(copCarMesh, state.copCar.x, GROUND_Y, camX, 3.55);
+      place(copCarMesh, renderGameX(state.copCar, alpha), GROUND_Y, camX, 8.0);
       copCarMesh.position.y = 0;
       copCarMesh.rotation.y = state.copCar.facing < 0 ? Math.PI : 0;
       const flash = Math.sin(performance.now() * 0.012) > 0;
@@ -907,26 +958,36 @@ export function createWorld(canvas, sprites) {
 
     if (state.order) {
       destPin.visible = true;
-      place(destPin, state.order.x, GROUND_Y, camX, 0.4);
-      destPin.position.y = 0.05 + Math.sin(performance.now() * 0.006) * 0.12;
+      place(destPin, state.order.x, GROUND_Y, camX, 1.2);
+      destPin.position.y = 2.85 + Math.sin(performance.now() * 0.01) * 0.18;
       buyerSprite.visible = true;
-      buyerT += dt;
+      buyerT += stepDt;
       const look = Math.max(0, state.order.look | 0) % sprites.buyers.length;
       const buyerSet = sprites.buyers[look];
-      const face = wrapDelta(state.order.x, p.x, WORLD) >= 0 ? 1 : -1;
-      setBillboardFrame(buyerSprite, frameAt(buyerSet.idle, buyerT, 5), face);
-      place(buyerSprite, state.order.x, GROUND_Y, camX, 0.5);
+      const face = wrapDelta(state.order.x, px, WORLD) >= 0 ? 1 : -1;
+      const waveSet = buyerSet.wave || buyerSet.idle;
+      setBillboardFrame(buyerSprite, frameAt(waveSet, buyerT, 8), face);
+      place(buyerSprite, state.order.x, GROUND_Y, camX, 1.2);
       buyerSprite.position.y = Math.max(0, gameToWorldY(GROUND_Y));
       orientBillboard(buyerSprite, camera);
-      buyerSprite.material.color.setHex(0xffffff);
+      const pulse = 0.55 + Math.sin(performance.now() * 0.012) * 0.45;
+      buyerSprite.material.color.setHex(pulse > 0.7 ? 0xfff2a8 : 0xffffff);
+      buyerGlow.visible = true;
+      buyerGlow.position.set(buyerSprite.position.x, 1.4, 1.2);
+      buyerGlow.scale.setScalar(2.6 + pulse * 1.4);
+      buyerGlow.material.opacity = 0.45 + pulse * 0.4;
+      buyerArrow.visible = true;
+      buyerArrow.position.set(buyerSprite.position.x, 3.15 + Math.sin(performance.now() * 0.014) * 0.22, 1.2);
     } else {
       destPin.visible = false;
       buyerSprite.visible = false;
+      buyerGlow.visible = false;
+      buyerArrow.visible = false;
     }
 
     packHeld.visible = state.carrying && !state.inCar;
     if (state.carrying) {
-      place(packHeld, p.x, p.y - 34, camX, 0.2);
+      place(packHeld, px, p.y - 34, camX, 0.85);
       packHeld.position.y = playerSprite.position.y + 1.55;
       orientBillboard(packHeld, camera);
     }

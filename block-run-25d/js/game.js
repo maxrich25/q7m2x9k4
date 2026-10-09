@@ -3,9 +3,9 @@ import {
   GRAVITY, JUMP_VEL, COYOTE, JUMP_BUFFER, BUYER_COUNT,
   MOVE_SPEED, TELEGRAPH, BOSS_CASH_BASE, BOSS_CASH_PER_WAVE, HI_KEY,
   SHOP_X, DUMPSTER_X, CAR_X, ORDER_SPOTS, WEAPONS, wrap, wrapDelta, hitWrap,
-  dealMeters,
-} from "./config.js?v=16";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=16";
+  formatDeal, dealFeet,
+} from "./config.js?v=17";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=17";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -24,10 +24,10 @@ const ORDER_LINES = [
 export function createGame() {
   let mode = "title";
   const player = {
-    x: 80, y: GROUND_Y, vx: 0, vy: 0, facing: 1,
+    x: 80, px: 80, y: GROUND_Y, vx: 0, vy: 0, facing: 1,
     hp: MAX_HP, anim: 0, flash: 0,
   };
-  const car = { x: CAR_X, vx: 0, facing: 1, hp: CAR_HP };
+  const car = { x: CAR_X, px: CAR_X, vx: 0, facing: 1, hp: CAR_HP };
   let inCar = false;
   let wreckT = 0;
   let order = null;
@@ -97,7 +97,8 @@ export function createGame() {
       order: order ? { ...order } : null,
       copCar: copCar ? { ...copCar } : null,
       prompt, destSide,
-      dealM: order ? dealMeters(player.x, order.x) : 0,
+      dealM: order ? Math.round(dealFeet(player.x, order.x)) : 0,
+      dealLabel: order ? formatDeal(player.x, order.x) : "",
       dealDir: order ? (dealD >= 0 ? 1 : -1) : 0,
       dealMe: player.x / WORLD,
       dealAt: order ? order.x / WORLD : 0,
@@ -140,6 +141,7 @@ export function createGame() {
 
   function resetCar() {
     car.x = CAR_X;
+    car.px = CAR_X;
     car.vx = 0;
     car.facing = 1;
     car.hp = CAR_HP;
@@ -150,6 +152,7 @@ export function createGame() {
 
   function reset(keepWave) {
     player.x = 80;
+    player.px = 80;
     player.y = GROUND_Y;
     player.vx = 0;
     player.vy = 0;
@@ -405,6 +408,12 @@ export function createGame() {
     }
 
     if (input.mute) setMuted(!isMuted());
+    if (input.pause) {
+      if (mode === "play") mode = "paused";
+      else if (mode === "paused") mode = "play";
+    }
+
+    if (mode === "paused") return snapshot();
 
     if (mode === "title") {
       if (input.start || input.shoot || input.jump) beginPlay(false);
@@ -424,6 +433,10 @@ export function createGame() {
       return snapshot();
     }
 
+    player.px = player.x;
+    car.px = car.x;
+    if (copCar) copCar.px = copCar.x;
+
     const nearCar = !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && onGround();
     let usedJump = false;
     if (inCar) {
@@ -433,6 +446,11 @@ export function createGame() {
         player.vx = 0;
         player.y = GROUND_Y;
         player.vy = 0;
+        usedJump = true;
+        jumpBuf = 0;
+      } else if (input.jump && Math.abs(car.vx) >= 36) {
+        car.facing *= -1;
+        car.vx = car.facing * Math.abs(car.vx);
         usedJump = true;
         jumpBuf = 0;
       }
@@ -447,11 +465,15 @@ export function createGame() {
     }
 
     if (inCar) {
-      car.vx += input.moveX * CAR_ACCEL * dt;
+      const gas = input.moveX > 0;
+      const brake = input.moveX < 0;
+      if (gas) car.vx += car.facing * CAR_ACCEL * dt;
+      if (brake) {
+        if (Math.abs(car.vx) > 14) car.vx -= Math.sign(car.vx) * CAR_ACCEL * 1.45 * dt;
+        else car.vx += -car.facing * CAR_ACCEL * 0.9 * dt;
+      }
       car.vx -= car.vx * Math.min(1, CAR_FRICTION * dt);
       if (Math.abs(car.vx) > CAR_MAX) car.vx = Math.sign(car.vx) * CAR_MAX;
-      if (input.moveX !== 0) car.facing = input.moveX > 0 ? 1 : -1;
-      else if (Math.abs(car.vx) > 8) car.facing = Math.sign(car.vx);
       car.x = wrap(car.x + car.vx * dt, WORLD);
       player.x = car.x;
       player.vx = car.vx;
@@ -802,6 +824,10 @@ export function createGame() {
     tick,
     getState: snapshot,
     start: () => beginPlay(false),
+    pause() { if (mode === "play") mode = "paused"; },
+    resume() { if (mode === "paused") mode = "play"; },
+    restart() { beginPlay(false); },
+    toTitle() { mode = "title"; reset(false); },
     giveCash(n) { cash += n; maybeHi(); },
     setGun(name) { if (WEAPONS[name]) gun = name; },
     setCarrying(on) { carrying = !!on; },
@@ -818,7 +844,11 @@ export function createGame() {
     },
     setPlayerX(x) {
       player.x = wrap(x, WORLD);
-      if (inCar) car.x = player.x;
+      player.px = player.x;
+      if (inCar) {
+        car.x = player.x;
+        car.px = car.x;
+      }
     },
     setFacing(dir) { player.facing = dir < 0 ? -1 : 1; },
     setAnim(t) { player.anim = t; },

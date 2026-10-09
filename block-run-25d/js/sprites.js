@@ -146,6 +146,15 @@ function shootFrom(src) {
   ];
 }
 
+function waveFrom(src) {
+  return [
+    texPose(src, { armDx: 1, bob: 0 }),
+    texPose(src, { armDx: 3, bob: 1 }),
+    texPose(src, { armDx: 4, bob: 0 }),
+    texPose(src, { armDx: 2, bob: 1 }),
+  ];
+}
+
 function hueShiftCanvas(src, deg) {
   return pixelCanvas(src.width, src.height, (g) => {
     g.drawImage(src, 0, 0);
@@ -197,6 +206,7 @@ function setFromOriginal(base, extras = {}) {
     walk: extras.walk || walkFrom(base),
     jump: extras.jump || jumpFrom(base),
     shoot: extras.shoot || shootFrom(base),
+    wave: extras.wave || waveFrom(base),
   };
 }
 
