@@ -2,8 +2,8 @@ import * as THREE from "three";
 import {
   WORLD, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
-} from "./config.js?v=2";
-import { makeBillboard, setBillboardFrame, setBillboardFacing, orientBillboard, frameAt } from "./sprites.js?v=2";
+} from "./config.js?v=3";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=3";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -648,10 +648,9 @@ export function createWorld(canvas, sprites) {
     playerSprite.material.opacity = blink ? 0.4 : 1;
     const animSet = state.muzzle > 0 ? sprites.shoot : Math.abs(p.vx) > 8 ? sprites.walk : sprites.idle;
     const rate = state.muzzle > 0 ? 12 : 8;
-    setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate));
+    setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate), p.facing);
     place(playerSprite, p.x, p.y, camX, 0.55);
     orientBillboard(playerSprite, camera);
-    setBillboardFacing(playerSprite, p.facing);
     playerSprite.material.color.set(p.flash > 0 ? 0xffffff : 0xffffff);
     if (p.flash > 0) playerSprite.material.color.setHex(0xffc8e8);
     else playerSprite.material.color.setHex(0xffffff);
@@ -691,10 +690,9 @@ export function createWorld(canvas, sprites) {
         return s;
       }, fi++);
       const set = foe.kind === "runner" ? sprites.runner : sprites.thug;
-      setBillboardFrame(spr, frameAt(set, foe.anim, 8));
+      setBillboardFrame(spr, frameAt(set, foe.anim, 8), foe.facing);
       place(spr, foe.x, foe.y, camX, 0.55);
       orientBillboard(spr, camera);
-      setBillboardFacing(spr, foe.facing);
       spr.material.color.setHex(foe.kind === "cop" ? 0x7aa0ff : foe.flash > 0 ? 0xffffff : 0xffffff);
       if (foe.kind === "cop") spr.material.color.setHex(0x6690ff);
       if (foe.flash > 0) spr.material.color.setHex(0xffffff);
@@ -726,11 +724,10 @@ export function createWorld(canvas, sprites) {
         scene.add(bossSprite);
       }
       bossSprite.visible = true;
-      setBillboardFrame(bossSprite, frameAt(sprites.boss, state.boss.anim, 6));
+      setBillboardFrame(bossSprite, frameAt(sprites.boss, state.boss.anim, 6), state.boss.facing);
       place(bossSprite, state.boss.x, state.boss.y, camX, 1.1);
       bossSprite.position.y = 0.05;
       orientBillboard(bossSprite, camera);
-      setBillboardFacing(bossSprite, state.boss.facing);
       if (state.boss.flash > 0) bossSprite.material.color.setHex(0xffffff);
       else bossSprite.material.color.setHex(0xccf6ff);
       if (state.boss.telegraph > 0) {
@@ -772,11 +769,10 @@ export function createWorld(canvas, sprites) {
         s.userData.glow = glow;
         return s;
       }, si++);
-      setBillboardFrame(spr, frameAt(sprites.shot, 1 - shot.life, 14));
+      setBillboardFrame(spr, frameAt(sprites.shot, 1 - shot.life, 14), shot.vx >= 0 ? 1 : -1);
       place(spr, shot.x, shot.y, camX, 0.1);
       spr.position.y = Math.max(0.4, gameToWorldY(shot.y));
       orientBillboard(spr, camera);
-      setBillboardFacing(spr, shot.vx >= 0 ? 1 : -1);
       const col = shot.from === "foe" ? 0xff6a6a : 0x3de0ff;
       spr.material.color.setHex(col);
       if (spr.userData.glow) {

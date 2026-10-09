@@ -1,4 +1,4 @@
-import { unlockAudio } from "./audio.js?v=2";
+import { unlockAudio } from "./audio.js?v=3";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyJ", "KeyK", "KeyZ", "KeyX",

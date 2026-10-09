@@ -34,7 +34,7 @@ function pixelCanvas(w, h, paint) {
   return c;
 }
 
-function texturize(source) {
+function texturize(source, withFlip = false) {
   const tex = source instanceof HTMLCanvasElement
     ? new THREE.CanvasTexture(source)
     : new THREE.Texture(source);
@@ -43,6 +43,17 @@ function texturize(source) {
   tex.minFilter = THREE.NearestFilter;
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.generateMipmaps = false;
+  if (withFlip) {
+    const img = tex.image;
+    const w = img?.naturalWidth || img?.width || 32;
+    const h = img?.naturalHeight || img?.height || 40;
+    const flipped = pixelCanvas(w, h, (g) => {
+      g.translate(w, 0);
+      g.scale(-1, 1);
+      g.drawImage(img, 0, 0);
+    });
+    tex.userData.flipped = texturize(flipped, false);
+  }
   return tex;
 }
 
@@ -74,7 +85,7 @@ async function loadSheet(name, count) {
   const frames = [];
   for (let i = 1; i <= count; i++) {
     const img = await loadImage(new URL(`${name}-${i}.png`, SPRITE_BASE).href);
-    frames.push(texturize(img || fallbackFrame(name, i)));
+    frames.push(texturize(img || fallbackFrame(name, i), true));
   }
   return frames;
 }
@@ -112,7 +123,11 @@ function textureSize(texture) {
   };
 }
 
-/** Camera-facing plane. Art faces left; use setBillboardFacing so scale.x flips it. */
+/**
+ * Camera-facing plane. PNG art faces right.
+ * Negative scale.x / UV tricks do not mirror on this billboard (camera quat
+ * + DoubleSide). Baked flipped textures in texturize(..., true) do.
+ */
 export function makeBillboard(texture, height = 1.7) {
   const mat = new THREE.MeshBasicMaterial({
     map: texture,
@@ -131,20 +146,16 @@ export function makeBillboard(texture, height = 1.7) {
   return mesh;
 }
 
-export function setBillboardFrame(mesh, texture) {
-  if (mesh.material.map === texture) return;
-  mesh.material.map = texture;
+export function setBillboardFrame(mesh, texture, facing = 1) {
+  const map = facing < 0 && texture?.userData?.flipped ? texture.userData.flipped : texture;
+  if (mesh.material.map === map) return;
+  mesh.material.map = map;
   mesh.material.needsUpdate = true;
-  const { w, h } = textureSize(texture);
+  const { w, h } = textureSize(map);
   const height = mesh.userData.height || 1.7;
   mesh.userData.baseW = (w / h) * height;
+  mesh.scale.x = mesh.userData.baseW;
   mesh.scale.y = height;
-}
-
-export function setBillboardFacing(mesh, facing) {
-  const w = mesh.userData.baseW || Math.abs(mesh.scale.x) || 1;
-  // PNG characters look left. facing +1 (right) must flip.
-  mesh.scale.x = -Math.sign(facing || 1) * w;
 }
 
 export function orientBillboard(mesh, camera) {
