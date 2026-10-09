@@ -1,6 +1,6 @@
 # BLOCK RUN 2.5D
 
-Night-street prototype at [`/block-run-25d/`](https://maxrich25.github.io/Steampunk-RPG-Guantlet/block-run-25d/). Arcade rules stay in this folder; the original cart is [`block-run/`](../block-run/).
+Night-street prototype at [`/block-run-25d/`](https://maxrich25.github.io/pixel-sandbox/block-run-25d/). Arcade rules stay in this folder; the original cart is [`block-run/`](../block-run/).
 
 ## Cache bust
 

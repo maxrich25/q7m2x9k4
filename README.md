@@ -1,11 +1,6 @@
-# maxrich25 projects
+# pixel-sandbox
 
-Private grab bag. The old steampunk RPG idea is parked.
+Small browser game experiments.
 
-## BLOCK RUN
-
-Pixel night-block arcade from Grok, copied here so it is not only on grok.me.
-
-- Grok play link: https://plum-rapid-kind-fjord.grok.me
-- GitHub Pages (after you flip the repo public + Pages on): https://maxrich25.github.io/Steampunk-RPG-Guantlet/
-- Source / sprites: [`block-run/`](block-run/)
+- [Block Run](https://maxrich25.github.io/pixel-sandbox/)
+- [Block Run 2.5D](https://maxrich25.github.io/pixel-sandbox/block-run-25d/)

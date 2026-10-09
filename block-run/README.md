@@ -7,7 +7,7 @@ Feel pass: same vibe, slower heat/spawns, jump actually clears trouble, you get 
 **Play:**
 
 - Grok: https://plum-rapid-kind-fjord.grok.me
-- GitHub Pages (once enabled): https://maxrich25.github.io/Steampunk-RPG-Guantlet/
+- GitHub Pages: https://maxrich25.github.io/pixel-sandbox/
 
 This folder is a local copy of that cart (sprites, map, and game code) so it is not stuck only on Grok.
 
