@@ -21,6 +21,8 @@ export const HI_KEY = "block-run-25d-hi";
 export const SHOP_X = Math.floor(WORLD * 0.22);
 export const DUMPSTER_X = Math.floor(WORLD * 0.62);
 export const CAR_X = 100;
+export const BUYER_COUNT = 5;
+export const COP_CAR_HP = 3;
 
 /** 3D street length in meters. Game x maps onto this wrapping strip. */
 export const STREET_LEN = 104;

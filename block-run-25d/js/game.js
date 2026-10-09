@@ -1,10 +1,10 @@
 import {
-  WORLD, GROUND_Y, MAX_HP, CAR_HP, CAR_ACCEL, CAR_MAX, CAR_FRICTION,
-  GRAVITY, JUMP_VEL, COYOTE, JUMP_BUFFER,
+  WORLD, GROUND_Y, MAX_HP, CAR_HP, COP_CAR_HP, CAR_ACCEL, CAR_MAX, CAR_FRICTION,
+  GRAVITY, JUMP_VEL, COYOTE, JUMP_BUFFER, BUYER_COUNT,
   MOVE_SPEED, TELEGRAPH, BOSS_CASH_BASE, BOSS_CASH_PER_WAVE, HI_KEY,
   SHOP_X, DUMPSTER_X, CAR_X, ORDER_SPOTS, WEAPONS, wrap, wrapDelta, hitWrap,
-} from "./config.js?v=7";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=7";
+} from "./config.js?v=11";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=11";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -235,6 +235,7 @@ export function createGame() {
       t: opts.t ?? 28,
       maxT: opts.t ?? 28,
       dist,
+      look: ((opts.look ?? Math.floor(Math.random() * BUYER_COUNT)) % BUYER_COUNT + BUYER_COUNT) % BUYER_COUNT,
       text: opts.text || line(packs, spot.label),
     };
     orderCd = 18 + Math.random() * 8;
@@ -324,12 +325,14 @@ export function createGame() {
     const w = WEAPONS[gun];
     shootCd = w.cd;
     muzzle = 0.18;
-    const y = player.y - 18;
-    const dir = player.facing;
+    const dir = inCar ? car.facing : player.facing;
+    const y = inCar ? GROUND_Y - 22 : player.y - 18;
+    const xOff = inCar ? 22 : 14;
+    const ox = (inCar ? car.x : player.x) + dir * xOff;
     for (let i = 0; i < w.pellets; i++) {
       const spread = w.pellets === 1 ? 0 : (i - (w.pellets - 1) / 2) * w.spread;
       shots.push({
-        x: player.x + dir * 14,
+        x: ox,
         y,
         vx: dir * w.speed + spread * 0.4,
         vy: w.pellets > 1 ? (i - (w.pellets - 1) / 2) * 48 : 0,
@@ -338,8 +341,8 @@ export function createGame() {
       });
     }
     sfx.shoot();
-    burst(player.x + dir * 14, y, 3, "#3de0ff");
-    heat = Math.min(3, heat + 0.012);
+    burst(ox, y, 3, "#3de0ff");
+    heat = Math.min(3, heat + (inCar ? 0.03 : 0.012));
   }
 
   function buyGun() {
@@ -447,11 +450,6 @@ export function createGame() {
       player.y = GROUND_Y;
       player.vy = 0;
       player.anim += dt;
-      if (input.shoot) {
-        sfx.honk();
-        pop(car.x, 158, "HONK");
-        shootCd = 0.2;
-      }
     } else {
       if (input.moveX < 0) player.facing = -1;
       if (input.moveX > 0) player.facing = 1;
@@ -488,7 +486,9 @@ export function createGame() {
     }
 
     const atShop = !inCar && hitWrap(player.x, player.y - 10, 16, 24, SHOP_X, 188, 22, 28, WORLD);
-    if (!inCar && input.shootHeld && atShop) {
+    if (inCar && input.shootHeld) {
+      fire();
+    } else if (!inCar && input.shootHeld && atShop) {
       if (input.shoot) buyGun();
     } else if (!inCar && input.shootHeld) {
       fire();
@@ -549,6 +549,7 @@ export function createGame() {
         vx: 0,
         facing: -behind,
         bumpCd: 0,
+        hp: COP_CAR_HP,
       };
       sfx.siren();
       pop(player.x, 146, "5-0");
@@ -699,6 +700,21 @@ export function createGame() {
             if (foe.hp <= 0) killFoe(foe);
           }
         }
+        if (shot.life > 0 && copCar && hitWrap(shot.x, shot.y, 6, 4, copCar.x, GROUND_Y - 10, 36, 20, WORLD)) {
+          copCar.hp -= 1;
+          shot.life = 0;
+          booms.push({ x: shot.x, y: shot.y, t: 0 });
+          sfx.hit();
+          shake = Math.min(1, shake + 0.14);
+          if (copCar.hp <= 0) {
+            burst(copCar.x, GROUND_Y - 12, 16, "#3de0ff");
+            sfx.boom();
+            cash += 50;
+            pop(copCar.x, 150, "+50");
+            maybeHi();
+            copCar = null;
+          }
+        }
         if (boss && hitWrap(shot.x, shot.y, 6, 4, boss.x, boss.y - 16, 56, 24, WORLD)) {
           boss.hp -= 1;
           boss.flash = 0.12;
@@ -795,5 +811,7 @@ export function createGame() {
       player.x = wrap(x, WORLD);
       if (inCar) car.x = player.x;
     },
+    setFacing(dir) { player.facing = dir < 0 ? -1 : 1; },
+    setAnim(t) { player.anim = t; },
   };
 }
