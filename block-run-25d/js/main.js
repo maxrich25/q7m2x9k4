@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=4";
-import { bindAudioUnlock, unlockAudio, setMuted, isMuted } from "./audio.js?v=4";
-import { createInput } from "./input.js?v=4";
-import { createGame } from "./game.js?v=4";
-import { loadSprites } from "./sprites.js?v=4";
-import { createWorld } from "./world.js?v=4";
-import { createHud } from "./hud.js?v=4";
+import { TICK } from "./config.js?v=5";
+import { bindAudioUnlock, unlockAudio, setMuted, isMuted } from "./audio.js?v=5";
+import { createInput } from "./input.js?v=5";
+import { createGame } from "./game.js?v=5";
+import { loadSprites } from "./sprites.js?v=5";
+import { createWorld } from "./world.js?v=5";
+import { createHud } from "./hud.js?v=5";
 
 const canvas = document.getElementById("scene");
 const muteBtn = document.getElementById("btn-mute");

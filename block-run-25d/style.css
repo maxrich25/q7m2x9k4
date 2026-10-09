@@ -137,7 +137,7 @@ html, body {
   text-shadow: 0 0 8px #07060c, 0 2px 0 #07060c;
   letter-spacing: 2px;
   pointer-events: none;
-  animation: blink 1s steps(1) infinite;
+  z-index: 5;
 }
 #prompt.hidden { display: none; }
 
