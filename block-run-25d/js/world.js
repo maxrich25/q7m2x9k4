@@ -2,8 +2,8 @@ import * as THREE from "three";
 import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
-} from "./config.js?v=7";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=7";
+} from "./config.js?v=8";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=8";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -203,52 +203,142 @@ function makeBuilding(w, h, d, facade) {
   return g;
 }
 
-function makeCar(bodyColor = 0x5a3cff, cabinColor = 0x2a1a50) {
+function chromeRim(x, z, radius = 0.22) {
   const g = new THREE.Group();
-  const body = new THREE.Mesh(
-    new THREE.BoxGeometry(2.4, 0.55, 1.05),
-    new THREE.MeshLambertMaterial({ color: bodyColor }),
+  const tire = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius, 0.16, 10),
+    new THREE.MeshLambertMaterial({ color: 0x111018 }),
   );
-  body.position.y = 0.48;
+  tire.rotation.z = Math.PI / 2;
+  tire.rotation.y = Math.PI / 2;
+  g.add(tire);
+  const hub = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius * 0.55, radius * 0.55, 0.18, 8),
+    new THREE.MeshBasicMaterial({ color: 0xd8dee8 }),
+  );
+  hub.rotation.z = Math.PI / 2;
+  hub.rotation.y = Math.PI / 2;
+  g.add(hub);
+  g.position.set(x, radius, z);
+  return g;
+}
+
+function makeLowrider() {
+  const g = new THREE.Group();
+  const candy = new THREE.MeshLambertMaterial({ color: 0x3a14a0 });
+  const candyHi = new THREE.MeshLambertMaterial({ color: 0x6a38d8 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(3.35, 0.42, 1.18), candy);
+  body.position.y = 0.36;
   body.name = "body";
   g.add(body);
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.16, 1.12), candyHi);
+  deck.position.set(-1.05, 0.62, 0);
+  g.add(deck);
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.18, 1.05), candy);
+  nose.position.set(1.45, 0.4, 0);
+  g.add(nose);
   const cabin = new THREE.Mesh(
-    new THREE.BoxGeometry(1.2, 0.4, 0.95),
-    new THREE.MeshLambertMaterial({ color: cabinColor }),
+    new THREE.BoxGeometry(1.45, 0.42, 1.08),
+    new THREE.MeshLambertMaterial({ color: 0x0a1018 }),
   );
-  cabin.position.set(-0.15, 0.9, 0);
+  cabin.position.set(-0.05, 0.78, 0);
   g.add(cabin);
+  const glass = new THREE.Mesh(
+    new THREE.BoxGeometry(1.28, 0.28, 1.02),
+    new THREE.MeshBasicMaterial({ color: 0x0c1824 }),
+  );
+  glass.position.set(-0.02, 0.86, 0);
+  g.add(glass);
+  const stripe = new THREE.Mesh(
+    new THREE.BoxGeometry(3.0, 0.035, 1.2),
+    new THREE.MeshBasicMaterial({ color: 0xf0c430 }),
+  );
+  stripe.position.set(0.05, 0.5, 0);
+  g.add(stripe);
+  const chrome = new THREE.MeshBasicMaterial({ color: 0xe8eef4 });
+  const bumperF = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 1.16), chrome);
+  bumperF.position.set(1.72, 0.28, 0);
+  g.add(bumperF);
+  const bumperR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 1.16), chrome);
+  bumperR.position.set(-1.72, 0.28, 0);
+  g.add(bumperR);
   const lightMat = new THREE.MeshBasicMaterial({ color: 0xf0c430 });
-  for (const z of [-0.35, 0.35]) {
-    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.18), lightMat);
-    lamp.position.set(1.18, 0.48, z);
+  for (const z of [-0.38, 0.38]) {
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.2), lightMat);
+    lamp.position.set(1.68, 0.42, z);
     g.add(lamp);
   }
-  const wheelMat = new THREE.MeshLambertMaterial({ color: 0x111018 });
-  for (const [x, z] of [[-0.75, 0.5], [-0.75, -0.5], [0.75, 0.5], [0.75, -0.5]]) {
-    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.16, 8), wheelMat);
-    wheel.rotation.z = Math.PI / 2;
-    wheel.rotation.y = Math.PI / 2;
-    wheel.position.set(x, 0.18, z);
-    g.add(wheel);
+  const skirt = new THREE.Mesh(
+    new THREE.BoxGeometry(3.1, 0.06, 1.22),
+    new THREE.MeshBasicMaterial({ color: 0x5a28c8 }),
+  );
+  skirt.position.set(0, 0.14, 0);
+  g.add(skirt);
+  for (const [x, z] of [[-1.05, 0.55], [-1.05, -0.55], [1.05, 0.55], [1.05, -0.55]]) {
+    g.add(chromeRim(x, z, 0.2));
   }
   return g;
 }
 
 function makeCopCar() {
-  const g = makeCar(0x1a2438, 0xe8eef4);
-  const bar = new THREE.Mesh(
-    new THREE.BoxGeometry(0.55, 0.12, 0.7),
-    new THREE.MeshBasicMaterial({ color: 0x3de0ff }),
+  const g = new THREE.Group();
+  const white = new THREE.MeshLambertMaterial({ color: 0xe8eef4 });
+  const black = new THREE.MeshLambertMaterial({ color: 0x141820 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(3.05, 0.48, 1.12), white);
+  body.position.y = 0.42;
+  body.name = "body";
+  g.add(body);
+  const hood = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.16, 1.08), black);
+  hood.position.set(0.95, 0.66, 0);
+  g.add(hood);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.32, 1.14), black);
+  door.position.set(-0.05, 0.46, 0);
+  g.add(door);
+  const cabin = new THREE.Mesh(
+    new THREE.BoxGeometry(1.35, 0.42, 1.02),
+    new THREE.MeshLambertMaterial({ color: 0x1a2430 }),
   );
-  bar.position.set(-0.1, 1.18, 0);
+  cabin.position.set(-0.2, 0.86, 0);
+  g.add(cabin);
+  const glass = new THREE.Mesh(
+    new THREE.BoxGeometry(1.18, 0.26, 0.96),
+    new THREE.MeshBasicMaterial({ color: 0x152030 }),
+  );
+  glass.position.set(-0.18, 0.94, 0);
+  g.add(glass);
+  const bar = new THREE.Mesh(
+    new THREE.BoxGeometry(0.7, 0.14, 0.82),
+    new THREE.MeshLambertMaterial({ color: 0x111018 }),
+  );
+  bar.position.set(-0.15, 1.16, 0);
   g.add(bar);
   const red = new THREE.Mesh(
-    new THREE.BoxGeometry(0.2, 0.1, 0.28),
+    new THREE.BoxGeometry(0.28, 0.12, 0.34),
     new THREE.MeshBasicMaterial({ color: 0xe21b7a }),
   );
-  red.position.set(-0.22, 1.22, 0.18);
+  red.position.set(-0.28, 1.22, 0.16);
+  red.name = "copRed";
   g.add(red);
+  const blue = new THREE.Mesh(
+    new THREE.BoxGeometry(0.28, 0.12, 0.34),
+    new THREE.MeshBasicMaterial({ color: 0x3de0ff }),
+  );
+  blue.position.set(-0.02, 1.22, -0.16);
+  blue.name = "copBlue";
+  g.add(blue);
+  const chrome = new THREE.MeshBasicMaterial({ color: 0xc8d0dc });
+  const bumper = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 1.14), chrome);
+  bumper.position.set(1.56, 0.3, 0);
+  g.add(bumper);
+  const lightMat = new THREE.MeshBasicMaterial({ color: 0xf4f0e8 });
+  for (const z of [-0.36, 0.36]) {
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.18), lightMat);
+    lamp.position.set(1.52, 0.44, z);
+    g.add(lamp);
+  }
+  for (const [x, z] of [[-0.95, 0.52], [-0.95, -0.52], [0.95, 0.52], [0.95, -0.52]]) {
+    g.add(chromeRim(x, z, 0.2));
+  }
   return g;
 }
 
@@ -567,7 +657,7 @@ export function createWorld(canvas, sprites) {
   scene.add(fireLabel);
   const bangPool = [];
 
-  const playerCar = makeCar();
+  const playerCar = makeLowrider();
   scene.add(playerCar);
   const copCarMesh = makeCopCar();
   copCarMesh.visible = false;
@@ -575,9 +665,10 @@ export function createWorld(canvas, sprites) {
   const destPin = makePin();
   destPin.visible = false;
   scene.add(destPin);
-  const buyerSprite = makeBillboard(sprites.idle[0], 2.1);
+  const buyerSprite = makeBillboard(sprites.buyers[0].idle[0], 2.25);
   buyerSprite.visible = false;
   scene.add(buyerSprite);
+  let buyerT = 0;
 
   const playerSprite = makeBillboard(sprites.idle[0], 2.35);
   scene.add(playerSprite);
@@ -691,8 +782,12 @@ export function createWorld(canvas, sprites) {
     const blink = state.invuln > 0 && Math.floor(state.invuln * 20) % 2 === 0;
     playerSprite.visible = !state.inCar;
     playerSprite.material.opacity = blink ? 0.4 : 1;
-    const animSet = state.muzzle > 0 ? sprites.shoot : Math.abs(p.vx) > 8 ? sprites.walk : sprites.idle;
-    const rate = state.muzzle > 0 ? 12 : 8;
+    const airborne = p.y < 197.2;
+    const animSet = state.muzzle > 0 ? sprites.shoot
+      : airborne ? sprites.jump
+      : Math.abs(p.vx) > 8 ? sprites.walk
+      : sprites.idle;
+    const rate = state.muzzle > 0 ? 14 : airborne ? 8 : Math.abs(p.vx) > 8 ? 11 : 5;
     setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate), p.facing);
     place(playerSprite, p.x, p.y, camX, 0.55);
     orientBillboard(playerSprite, camera);
@@ -708,10 +803,12 @@ export function createWorld(canvas, sprites) {
     if (state.car) {
       playerCar.visible = true;
       place(playerCar, state.car.x, GROUND_Y, camX, 3.45);
-      playerCar.position.y = state.car.hp > 0 ? 0 : -0.12;
+      const parked = state.car.hp > 0 && Math.abs(state.car.vx) < 10;
+      const bounce = parked ? Math.abs(Math.sin(performance.now() * 0.004)) * 0.14 : 0;
+      playerCar.position.y = (state.car.hp > 0 ? 0 : -0.12) + bounce;
       playerCar.rotation.y = state.car.facing < 0 ? Math.PI : 0;
       const body = playerCar.getObjectByName("body");
-      if (body) body.material.color.setHex(state.car.hp > 0 ? 0x5a3cff : 0x2a2438);
+      if (body) body.material.color.setHex(state.car.hp > 0 ? 0x3a14a0 : 0x2a2438);
     }
 
     if (state.copCar) {
@@ -719,6 +816,11 @@ export function createWorld(canvas, sprites) {
       place(copCarMesh, state.copCar.x, GROUND_Y, camX, 3.55);
       copCarMesh.position.y = 0;
       copCarMesh.rotation.y = state.copCar.facing < 0 ? Math.PI : 0;
+      const flash = Math.sin(performance.now() * 0.012) > 0;
+      const red = copCarMesh.getObjectByName("copRed");
+      const blue = copCarMesh.getObjectByName("copBlue");
+      if (red) red.visible = flash;
+      if (blue) blue.visible = !flash;
     } else {
       copCarMesh.visible = false;
     }
@@ -728,11 +830,15 @@ export function createWorld(canvas, sprites) {
       place(destPin, state.order.x, GROUND_Y, camX, 0.4);
       destPin.position.y = 0.05 + Math.sin(performance.now() * 0.006) * 0.12;
       buyerSprite.visible = true;
-      setBillboardFrame(buyerSprite, frameAt(sprites.idle, 0, 6), 1);
+      buyerT += dt;
+      const look = Math.max(0, state.order.look | 0) % sprites.buyers.length;
+      const buyerSet = sprites.buyers[look];
+      const face = wrapDelta(state.order.x, p.x, WORLD) >= 0 ? 1 : -1;
+      setBillboardFrame(buyerSprite, frameAt(buyerSet.idle, buyerT, 5), face);
       place(buyerSprite, state.order.x, GROUND_Y, camX, 0.5);
       buyerSprite.position.y = Math.max(0, gameToWorldY(GROUND_Y));
       orientBillboard(buyerSprite, camera);
-      buyerSprite.material.color.setHex(0xffe08a);
+      buyerSprite.material.color.setHex(0xffffff);
     } else {
       destPin.visible = false;
       buyerSprite.visible = false;
@@ -759,7 +865,7 @@ export function createWorld(canvas, sprites) {
     let bangI = 0;
     for (const foe of state.foes) {
       const spr = take(foePool, () => {
-        const s = makeBillboard(sprites.thug[0], 2.2);
+        const s = makeBillboard(sprites.thug.walk[0], 2.25);
         scene.add(s);
         const sh = new THREE.Mesh(shadowGeo, shadowMat.clone());
         sh.rotation.x = -Math.PI / 2;
@@ -768,13 +874,13 @@ export function createWorld(canvas, sprites) {
         s.userData.shadow = sh;
         return s;
       }, fi++);
-      const set = foe.kind === "runner" ? sprites.runner : sprites.thug;
-      setBillboardFrame(spr, frameAt(set, foe.anim, 8), foe.facing);
+      const set = foe.kind === "cop" ? sprites.cop : foe.kind === "runner" ? sprites.runner : sprites.thug;
+      const frames = Math.abs(foe.vx) > 6 ? set.walk : set.idle;
+      setBillboardFrame(spr, frameAt(frames, foe.anim, 11), foe.facing);
       place(spr, foe.x, foe.y, camX, 0.55);
       orientBillboard(spr, camera);
-      spr.material.color.setHex(foe.kind === "cop" ? 0x7aa0ff : foe.flash > 0 ? 0xffffff : 0xffffff);
-      if (foe.kind === "cop") spr.material.color.setHex(0x6690ff);
       if (foe.flash > 0) spr.material.color.setHex(0xffffff);
+      else spr.material.color.setHex(0xffffff);
       if (spr.userData.shadow) {
         spr.userData.shadow.visible = true;
         spr.userData.shadow.position.x = spr.position.x;
@@ -799,11 +905,12 @@ export function createWorld(canvas, sprites) {
 
     if (state.boss) {
       if (!bossSprite) {
-        bossSprite = makeBillboard(sprites.boss[0], 1.8);
+        bossSprite = makeBillboard(sprites.boss.walk[0], 1.95);
         scene.add(bossSprite);
       }
       bossSprite.visible = true;
-      setBillboardFrame(bossSprite, frameAt(sprites.boss, state.boss.anim, 6), state.boss.facing);
+      const bossFrames = Math.abs(state.boss.vx) > 6 ? sprites.boss.walk : sprites.boss.idle;
+      setBillboardFrame(bossSprite, frameAt(bossFrames, state.boss.anim, 8), state.boss.facing);
       place(bossSprite, state.boss.x, state.boss.y, camX, 1.1);
       bossSprite.position.y = 0.05;
       orientBillboard(bossSprite, camera);
