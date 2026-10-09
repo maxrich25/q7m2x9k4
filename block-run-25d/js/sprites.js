@@ -104,7 +104,7 @@ const PLAYER_PAL = {
   hair: "#2a1810",
   hat: "#e21b7a", brim: "#8a1428",
   shirt: "#3a3048", shirtDk: "#241828",
-  pants: "#5a6a88",
+  pants: "#5a6a88", pantsHi: "#8a9ab8",
   shoes: "#f4f0e8",
   accent: "#e21b7a",
   role: "player",
@@ -204,12 +204,12 @@ export const BUYER_PALS = [
 ];
 
 const WALK = [
-  { lf: 6, lb: -5, af: -5, ab: 6, bob: 0 },
-  { lf: 4, lb: -3, af: -4, ab: 4, bob: 1 },
-  { lf: 0, lb: 0, af: 0, ab: 0, bob: 0 },
-  { lf: -5, lb: 6, af: 6, ab: -5, bob: 0 },
-  { lf: -3, lb: 4, af: 4, ab: -4, bob: 1 },
-  { lf: 0, lb: 0, af: 0, ab: 0, bob: 0 },
+  { lf: 8, lb: -7, af: -6, ab: 7, bob: 0, liftB: 6 },
+  { lf: 5, lb: -4, af: -4, ab: 4, bob: 1, liftB: 3 },
+  { lf: 1, lb: -1, af: 0, ab: 0, bob: 0 },
+  { lf: -7, lb: 8, af: 7, ab: -6, bob: 0, liftF: 6 },
+  { lf: -4, lb: 5, af: 4, ab: -4, bob: 1, liftF: 3 },
+  { lf: -1, lb: 1, af: 0, ab: 0, bob: 0 },
 ];
 
 const IDLE = [
@@ -248,13 +248,15 @@ function paintChar(g, pose, pal) {
   const frontLegX = cx + 3 + (pose.lf || 0);
   const backArmX = cx - 6 + (pose.ab || 0);
   const frontArmX = cx + 8 + (pose.af || 0);
+  const liftB = pose.liftB || 0;
+  const liftF = pose.liftF || 0;
   const legH = pose.jump ? 11 : 16;
   const footY = hipY + legH - 1;
 
-  block(backLegX, hipY, 5, legH, pal.pants);
-  px(g, backLegX - 1, footY, 7, 4, pal.shoes);
-  block(frontLegX, hipY, 5, legH, pal.pants);
-  px(g, frontLegX - 1, footY, 7, 4, pal.shoes);
+  block(backLegX, hipY + liftB, 5, legH - liftB, pal.pants);
+  px(g, backLegX - 1, footY - liftB, 7, 4, pal.shoes);
+  block(frontLegX, hipY + liftF, 5, legH - liftF, pal.pantsHi || pal.pants);
+  px(g, frontLegX - 1, footY - liftF, 7, 4, pal.shoes);
 
   block(backArmX, shY, 4, 13, pal.shirt);
   px(g, backArmX, shY + 13, 4, 4, pal.skin);

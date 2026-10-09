@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=10";
-import { bindAudioUnlock, unlockAudio, setMuted, isMuted } from "./audio.js?v=10";
-import { createInput } from "./input.js?v=10";
-import { createGame } from "./game.js?v=10";
-import { loadSprites } from "./sprites.js?v=10";
-import { createWorld } from "./world.js?v=10";
-import { createHud } from "./hud.js?v=10";
+import { TICK } from "./config.js?v=9";
+import { bindAudioUnlock, unlockAudio, setMuted, isMuted } from "./audio.js?v=9";
+import { createInput } from "./input.js?v=9";
+import { createGame } from "./game.js?v=9";
+import { loadSprites } from "./sprites.js?v=9";
+import { createWorld } from "./world.js?v=9";
+import { createHud } from "./hud.js?v=9";
 
 const canvas = document.getElementById("scene");
 const muteBtn = document.getElementById("btn-mute");
@@ -74,6 +74,7 @@ window.__br = {
   spawnOrder: (id, opts) => game.spawnOrder(id, opts),
   setInCar: (on) => game.setInCar(on),
   setPlayerX: (x) => game.setPlayerX(x),
+  setFacing: (dir) => game.setFacing(dir),
   getView: () => world?.getView?.() || view,
   unlockAudio,
 };
