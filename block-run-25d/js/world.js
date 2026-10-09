@@ -2,8 +2,9 @@ import * as THREE from "three";
 import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
-} from "./config.js?v=11";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=11";
+  BLOCK_LEN,
+} from "./config.js?v=12";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=12";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -452,7 +453,7 @@ export function createWorld(canvas, sprites) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x120820, 0.016);
+  scene.fog = new THREE.FogExp2(0x120820, 0.011);
   scene.background = new THREE.Color(0x140a28);
 
   const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 180);
@@ -507,7 +508,7 @@ export function createWorld(canvas, sprites) {
   );
   asphalt.rotation.x = -Math.PI / 2;
   asphalt.position.set(STREET_LEN / 2, 0, 20.8);
-  asphalt.material.map.repeat.set(16, 3);
+  asphalt.material.map.repeat.set(40, 3);
   city.add(asphalt);
 
   const walk = new THREE.Mesh(
@@ -516,7 +517,7 @@ export function createWorld(canvas, sprites) {
   );
   walk.rotation.x = -Math.PI / 2;
   walk.position.set(STREET_LEN / 2, 0.02, 4.05);
-  walk.material.map.repeat.set(48, 4);
+  walk.material.map.repeat.set(120, 4);
   city.add(walk);
 
   const curb = new THREE.Mesh(
@@ -530,7 +531,7 @@ export function createWorld(canvas, sprites) {
     g.fillStyle = "#f0c430";
     g.fillRect(0, 2, 18, 4);
   });
-  dashTex.repeat.set(44, 1);
+  dashTex.repeat.set(110, 1);
   dashTex.wrapS = THREE.RepeatWrapping;
   const dashes = new THREE.Mesh(
     new THREE.PlaneGeometry(STREET_LEN, 0.12),
@@ -540,31 +541,32 @@ export function createWorld(canvas, sprites) {
   dashes.position.set(STREET_LEN / 2, 0.03, 12.4);
   city.add(dashes);
 
-  const blockLen = STREET_LEN / 2;
-  const facades = [
-    { x: 4, w: 4.2, h: 7.4, d: 2.4, col: "#6a4a58" },
-    { x: 9, w: 3.6, h: 6.4, d: 2.2, col: "#4a3a48" },
-    { x: 13.2, w: 4.6, h: 8.6, d: 2.6, col: "#3a2e40" },
-    { x: 18.4, w: 5.4, h: 5.6, d: 2.0, col: "#8a7a58" },
-    { x: 24.2, w: 3.8, h: 8.0, d: 2.3, col: "#4a3a60" },
-    { x: 28.6, w: 4.0, h: 6.8, d: 2.2, col: "#3a4a58" },
-    { x: 33.4, w: 4.4, h: 8.4, d: 2.5, col: "#5a3040" },
-    { x: 38.6, w: 3.6, h: 6.2, d: 2.1, col: "#4a3a50" },
-    { x: 43.2, w: 4.8, h: 7.8, d: 2.4, col: "#3a2838" },
-    { x: 48.4, w: 3.4, h: 6.6, d: 2.2, col: "#2a3848" },
+  const brickCache = new Map();
+  function brick(col) {
+    if (!brickCache.has(col)) brickCache.set(col, brickTex(col, "#1a1420"));
+    return brickCache.get(col);
+  }
+
+  const THEMES = [
+    { id: "liquor", neon: ["LIQUOR", "#e21b7a"], cols: ["#6a4a58", "#4a3a48", "#3a2e40"] },
+    { id: "motel", neon: ["MOTEL", "#3de0ff"], cols: ["#4a3a60", "#3a4a58", "#5a3040"] },
+    { id: "studio", neon: ["STUDIO", "#f0c430"], cols: ["#8a7a58", "#3a2838", "#4a3a50"], graf: true },
+    { id: "taco", neon: ["TACOS", "#f0c430"], cols: ["#6a3a28", "#4a2a20", "#3a4a38"] },
+    { id: "gas", neon: ["GAS", "#e21b7a"], cols: ["#2a3848", "#3a2e40", "#4a3a48"] },
+    { id: "park", neon: ["PARK", "#3de0ff"], cols: ["#2a4a38", "#3a3a30", "#2a3840"], park: true },
   ];
-  const grafWall = new THREE.Mesh(
-    new THREE.BoxGeometry(7.2, 3.2, 0.45),
-    new THREE.MeshLambertMaterial({ color: 0x6a6258 }),
-  );
-  grafWall.position.set(gameToWorldX(200), 1.6, -1.35);
-  city.add(grafWall);
-  const graffiti = new THREE.Mesh(
-    new THREE.PlaneGeometry(6.8, 3.0),
-    new THREE.MeshBasicMaterial({ map: graffitiTex() }),
-  );
-  graffiti.position.set(gameToWorldX(200), 1.7, -1.1);
-  city.add(graffiti);
+  const facadeLayout = [
+    { x: 4, w: 4.2, h: 7.4, d: 2.4 },
+    { x: 9, w: 3.6, h: 6.4, d: 2.2 },
+    { x: 13.2, w: 4.6, h: 8.6, d: 2.6 },
+    { x: 18.4, w: 5.4, h: 5.6, d: 2.0 },
+    { x: 24.2, w: 3.8, h: 8.0, d: 2.3 },
+    { x: 28.6, w: 4.0, h: 6.8, d: 2.2 },
+    { x: 33.4, w: 4.4, h: 8.4, d: 2.5 },
+    { x: 38.6, w: 3.6, h: 6.2, d: 2.1 },
+    { x: 43.2, w: 4.8, h: 7.8, d: 2.4 },
+    { x: 48.4, w: 3.4, h: 6.6, d: 2.2 },
+  ];
 
   function addNeon(text, color, x, y, z, lit = false) {
     const tex = neonTex(text, color);
@@ -587,39 +589,53 @@ export function createWorld(canvas, sprites) {
     }
   }
 
-  function stampBlock(xOff, lit) {
-    for (const b of facades) {
-      const mesh = makeBuilding(b.w, b.h, b.d, brickTex(b.col, "#1a1420"));
+  function stampTheme(theme, xOff, lit) {
+    const layout = theme.park ? facadeLayout.filter((_, i) => i % 3 === 0) : facadeLayout;
+    for (let i = 0; i < layout.length; i++) {
+      const b = layout[i];
+      const col = theme.cols[i % theme.cols.length];
+      const h = theme.park ? Math.min(b.h, 5.2) : b.h;
+      const mesh = makeBuilding(b.w, h, b.d, brick(col));
       mesh.position.set(b.x + xOff, 0, -3.4);
       city.add(mesh);
     }
-    addNeon("LIQUOR", "#e21b7a", 9.2 + xOff, 6.8, -2.15, lit);
-    addNeon("MOTEL", "#3de0ff", 24.4 + xOff, 7.6, -2.15, lit);
-    addNeon("OPEN", "#f0c430", 33.6 + xOff, 7.2, -2.15, false);
-    addNeon("BLOCK", "#e21b7a", 43.4 + xOff, 6.4, -2.15, false);
-    const palms = [
-      [6.5, -2.5], [17.8, -5.8], [21.2, -2.3],
-      [29.5, -6.2], [40.8, -2.6], [47.2, -5.4],
-    ];
+    addNeon(theme.neon[0], theme.neon[1], 24.4 + xOff, theme.park ? 5.4 : 7.2, -2.15, lit);
+    if (theme.graf) {
+      const grafWall = new THREE.Mesh(
+        new THREE.BoxGeometry(7.2, 3.2, 0.45),
+        new THREE.MeshLambertMaterial({ color: 0x6a6258 }),
+      );
+      grafWall.position.set(26 + xOff, 1.6, -1.35);
+      city.add(grafWall);
+      const graffiti = new THREE.Mesh(
+        new THREE.PlaneGeometry(6.8, 3.0),
+        new THREE.MeshBasicMaterial({ map: graffitiTex() }),
+      );
+      graffiti.position.set(26 + xOff, 1.7, -1.1);
+      city.add(graffiti);
+    }
+    const palms = theme.park
+      ? [[8, -2.4], [16, -5.2], [22, -2.2], [30, -5.8], [38, -2.5], [46, -5.0]]
+      : [[6.5, -2.5], [21.2, -2.3], [40.8, -2.6]];
     for (const [x, z] of palms) {
       const palm = makePalm();
       palm.position.set(x + xOff, 0, z);
       palm.scale.setScalar(0.85 + ((x + xOff) % 3) * 0.1);
       city.add(palm);
     }
-    for (const x of [16, 36]) {
-      const lamp = makeLamp();
-      lamp.position.set(x + xOff, 0, -0.2);
-      city.add(lamp);
-      if (lit) {
-        const pl = new THREE.PointLight(0xf0c430, 1.0, 7, 2);
-        pl.position.set(x + xOff + 0.12, 3.1, 0.4);
-        city.add(pl);
-      }
+    const lamp = makeLamp();
+    lamp.position.set(16 + xOff, 0, -0.2);
+    city.add(lamp);
+    if (lit) {
+      const pl = new THREE.PointLight(0xf0c430, 1.0, 7, 2);
+      pl.position.set(16 + xOff + 0.12, 3.1, 0.4);
+      city.add(pl);
     }
   }
-  stampBlock(0, true);
-  stampBlock(blockLen, false);
+  const blockCount = Math.round(STREET_LEN / BLOCK_LEN);
+  for (let i = 0; i < blockCount; i++) {
+    stampTheme(THEMES[i % THEMES.length], i * BLOCK_LEN, i === 0);
+  }
 
   const shop = makeKiosk();
   shop.position.set(gameToWorldX(SHOP_X), 0, -1.35);
@@ -665,12 +681,12 @@ export function createWorld(canvas, sprites) {
   const destPin = makePin();
   destPin.visible = false;
   scene.add(destPin);
-  const buyerSprite = makeBillboard(sprites.buyers[0].idle[0], 2.55);
+  const buyerSprite = makeBillboard(sprites.buyers[0].idle[0], 2.2);
   buyerSprite.visible = false;
   scene.add(buyerSprite);
   let buyerT = 0;
 
-  const playerSprite = makeBillboard(sprites.idle[0], 2.65);
+  const playerSprite = makeBillboard(sprites.idle[0], 2.35);
   scene.add(playerSprite);
   const packHeld = makeBillboard(sprites.pack, 0.45);
   packHeld.visible = false;
@@ -865,7 +881,7 @@ export function createWorld(canvas, sprites) {
     let bangI = 0;
     for (const foe of state.foes) {
       const spr = take(foePool, () => {
-        const s = makeBillboard(sprites.thug.walk[0], 2.55);
+        const s = makeBillboard(sprites.thug.walk[0], 2.2);
         scene.add(s);
         const sh = new THREE.Mesh(shadowGeo, shadowMat.clone());
         sh.rotation.x = -Math.PI / 2;

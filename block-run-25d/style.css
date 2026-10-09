@@ -127,6 +127,39 @@ html, body {
   text-align: right;
 }
 
+#deal-nav {
+  position: absolute;
+  top: calc(92px + var(--sat));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(88%, 260px);
+  pointer-events: none;
+  text-align: center;
+}
+#deal-nav.hidden { display: none; }
+#deal-dist {
+  font-size: 8px;
+  color: var(--gold);
+  text-shadow: 0 0 8px #07060c;
+  letter-spacing: 1px;
+  margin-bottom: 5px;
+}
+#deal-map {
+  position: relative;
+  height: 6px;
+  background: #1a1620;
+  border: 1px solid #3a3644;
+}
+#deal-me, #deal-pin {
+  position: absolute;
+  top: -2px;
+  width: 6px;
+  height: 8px;
+  margin-left: -3px;
+}
+#deal-me { background: var(--cyan); }
+#deal-pin { background: var(--gold); }
+
 #prompt {
   position: absolute;
   left: 50%;
