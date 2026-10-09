@@ -3,8 +3,9 @@ import {
   GRAVITY, JUMP_VEL, COYOTE, JUMP_BUFFER, BUYER_COUNT,
   MOVE_SPEED, TELEGRAPH, BOSS_CASH_BASE, BOSS_CASH_PER_WAVE, HI_KEY,
   SHOP_X, DUMPSTER_X, CAR_X, ORDER_SPOTS, WEAPONS, wrap, wrapDelta, hitWrap,
-} from "./config.js?v=11";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=11";
+  dealMeters,
+} from "./config.js?v=16";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=16";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -86,6 +87,7 @@ export function createGame() {
       else if (nearCar) prompt = "ENTER";
       else if (order && needPackT > 0) prompt = "NEED PACK";
     }
+    const dealD = order ? wrapDelta(player.x, order.x, WORLD) : 0;
     return {
       mode, cash, hi, hp: player.hp, carrying, wave, gun,
       heat, muted: isMuted(),
@@ -95,6 +97,10 @@ export function createGame() {
       order: order ? { ...order } : null,
       copCar: copCar ? { ...copCar } : null,
       prompt, destSide,
+      dealM: order ? dealMeters(player.x, order.x) : 0,
+      dealDir: order ? (dealD >= 0 ? 1 : -1) : 0,
+      dealMe: player.x / WORLD,
+      dealAt: order ? order.x / WORLD : 0,
       foes: foes.map((f) => ({ ...f })),
       shots: shots.map((s) => ({ ...s })),
       loot: loot.map((l) => ({ ...l })),
@@ -220,20 +226,23 @@ export function createGame() {
     if (mode !== "play") return null;
     let spot = ORDER_SPOTS.find((s) => s.id === spotId);
     if (!spot) {
-      const far = ORDER_SPOTS.filter((s) => Math.abs(wrapDelta(player.x, s.x, WORLD)) > 90);
+      const minFar = WORLD * 0.28;
+      const far = ORDER_SPOTS.filter((s) => Math.abs(wrapDelta(player.x, s.x, WORLD)) > minFar);
       const pool = far.length ? far : ORDER_SPOTS;
-      spot = pool[Math.floor(Math.random() * pool.length)];
+      pool.sort((a, b) => Math.abs(wrapDelta(player.x, b.x, WORLD)) - Math.abs(wrapDelta(player.x, a.x, WORLD)));
+      spot = pool[Math.floor(Math.random() * Math.min(3, pool.length))];
     }
     const packs = opts.packs ?? (Math.random() < 0.42 ? 2 : 1);
     const dist = Math.abs(wrapDelta(player.x, spot.x, WORLD));
     const line = ORDER_LINES[Math.floor(Math.random() * ORDER_LINES.length)];
+    const timer = opts.t ?? Math.max(10, Math.min(22, dist / 95));
     order = {
       id: spot.id,
       x: spot.x,
       label: spot.label,
       packs,
-      t: opts.t ?? 28,
-      maxT: opts.t ?? 28,
+      t: timer,
+      maxT: timer,
       dist,
       look: ((opts.look ?? Math.floor(Math.random() * BUYER_COUNT)) % BUYER_COUNT + BUYER_COUNT) % BUYER_COUNT,
       text: opts.text || line(packs, spot.label),

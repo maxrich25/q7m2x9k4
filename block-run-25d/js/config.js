@@ -1,39 +1,40 @@
 /** Game-space constants copied from BLOCK RUN, plus 3D layout. */
 
 export const TICK = 1 / 60;
-export const WORLD = 796;
+export const WORLD = 3980;
 export const GROUND_Y = 198;
 export const MAX_HP = 3;
 export const CAR_HP = 3;
-export const CAR_ACCEL = 240;
+export const CAR_ACCEL = 260;
 export const CAR_MAX = 220;
 export const CAR_FRICTION = 1.15;
 export const GRAVITY = 780;
 export const JUMP_VEL = -340;
 export const COYOTE = 0.22;
 export const JUMP_BUFFER = 0.2;
-export const MOVE_SPEED = 80;
+export const MOVE_SPEED = 46;
 export const TELEGRAPH = 0.4;
 export const BOSS_CASH_BASE = 280;
 export const BOSS_CASH_PER_WAVE = 120;
 export const HI_KEY = "block-run-25d-hi";
 
-export const SHOP_X = Math.floor(WORLD * 0.22);
-export const DUMPSTER_X = Math.floor(WORLD * 0.62);
+export const SHOP_X = 175;
+export const DUMPSTER_X = 493;
 export const CAR_X = 100;
 export const BUYER_COUNT = 5;
 export const COP_CAR_HP = 3;
 
 /** 3D street length in meters. Game x maps onto this wrapping strip. */
-export const STREET_LEN = 104;
+export const STREET_LEN = 520;
+export const BLOCK_LEN = 52;
 
 export const ORDER_SPOTS = [
-  { id: "liquor", label: "the liquor store", x: Math.floor(WORLD * 0.11) },
-  { id: "motel", label: "the motel", x: Math.floor(WORLD * 0.36) },
-  { id: "shop", label: "the shop", x: SHOP_X },
-  { id: "cali", label: "the CALI wall", x: Math.floor(WORLD * 0.50) },
-  { id: "dump", label: "the alley", x: DUMPSTER_X },
-  { id: "corner", label: "the far corner", x: Math.floor(WORLD * 0.88) },
+  { id: "motel", label: "the motel", x: 1520 },
+  { id: "studio", label: "the studio", x: 1880 },
+  { id: "taco", label: "the taco stand", x: 2100 },
+  { id: "gas", label: "the gas station", x: 1640 },
+  { id: "park", label: "the park", x: 1960 },
+  { id: "liquor", label: "the uptown liquor", x: 1760 },
 ];
 
 export const WEAPONS = {
@@ -90,4 +91,8 @@ export function nearestWorldX(gameX, camX) {
     }
   }
   return best;
+}
+
+export function dealMeters(fromX, toX) {
+  return Math.round(Math.abs(wrapDelta(fromX, toX, WORLD)) * (STREET_LEN / WORLD));
 }

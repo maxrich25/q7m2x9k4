@@ -1,5 +1,5 @@
-import { WEAPONS, CAR_HP } from "./config.js?v=11";
-import { isMuted, isUnlocked } from "./audio.js?v=11";
+import { WEAPONS, CAR_HP } from "./config.js?v=16";
+import { isMuted, isUnlocked } from "./audio.js?v=16";
 
 export function createHud() {
   const cashEl = document.getElementById("hud-cash");
@@ -24,6 +24,10 @@ export function createHud() {
   const phoneMsg = document.getElementById("phone-msg");
   const phoneTimer = document.getElementById("phone-timer");
   const actionPrompt = document.getElementById("prompt");
+  const dealNav = document.getElementById("deal-nav");
+  const dealDist = document.getElementById("deal-dist");
+  const dealMe = document.getElementById("deal-me");
+  const dealPin = document.getElementById("deal-pin");
   const status = document.getElementById("status");
 
   function pips(el, count, filled, cls) {
@@ -69,9 +73,21 @@ export function createHud() {
       if (on) {
         phoneMsg.textContent = state.order.text;
         const sec = Math.max(0, Math.ceil(state.order.t));
-        phoneTimer.textContent = "0:" + String(sec).padStart(2, "0");
+        phoneTimer.textContent = sec >= 60
+          ? Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0")
+          : "0:" + String(sec).padStart(2, "0");
         phone.classList.toggle("urgent", state.order.t < 8);
       }
+    }
+    if (dealNav) {
+      const on = !!(state.order && state.mode === "play");
+      dealNav.classList.toggle("hidden", !on);
+      if (on && dealDist) {
+        const arrow = state.dealDir < 0 ? "<<" : ">>";
+        dealDist.textContent = `DEAL ${state.dealM}m ${arrow}`;
+      }
+      if (on && dealMe) dealMe.style.left = `${Math.max(0, Math.min(100, state.dealMe * 100))}%`;
+      if (on && dealPin) dealPin.style.left = `${Math.max(0, Math.min(100, state.dealAt * 100))}%`;
     }
     if (actionPrompt) {
       const show = !!(state.prompt && state.mode === "play");
