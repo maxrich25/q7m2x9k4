@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN,
-} from "./config.js?v=17";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=17";
+} from "./config.js?v=18";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=18";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -228,54 +228,60 @@ function chromeRim(x, z, radius = 0.22) {
 
 function makeLuxuryCar() {
   const g = new THREE.Group();
-  const paint = new THREE.MeshLambertMaterial({ color: 0x141416 });
-  const chrome = new THREE.MeshBasicMaterial({ color: 0xe8eef4 });
-  const tint = new THREE.MeshBasicMaterial({ color: 0x0a1014 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(3.95, 0.46, 1.32), paint);
-  body.position.y = 0.4;
+  const paint = new THREE.MeshLambertMaterial({ color: 0x1a1a1e });
+  const chrome = new THREE.MeshBasicMaterial({ color: 0xf2f4f8 });
+  const tint = new THREE.MeshBasicMaterial({ color: 0x1a2834 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(3.95, 0.5, 1.36), paint);
+  body.position.y = 0.42;
   body.name = "body";
   g.add(body);
-  const hood = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.12, 1.22), paint);
-  hood.position.set(1.15, 0.64, 0);
+  const highlight = new THREE.Mesh(
+    new THREE.BoxGeometry(3.6, 0.04, 1.1),
+    new THREE.MeshBasicMaterial({ color: 0x3a3a42 }),
+  );
+  highlight.position.set(0.1, 0.66, 0);
+  g.add(highlight);
+  const hood = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.14, 1.24), paint);
+  hood.position.set(1.12, 0.68, 0);
   g.add(hood);
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.12, 1.22), paint);
-  deck.position.set(-1.25, 0.64, 0);
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.14, 1.24), paint);
+  deck.position.set(-1.22, 0.68, 0);
   g.add(deck);
   const cabin = new THREE.Mesh(
-    new THREE.BoxGeometry(1.7, 0.46, 1.18),
-    new THREE.MeshLambertMaterial({ color: 0x0c0c10 }),
+    new THREE.BoxGeometry(1.78, 0.52, 1.22),
+    new THREE.MeshLambertMaterial({ color: 0x121218 }),
   );
-  cabin.position.set(-0.08, 0.86, 0);
+  cabin.position.set(-0.1, 0.96, 0);
   g.add(cabin);
-  const glass = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.32, 1.12), tint);
-  glass.position.set(-0.06, 0.94, 0);
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(1.58, 0.36, 1.16), tint);
+  glass.position.set(-0.08, 1.04, 0);
   g.add(glass);
-  const belt = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.04, 1.2), chrome);
-  belt.position.set(-0.08, 0.66, 0);
+  const belt = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.05, 1.24), chrome);
+  belt.position.set(-0.1, 0.72, 0);
   g.add(belt);
-  const grille = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.72), chrome);
-  grille.position.set(2.0, 0.4, 0);
+  const grille = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.26, 0.78), chrome);
+  grille.position.set(2.0, 0.42, 0);
   g.add(grille);
-  const bumperF = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 1.3), chrome);
-  bumperF.position.set(2.02, 0.26, 0);
+  const bumperF = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 1.34), chrome);
+  bumperF.position.set(2.04, 0.26, 0);
   g.add(bumperF);
-  const bumperR = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 1.3), chrome);
-  bumperR.position.set(-2.02, 0.26, 0);
+  const bumperR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 1.34), chrome);
+  bumperR.position.set(-2.04, 0.26, 0);
   g.add(bumperR);
   const lightMat = new THREE.MeshBasicMaterial({ color: 0xf4f0e8 });
-  for (const z of [-0.42, 0.42]) {
-    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.22), lightMat);
-    lamp.position.set(1.98, 0.46, z);
+  for (const z of [-0.44, 0.44]) {
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.24), lightMat);
+    lamp.position.set(1.98, 0.48, z);
     g.add(lamp);
     const tail = new THREE.Mesh(
-      new THREE.BoxGeometry(0.08, 0.08, 0.2),
+      new THREE.BoxGeometry(0.1, 0.1, 0.22),
       new THREE.MeshBasicMaterial({ color: 0xe21b7a }),
     );
-    tail.position.set(-1.98, 0.44, z);
+    tail.position.set(-1.98, 0.46, z);
     g.add(tail);
   }
-  for (const [x, z] of [[-1.2, 0.58], [-1.2, -0.58], [1.2, 0.58], [1.2, -0.58]]) {
-    g.add(chromeRim(x, z, 0.21));
+  for (const [x, z] of [[-1.2, 0.6], [-1.2, -0.6], [1.2, 0.6], [1.2, -0.6]]) {
+    g.add(chromeRim(x, z, 0.22));
   }
   return g;
 }
@@ -759,7 +765,7 @@ export function createWorld(canvas, sprites) {
   buyerGlow.visible = false;
   scene.add(buyerGlow);
   const buyerArrow = new THREE.Mesh(
-    new THREE.ConeGeometry(0.28, 0.7, 4),
+    new THREE.ConeGeometry(0.42, 0.95, 4),
     new THREE.MeshBasicMaterial({ color: 0xf0c430 }),
   );
   buyerArrow.rotation.z = Math.PI;
@@ -876,16 +882,16 @@ export function createWorld(canvas, sprites) {
 
     const playing = state.mode === "play" || paused;
     const portrait = camera.aspect < 1;
-    const camZ = portrait ? 16.4 : 13.2;
-    const camY = portrait ? 2.48 : 2.36;
+    const camZ = portrait ? (state.inCar ? 17.8 : 16.4) : (state.inCar ? 14.6 : 13.2);
+    const camY = portrait ? (state.inCar ? 2.9 : 2.48) : (state.inCar ? 2.72 : 2.36);
     if (playing) {
-      const leadGame = state.inCar ? (portrait ? 18 : 28) : (portrait ? 14 : 22);
+      const leadGame = state.inCar ? (portrait ? 10 : 16) : (portrait ? 14 : 22);
       const lookX = nearestWorldX(wrap(px + p.facing * leadGame, WORLD), camX);
       const dx = wrapDelta(camX, lookX, STREET_LEN);
       const follow = state.inCar ? 10.5 : 7.2;
       camX = wrap(camX + dx * (1 - Math.exp(-follow * Math.max(stepDt, 0.0001) * (paused ? 0 : 1))), STREET_LEN);
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.08, camZ);
-      tmp.set(camX + p.facing * (state.inCar ? 1.05 : 0.75), 1.28 + gameToWorldY(p.y) * 0.12, 2.15);
+      tmp.set(camX + p.facing * (state.inCar ? 0.7 : 0.75), 1.22 + gameToWorldY(p.y) * 0.12, state.inCar ? 3.6 : 2.15);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
     } else {
@@ -923,11 +929,11 @@ export function createWorld(canvas, sprites) {
     if (state.car) {
       const cx = renderGameX(state.car, alpha);
       playerCar.visible = true;
-      place(playerCar, cx, GROUND_Y, camX, 7.45);
+      place(playerCar, cx, GROUND_Y, camX, 4.95);
       playerCar.position.y = state.car.hp > 0 ? 0 : -0.12;
       playerCar.rotation.y = state.car.facing < 0 ? Math.PI : 0;
       const body = playerCar.getObjectByName("body");
-      if (body) body.material.color.setHex(state.car.hp > 0 ? 0x141416 : 0x2a2438);
+      if (body) body.material.color.setHex(state.car.hp > 0 ? 0x1a1a1e : 0x2a2438);
       const speed = Math.min(1, Math.abs(state.car.vx) / 180);
       speedStreaks.forEach((streak, i) => {
         const on = state.inCar && speed > 0.35;
@@ -936,7 +942,7 @@ export function createWorld(canvas, sprites) {
         const back = -state.car.facing * (1.6 + i * 0.55);
         streak.position.x = playerCar.position.x + back;
         streak.position.y = 0.38 + (i % 2) * 0.12;
-        streak.position.z = 7.45 + (i - 1.5) * 0.16;
+        streak.position.z = 4.95 + (i - 1.5) * 0.16;
         streak.rotation.y = state.car.facing < 0 ? Math.PI : 0;
         streak.material.opacity = (0.18 - i * 0.03) * speed;
       });
@@ -944,7 +950,7 @@ export function createWorld(canvas, sprites) {
 
     if (state.copCar) {
       copCarMesh.visible = true;
-      place(copCarMesh, renderGameX(state.copCar, alpha), GROUND_Y, camX, 8.0);
+      place(copCarMesh, renderGameX(state.copCar, alpha), GROUND_Y, camX, 5.5);
       copCarMesh.position.y = 0;
       copCarMesh.rotation.y = state.copCar.facing < 0 ? Math.PI : 0;
       const flash = Math.sin(performance.now() * 0.012) > 0;
