@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>BLOCK RUN 2.5D</title>
+  <meta name="theme-color" content="#07060c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="description" content="2.5D night-street prototype of BLOCK RUN. Jump to dodge, sell packs, buy guns." />
+  <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
+  <link rel="stylesheet" href="style.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <div id="view">
+      <canvas id="scene" aria-label="BLOCK RUN 2.5D street"></canvas>
+      <div id="hud" aria-live="polite">
+        <div id="hud-top">
+          <span id="hud-cash">$0000</span>
+          <span id="hud-gun">PISTOL</span>
+          <span id="hud-heat" title="heat"></span>
+          <span id="hud-wave">W1</span>
+          <span id="hud-hp"></span>
+          <button id="btn-mute" type="button" aria-label="mute">ON</button>
+        </div>
+        <div id="pops"></div>
+        <div id="overlay">
+          <div id="overlay-card">
+            <h1 id="overlay-title">BLOCK<br><span>RUN</span></h1>
+            <p id="overlay-sub">2.5D NIGHT BLOCK</p>
+            <p id="overlay-body">JUMP TO DODGE<br>SELL PACKS  BUY GUNS<br>HEAT CALLS COPS</p>
+            <p id="overlay-hi"></p>
+            <p id="overlay-prompt" class="blink">TAP FOR SOUND</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="pad">
+      <div id="pad-move">
+        <button type="button" class="pad-btn" data-role="left">L</button>
+        <button type="button" class="pad-btn pad-jump" data-role="jump">JUMP</button>
+        <button type="button" class="pad-btn" data-role="right">R</button>
+      </div>
+      <button type="button" class="pad-btn pad-fire" data-role="fire">FIRE</button>
+    </div>
+  </div>
+  <p id="status" class="sr-only">title</p>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
