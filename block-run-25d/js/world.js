@@ -379,28 +379,28 @@ export function createWorld(canvas, sprites) {
 
   const city = new THREE.Group();
   const asphalt = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 14),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 36),
     new THREE.MeshLambertMaterial({ map: asphaltTex() }),
   );
   asphalt.rotation.x = -Math.PI / 2;
-  asphalt.position.set(STREET_LEN / 2, 0, 2.4);
-  asphalt.material.map.repeat.set(8, 2);
+  asphalt.position.set(STREET_LEN / 2, 0, 12.5);
+  asphalt.material.map.repeat.set(8, 5);
   city.add(asphalt);
 
   const walk = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 3.2),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 9.2),
     new THREE.MeshLambertMaterial({ map: sidewalkTex() }),
   );
   walk.rotation.x = -Math.PI / 2;
-  walk.position.set(STREET_LEN / 2, 0.02, -1.1);
-  walk.material.map.repeat.set(24, 1);
+  walk.position.set(STREET_LEN / 2, 0.02, 2.15);
+  walk.material.map.repeat.set(24, 3);
   city.add(walk);
 
   const curb = new THREE.Mesh(
     new THREE.BoxGeometry(STREET_LEN + 4, 0.12, 0.18),
     new THREE.MeshLambertMaterial({ color: 0x4a4654 }),
   );
-  curb.position.set(STREET_LEN / 2, 0.06, 0.45);
+  curb.position.set(STREET_LEN / 2, 0.06, 6.7);
   city.add(curb);
 
   const dashTex = canvasTex(32, 8, (g) => {
@@ -414,7 +414,7 @@ export function createWorld(canvas, sprites) {
     new THREE.MeshBasicMaterial({ map: dashTex, transparent: true }),
   );
   dashes.rotation.x = -Math.PI / 2;
-  dashes.position.set(STREET_LEN / 2, 0.03, 3.6);
+  dashes.position.set(STREET_LEN / 2, 0.03, 8.6);
   city.add(dashes);
 
   const facades = [
@@ -494,7 +494,7 @@ export function createWorld(canvas, sprites) {
   }
 
   const parked = makeCar();
-  parked.position.set(5.5, 0, 2.2);
+  parked.position.set(5.5, 0, 7.8);
   parked.rotation.y = Math.PI * 0.02;
   city.add(parked);
 
@@ -592,7 +592,7 @@ export function createWorld(canvas, sprites) {
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    camera.fov = w > h ? 46 : 64;
+    camera.fov = w > h ? 40 : 52;
     camera.updateProjectionMatrix();
   }
   resize();
@@ -621,21 +621,21 @@ export function createWorld(canvas, sprites) {
 
     const playing = state.mode === "play";
     const portrait = camera.aspect < 1;
-    const camZ = portrait ? 30 : 18;
-    const camY = portrait ? 4.8 : 3.6;
+    const camZ = portrait ? 16.4 : 13.2;
+    const camY = portrait ? 2.42 : 2.35;
     if (playing) {
-      const leadGame = portrait ? 42 : 36;
+      const leadGame = portrait ? 16 : 24;
       const lookX = nearestWorldX(wrap(p.x + p.facing * leadGame, WORLD), camX);
       const dx = wrapDelta(camX, lookX, STREET_LEN);
       camX = wrap(camX + dx * (1 - Math.exp(-4.2 * dt)), STREET_LEN);
-      camera.position.set(camX, camY + gameToWorldY(p.y) * 0.1, camZ);
-      tmp.set(camX + p.facing * 1.4, 1.35 + gameToWorldY(p.y) * 0.25, -0.8);
+      camera.position.set(camX, camY + gameToWorldY(p.y) * 0.08, camZ);
+      tmp.set(camX + p.facing * 0.85, 0.88 + gameToWorldY(p.y) * 0.12, 0.45);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
     } else {
       camX = wrap(camX + dt * 0.35, STREET_LEN);
-      camera.position.set(camX, camY + 0.3, camZ + 3);
-      camera.lookAt(camX, 1.7, -1.4);
+      camera.position.set(camX, camY + 0.08, camZ + 1.1);
+      camera.lookAt(camX, 0.95, 0.35);
     }
 
     moon.position.set(camX - 4.5, 7.8, -11);
@@ -838,7 +838,10 @@ export function createWorld(canvas, sprites) {
     const halfWorld = dist * Math.tan(hFov / 2);
     const halfGame = (halfWorld / STREET_LEN) * WORLD;
     const camGameX = wrap((camX / STREET_LEN) * WORLD, WORLD);
-    return { camGameX, halfWidth: halfGame };
+    const h = canvas.clientHeight || 1;
+    const spriteH = playerSprite.userData.height || 1.75;
+    const playerPx = (spriteH / dist) / (2 * Math.tan(vFov / 2)) * h;
+    return { camGameX, halfWidth: halfGame, playerPx, dist };
   }
 
   return { sync, resize, getView, renderer, camera, scene };
