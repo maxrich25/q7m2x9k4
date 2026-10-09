@@ -104,13 +104,10 @@ function derivePose(src, { bob = 0, legDx = 0, legDy = 0, armDx = 0 } = {}) {
   const h = src.height;
   const arm0 = Math.round(h * 0.36);
   const split = Math.round(h * 0.60);
-  const pad = 6;
-  return pixelCanvas(w + pad * 2, h + pad, (g) => {
-    const ox = pad;
-    const oy = 2 + bob;
-    g.drawImage(src, 0, 0, w, arm0, ox, oy, w, arm0);
-    g.drawImage(src, 0, arm0, w, split - arm0, ox + armDx, oy + arm0, w, split - arm0);
-    g.drawImage(src, 0, split, w, h - split, ox + legDx, oy + split + legDy, w, h - split);
+  return pixelCanvas(w, h, (g) => {
+    g.drawImage(src, 0, 0, w, arm0, 0, bob, w, arm0);
+    g.drawImage(src, 0, arm0, w, split - arm0, armDx, bob + arm0, w, split - arm0);
+    g.drawImage(src, 0, split, w, h - split, legDx, bob + split + legDy, w, h - split);
   });
 }
 
