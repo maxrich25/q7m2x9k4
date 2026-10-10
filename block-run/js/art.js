@@ -1,7 +1,7 @@
 import {
   pixelCanvas, paintLook, paintCopFig, paintPlugFig, PED_LOOKS,
   setFromCanvases, flipCanvas,
-} from "../../block-run-25d/js/paint.js?v=26";
+} from "../../block-run-25d/js/paint.js?v=27";
 
 const SPRITE_BASE = new URL("../sprites/", import.meta.url);
 
@@ -74,37 +74,71 @@ function sheetFrom(src, extras) {
   };
 }
 
-function paintCar(cop = false) {
-  return pixelCanvas(88, 32, (g) => {
-    g.fillStyle = "#0a0810";
-    g.fillRect(10, 28, 68, 3);
+const STREET_CAR = { x: 5, y: 149, w: 95, h: 29 };
+
+function paintCarFallback(cop = false) {
+  return pixelCanvas(95, 29, (g) => {
     g.fillStyle = cop ? "#e8eef4" : "#2a1840";
-    g.fillRect(6, 14, 76, 12);
-    g.fillRect(4, 16, 80, 8);
+    g.fillRect(8, 12, 80, 11);
     g.fillStyle = cop ? "#1a2430" : "#1a1028";
-    g.fillRect(20, 6, 40, 10);
+    g.fillRect(28, 5, 36, 9);
     g.fillStyle = "#3a4868";
-    g.fillRect(24, 8, 14, 7);
-    g.fillRect(42, 8, 14, 7);
-    g.fillStyle = "#c8b8a0";
-    g.fillRect(6, 24, 76, 1);
+    g.fillRect(32, 7, 12, 6);
+    g.fillRect(48, 7, 12, 6);
     g.fillStyle = "#111018";
-    g.fillRect(14, 22, 12, 10);
-    g.fillRect(60, 22, 12, 10);
+    g.fillRect(16, 20, 12, 9);
+    g.fillRect(64, 20, 12, 9);
     g.fillStyle = "#d0d4dc";
-    g.fillRect(17, 25, 6, 4);
-    g.fillRect(63, 25, 6, 4);
+    g.fillRect(19, 23, 6, 3);
+    g.fillRect(67, 23, 6, 3);
     if (cop) {
       g.fillStyle = "#e21b7a";
-      g.fillRect(32, 3, 8, 3);
+      g.fillRect(36, 2, 8, 3);
       g.fillStyle = "#3de0ff";
-      g.fillRect(42, 3, 8, 3);
-    } else {
-      g.fillStyle = "#c8e8ff";
-      g.fillRect(76, 16, 6, 3);
-      g.fillStyle = "#e21b7a";
-      g.fillRect(6, 16, 4, 3);
+      g.fillRect(46, 2, 8, 3);
     }
+  });
+}
+
+function extractStreetCar(street, cop = false) {
+  if (!street || !street.naturalWidth) return paintCarFallback(cop);
+  const { x, y, w, h } = STREET_CAR;
+  const raw = pixelCanvas(w, h, (g) => {
+    g.drawImage(street, x, y, w, h, 0, 0, w, h);
+    const img = g.getImageData(0, 0, w, h);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i];
+      const gb = d[i + 1];
+      const b = d[i + 2];
+      const sky = r < 45 && gb < 40 && b < 60 && r + gb < 80;
+      const walk = r > 90 && gb > 70 && b > 70 && Math.abs(r - gb) < 50;
+      if (sky || walk) d[i + 3] = 0;
+    }
+    g.putImageData(img, 0, 0);
+  });
+  const facingRight = flipCanvas(raw);
+  if (!cop) return facingRight;
+  return pixelCanvas(w, h, (g) => {
+    g.drawImage(facingRight, 0, 0);
+    const img = g.getImageData(0, 0, w, h);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 8) continue;
+      const r = d[i];
+      const gb = d[i + 1];
+      const b = d[i + 2];
+      if (b > r + 8 && b > 40) {
+        d[i] = Math.min(255, r + 150);
+        d[i + 1] = Math.min(255, gb + 150);
+        d[i + 2] = Math.min(255, b + 110);
+      }
+    }
+    g.putImageData(img, 0, 0);
+    g.fillStyle = "#e21b7a";
+    g.fillRect(40, 1, 8, 3);
+    g.fillStyle = "#3de0ff";
+    g.fillRect(50, 1, 8, 3);
   });
 }
 
@@ -162,7 +196,7 @@ export async function loadArt() {
     cash: toCanvas(cashImg || fallback("cash")),
     dumpster: toCanvas(dumpImg || fallback("dumpster")),
     street: streetImg,
-    car: withFlip([paintCar(false)])[0],
-    copCar: withFlip([paintCar(true)])[0],
+    car: withFlip([extractStreetCar(streetImg, false)])[0],
+    copCar: withFlip([extractStreetCar(streetImg, true)])[0],
   };
 }

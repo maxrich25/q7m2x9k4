@@ -1,10 +1,10 @@
-import { TICK } from "../../block-run-25d/js/config.js?v=26";
-import { bindAudioUnlock, unlockAudio, startMusic } from "../../block-run-25d/js/audio.js?v=26";
-import { createInput } from "../../block-run-25d/js/input.js?v=26";
-import { createGame } from "../../block-run-25d/js/game.js?v=26";
-import { createHud } from "../../block-run-25d/js/hud.js?v=26";
-import { loadArt } from "./art.js?v=26";
-import { createWorld } from "./draw.js?v=26";
+import { TICK } from "../../block-run-25d/js/config.js?v=27";
+import { bindAudioUnlock, unlockAudio, startMusic } from "../../block-run-25d/js/audio.js?v=27";
+import { createInput } from "../../block-run-25d/js/input.js?v=27";
+import { createGame } from "../../block-run-25d/js/game.js?v=27";
+import { createHud } from "../../block-run-25d/js/hud.js?v=27";
+import { loadArt } from "./art.js?v=27";
+import { createWorld } from "./draw.js?v=27";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
