@@ -9,10 +9,20 @@ export const CAR_ACCEL = 260;
 export const CAR_MAX = 220;
 export const CAR_FRICTION = 1.15;
 export const CAR_CREEP = 23;
-export const CAR_TURN_TIME = 0.42;
+export const CAR_TURN_TIME = 1.0;
 export const CAR_TURN_MAX = 28;
+export const CAR_TURN_ARC = 2.4;
 export const CAR_STOP = 8;
 export const GEARS = ["P", "R", "N", "D"];
+/** Keep enemy/gun/wave code compiled; off for the dealing-loop build. */
+export const COMBAT = false;
+export const START_CASH = 100;
+export const PACK_COST = 20;
+export const PACK_PAY = 46;
+export const PLUG_X = 1480;
+export const HOME_X = 240;
+export const PED_COUNT = 10;
+export const LIGHT_CYCLE = 16;
 export const GRAVITY = 780;
 export const JUMP_VEL = -340;
 export const COYOTE = 0.22;
@@ -32,6 +42,7 @@ export const COP_CAR_HP = 3;
 /** 3D street length in meters. Game x maps onto this wrapping strip. */
 export const STREET_LEN = 520;
 export const BLOCK_LEN = 52;
+export const LIGHT_COUNT = Math.round(STREET_LEN / BLOCK_LEN);
 
 export const ORDER_SPOTS = [
   { id: "motel", label: "the motel", x: 1520 },
@@ -110,4 +121,16 @@ export function formatDeal(fromX, toX) {
   const feet = dealFeet(fromX, toX);
   if (feet >= 0.2 * 5280) return `${(feet / 5280).toFixed(1)} mi`;
   return `${Math.round(feet)} ft`;
+}
+
+export function lightGameX(index) {
+  const n = Math.round(STREET_LEN / BLOCK_LEN);
+  return (index % n) * (WORLD / n);
+}
+
+export function lightPhaseAt(clock, index) {
+  const u = ((clock + index * 3.7) % LIGHT_CYCLE + LIGHT_CYCLE) % LIGHT_CYCLE;
+  if (u < 7.5) return "green";
+  if (u < 9.5) return "yellow";
+  return "red";
 }

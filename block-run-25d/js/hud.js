@@ -1,16 +1,17 @@
-import { WEAPONS, CAR_HP, GEARS } from "./config.js?v=21";
-import { isMuted, isUnlocked } from "./audio.js?v=21";
+import { GEARS } from "./config.js?v=23";
+import { isUnlocked } from "./audio.js?v=23";
 
 const TITLE_TIPS = [
-  "JUMP TO DODGE",
-  "SELL PACKS",
-  "BUY GUNS",
-  "DRIVE DEALS",
-  "HEAT CALLS COPS",
+  "BUY PACKS AT PLUG",
+  "ACCEPT DEAL TEXTS",
+  "HIT UP PEDS",
+  "STASH CASH AT HOME",
+  "REDS ADD HEAT",
 ];
 
 const CONTROL_TIPS = [
-  "ON FOOT: L / JUMP / R / FIRE",
+  "ON FOOT: L / JUMP / R",
+  "NEAR A PED: HIT UP",
   "IN CAR: STEER  BRAKE  GAS  P-R-N-D",
   "HOLD BRAKE TO SHIFT",
   "EXIT IN PARK",
@@ -18,12 +19,9 @@ const CONTROL_TIPS = [
 
 export function createHud() {
   const cashEl = document.getElementById("hud-cash");
-  const gunEl = document.getElementById("hud-gun");
+  const packsEl = document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
-  const hpEl = document.getElementById("hud-hp");
-  const carEl = document.getElementById("hud-car");
-  const waveEl = document.getElementById("hud-wave");
-  const muteBtn = document.getElementById("btn-mute");
+  const repEl = document.getElementById("hud-rep");
   const overlay = document.getElementById("overlay");
   const titleEl = document.getElementById("overlay-title");
   const subEl = document.getElementById("overlay-sub");
@@ -39,6 +37,7 @@ export function createHud() {
   const phone = document.getElementById("phone");
   const phoneMsg = document.getElementById("phone-msg");
   const phoneTimer = document.getElementById("phone-timer");
+  const phoneActions = document.getElementById("phone-actions");
   const actionPrompt = document.getElementById("prompt");
   const dealNav = document.getElementById("deal-nav");
   const dealDist = document.getElementById("deal-dist");
@@ -50,6 +49,7 @@ export function createHud() {
   const shiftKnob = document.getElementById("shift-knob");
   const shiftHint = document.getElementById("shift-hint");
   const padExit = document.querySelector('[data-role="exit"]');
+  const padJump = document.querySelector('[data-role="jump"]');
 
   function pips(el, count, filled, cls) {
     if (!el) return;
@@ -88,22 +88,9 @@ export function createHud() {
 
   function sync(state, project) {
     cashEl.textContent = "$" + String(state.cash).padStart(4, "0");
-    if (state.carrying) {
-      gunEl.textContent = "PACK";
-      gunEl.classList.add("pack");
-    } else {
-      gunEl.textContent = WEAPONS[state.gun].label;
-      gunEl.classList.remove("pack");
-    }
+    if (packsEl) packsEl.textContent = (state.packs || 0) + " PK";
     pips(heatEl, 3, Math.min(3, Math.ceil(state.heat)), "heat");
-    pips(hpEl, 3, state.hp, "hp");
-    const showCar = !!(state.inCar || (state.car && state.car.hp < CAR_HP));
-    if (carEl) {
-      carEl.classList.toggle("hidden", !showCar);
-      if (showCar) pips(carEl, CAR_HP, Math.max(0, state.car?.hp || 0), "car");
-    }
-    waveEl.textContent = "W" + state.wave;
-    muteBtn.textContent = isMuted() ? "OFF" : "ON";
+    if (repEl) repEl.textContent = "R" + Math.round(state.rep || 0);
     edgeL?.classList.toggle("hidden", !state.edgeL);
     edgeR?.classList.toggle("hidden", !state.edgeR);
     destL?.classList.toggle("hidden", state.destSide !== -1);
@@ -120,21 +107,35 @@ export function createHud() {
     if (driving) placeKnob(gear);
     shiftHint?.classList.toggle("hidden", !(driving && (state.car?.shiftHint || 0) > 0));
     padExit?.classList.toggle("off", driving && !state.exitOk);
+    if (padJump) {
+      padJump.textContent = state.hitUp ? "HIT UP" : (state.prompt === "BUY $20" || state.prompt === "NEED $"
+        ? "BUY"
+        : state.prompt === "STASH" || state.prompt === "HOME"
+          ? "HOME"
+          : "JUMP");
+    }
 
+    const offer = state.order?.phase === "offer";
+    const live = state.order && (state.order.phase === "active" || state.order.phase === "nudge");
     if (phone) {
       const on = !!(state.order && (state.mode === "play" || state.mode === "paused"));
       phone.classList.toggle("hidden", !on);
       if (on) {
         phoneMsg.textContent = state.order.text;
-        const sec = Math.max(0, Math.ceil(state.order.t));
-        phoneTimer.textContent = sec >= 60
-          ? Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0")
-          : "0:" + String(sec).padStart(2, "0");
-        phone.classList.toggle("urgent", state.order.t < 8);
+        const timed = live;
+        phoneTimer.classList.toggle("hidden", !timed);
+        if (timed) {
+          const sec = Math.max(0, Math.ceil(state.order.t));
+          phoneTimer.textContent = sec >= 60
+            ? Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0")
+            : "0:" + String(sec).padStart(2, "0");
+        }
+        phone.classList.toggle("urgent", state.order.phase === "nudge" || (live && state.order.t < 8));
       }
+      phoneActions?.classList.toggle("hidden", !offer || state.mode !== "play");
     }
     if (dealNav) {
-      const on = !!(state.order && (state.mode === "play" || state.mode === "paused"));
+      const on = !!(live && (state.mode === "play" || state.mode === "paused"));
       dealNav.classList.toggle("hidden", !on);
       if (on && dealDist) {
         const arrow = state.dealDir < 0 ? "<<" : ">>";
@@ -161,13 +162,13 @@ export function createHud() {
       bodyEl.classList.add("tips");
       bodyEl.innerHTML = tipsHtml(TITLE_TIPS, CONTROL_TIPS);
       hiEl.textContent = "HI $" + state.hi;
-      promptEl.textContent = isUnlocked() ? "PRESS START" : "TAP FOR SOUND";
+      promptEl.textContent = isUnlocked() ? "TAP TO START" : "TAP TO START";
     } else if (state.mode === "paused") {
       titleEl.textContent = "PAUSED";
       subEl.textContent = "";
       bodyEl.classList.add("tips");
       bodyEl.innerHTML = tipsHtml(CONTROL_TIPS, ["ESC OR P TO PAUSE"]);
-      hiEl.textContent = "CASH $" + state.cash;
+      hiEl.textContent = "CASH $" + state.cash + "  STASH $" + (state.stash || 0);
       promptEl.textContent = "";
     } else if (state.mode === "dead") {
       titleEl.textContent = "WASTED";
@@ -181,12 +182,12 @@ export function createHud() {
       titleEl.classList.add("clear");
       subEl.textContent = "";
       bodyEl.textContent = "CASH $" + state.cash;
-      hiEl.textContent = "GUN " + WEAPONS[state.gun].label;
-      promptEl.textContent = "TAP FOR WAVE " + (state.wave + 1);
+      hiEl.textContent = "";
+      promptEl.textContent = "TAP TO CONTINUE";
     }
 
     if (status) {
-      status.textContent = `${state.mode}  $${state.cash}  hp ${state.hp}  ${WEAPONS[state.gun].label}`;
+      status.textContent = `${state.mode}  $${state.cash}  ${state.packs || 0} pk  r${state.rep || 0}`;
     }
 
     while (popNodes.length < state.pops.length) {

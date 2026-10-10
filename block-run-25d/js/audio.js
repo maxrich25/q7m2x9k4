@@ -5,11 +5,10 @@ let musicGain = null;
 let muted = false;
 let unlocked = false;
 let musicTimer = null;
-let musicStep = 0;
 let hookBound = false;
 
-const BASS = [98, 98, 130.8, 98, 87.3, 87.3, 110, 98];
-const LEAD = [392, 0, 523, 392, 349, 0, 329, 392];
+const BPM = 92;
+const STEP = 60 / BPM / 4;
 
 function makeCtx() {
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -27,7 +26,7 @@ function ensure() {
   sfxGain = ctx.createGain();
   musicGain = ctx.createGain();
   sfxGain.gain.value = 0.85;
-  musicGain.gain.value = 0.34;
+  musicGain.gain.value = 0.28;
   master.gain.value = muted ? 0 : 1;
   sfxGain.connect(master);
   musicGain.connect(master);
@@ -152,6 +151,110 @@ export const sfx = {
   honk() { tone({ freq: 310, dur: 0.16, vol: 0.22, type: "square" }); tone({ freq: 380, dur: 0.18, vol: 0.16, type: "square" }); },
 };
 
+function noiseBuf(dur) {
+  const n = Math.max(1, Math.floor(ctx.sampleRate * dur));
+  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
+  return buf;
+}
+
+function drumKick(t) {
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(118, t);
+  osc.frequency.exponentialRampToValueAtTime(42, t + 0.16);
+  g.gain.setValueAtTime(0.55, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+  osc.connect(g);
+  g.connect(musicGain);
+  osc.start(t);
+  osc.stop(t + 0.22);
+  osc.onended = () => { osc.disconnect(); g.disconnect(); };
+}
+
+function drumSnare(t) {
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuf(0.12);
+  const filt = ctx.createBiquadFilter();
+  filt.type = "bandpass";
+  filt.frequency.value = 1800;
+  filt.Q.value = 0.7;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.28, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+  src.connect(filt);
+  filt.connect(g);
+  g.connect(musicGain);
+  src.start(t);
+  src.stop(t + 0.12);
+  const osc = ctx.createOscillator();
+  const g2 = ctx.createGain();
+  osc.type = "triangle";
+  osc.frequency.value = 196;
+  g2.gain.setValueAtTime(0.12, t);
+  g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+  osc.connect(g2);
+  g2.connect(musicGain);
+  osc.start(t);
+  osc.stop(t + 0.08);
+  src.onended = () => { src.disconnect(); filt.disconnect(); g.disconnect(); };
+  osc.onended = () => { osc.disconnect(); g2.disconnect(); };
+}
+
+function drumHat(t, roll) {
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuf(roll ? 0.05 : 0.03);
+  const filt = ctx.createBiquadFilter();
+  filt.type = "highpass";
+  filt.frequency.value = 7000;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(roll ? 0.1 : 0.07, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + (roll ? 0.05 : 0.03));
+  src.connect(filt);
+  filt.connect(g);
+  g.connect(musicGain);
+  src.start(t);
+  src.stop(t + 0.05);
+  src.onended = () => { src.disconnect(); filt.disconnect(); g.disconnect(); };
+}
+
+function bass808(t, freq) {
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(freq, t);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(28, freq * 0.72), t + 0.28);
+  g.gain.setValueAtTime(0.34, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+  osc.connect(g);
+  g.connect(musicGain);
+  osc.start(t);
+  osc.stop(t + 0.32);
+  osc.onended = () => { osc.disconnect(); g.disconnect(); };
+}
+
+function leadStab(t, freq) {
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = "triangle";
+  osc.frequency.value = freq;
+  g.gain.setValueAtTime(0.08, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+  osc.connect(g);
+  g.connect(musicGain);
+  osc.start(t);
+  osc.stop(t + 0.18);
+  osc.onended = () => { osc.disconnect(); g.disconnect(); };
+}
+
+const KICK = [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0];
+const SNARE = [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0];
+const HAT = [1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1];
+const BASS = [41.2, 0, 0, 41.2, 0, 0, 49, 0, 36.7, 0, 0, 41.2, 0, 36.7, 0, 0];
+const LEAD = [0, 0, 311.1, 0, 0, 246.9, 0, 0, 207.7, 0, 246.9, 0, 0, 185, 0, 0];
+
 export function stopMusic() {
   if (musicTimer != null) {
     clearTimeout(musicTimer);
@@ -162,50 +265,33 @@ export function stopMusic() {
 export function startMusic() {
   stopMusic();
   ensure();
-  musicStep = 0;
-  const step = () => {
+  let next = 0;
+  const bar = () => {
     if (!ctx) {
-      musicTimer = window.setTimeout(step, 170);
+      musicTimer = window.setTimeout(bar, 200);
       return;
     }
     if (muted) {
-      musicTimer = window.setTimeout(step, 170);
+      musicTimer = window.setTimeout(bar, 200);
       return;
     }
     if (ctx.state !== "running") {
       try { ctx.resume(); } catch {}
-      musicTimer = window.setTimeout(step, 170);
+      musicTimer = window.setTimeout(bar, 200);
       return;
     }
-    const t = ctx.currentTime;
-    const bass = BASS[musicStep % BASS.length];
-    const lead = LEAD[musicStep % LEAD.length];
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.36, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-    g.connect(musicGain);
-    const osc = ctx.createOscillator();
-    osc.type = "square";
-    osc.frequency.value = bass;
-    osc.connect(g);
-    osc.start(t);
-    osc.stop(t + 0.16);
-    osc.onended = () => { osc.disconnect(); g.disconnect(); };
-    if (lead) {
-      const g2 = ctx.createGain();
-      g2.gain.setValueAtTime(0.16, t);
-      g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
-      g2.connect(musicGain);
-      const o2 = ctx.createOscillator();
-      o2.type = "square";
-      o2.frequency.value = lead;
-      o2.connect(g2);
-      o2.start(t);
-      o2.stop(t + 0.12);
-      o2.onended = () => { o2.disconnect(); g2.disconnect(); };
+    const now = ctx.currentTime;
+    if (next < now + 0.04) next = now + 0.05;
+    for (let i = 0; i < 16; i++) {
+      const t = next + i * STEP;
+      if (KICK[i]) drumKick(t);
+      if (SNARE[i]) drumSnare(t);
+      if (HAT[i]) drumHat(t, i >= 13);
+      if (BASS[i]) bass808(t, BASS[i]);
+      if (LEAD[i]) leadStab(t, LEAD[i]);
     }
-    musicStep += 1;
-    musicTimer = window.setTimeout(step, 170);
+    next += 16 * STEP;
+    musicTimer = window.setTimeout(bar, 16 * STEP * 1000 - 60);
   };
-  step();
+  bar();
 }

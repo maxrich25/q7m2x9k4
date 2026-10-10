@@ -287,6 +287,7 @@ export async function loadSprites() {
     cop,
     boss,
     buyers,
+    peds: buyers,
     shot, boom, pack, cash, dumpster,
   };
 }

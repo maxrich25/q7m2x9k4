@@ -75,16 +75,15 @@ html, body {
 }
 
 #hud-cash { color: var(--gold); flex: 0 0 auto; }
-#hud-gun {
-  color: var(--muted);
+#hud-packs {
+  color: var(--cyan);
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-#hud-gun.pack { color: var(--cyan); }
-#hud-wave { color: var(--cyan); flex: 0 0 auto; }
+#hud-rep { color: var(--muted); flex: 0 0 auto; }
 #hud-heat, #hud-hp {
   display: flex;
   gap: 3px;
@@ -137,6 +136,27 @@ html, body {
   color: var(--gold);
   text-align: right;
 }
+#phone-timer.hidden { display: none; }
+#phone-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+  pointer-events: auto;
+}
+#phone-actions.hidden { display: none; }
+#phone-actions button {
+  font-family: var(--font);
+  font-size: 7px;
+  padding: 8px 4px;
+  min-height: 32px;
+  pointer-events: auto;
+  border: 2px solid #3a3644;
+  background: #121018;
+  color: var(--cream);
+}
+#phone-actions [data-role="accept"] { color: #07060c; background: var(--gold); border-color: var(--gold); }
+#phone-actions [data-role="decline"] { color: var(--pink); }
 
 #deal-nav {
   position: absolute;
@@ -204,12 +224,12 @@ html, body {
 #dest-left { left: 8px; }
 #dest-right { right: 8px; }
 
-#btn-mute, #btn-pause {
+#btn-pause {
   pointer-events: auto;
   font-family: var(--font);
   font-size: 8px;
-  color: var(--cyan);
-  background: #124048;
+  color: var(--gold);
+  background: #2a2430;
   border: 2px solid #3a3644;
   padding: 5px 6px;
   min-width: 32px;
@@ -220,7 +240,6 @@ html, body {
   align-items: center;
   justify-content: center;
 }
-#btn-pause { color: var(--gold); background: #2a2430; }
 
 #pops {
   position: absolute;
@@ -360,6 +379,7 @@ html, body {
   gap: 10px;
   flex: 1 1 auto;
 }
+#pad-foot .pad-fire, #pad-car .pad-fire { display: none; }
 #pad-foot.hidden, #pad-car.hidden { display: none; }
 
 #pad-move {
@@ -367,7 +387,7 @@ html, body {
   grid-template-columns: 1fr 1.15fr 1fr;
   gap: 8px;
   flex: 1 1 auto;
-  max-width: 280px;
+  max-width: none;
 }
 
 #pad.driving {
@@ -407,7 +427,7 @@ html, body {
 }
 .pad-brake { color: var(--pink); }
 .pad-gas { color: var(--gold); }
-.pad-exit { font-size: 8px; min-height: 36px; color: var(--cream); width: 100%; }
+.pad-exit { font-size: 8px; min-height: 44px; color: var(--cream); width: 100%; }
 .pad-exit.off { opacity: 0.38; }
 #pad-car .pad-fire {
   width: 100%;
@@ -562,7 +582,7 @@ html, body {
 
 @media (max-width: 400px) {
   #hud-top { gap: 5px; padding-left: calc(6px + var(--sal)); padding-right: 6px; }
-  #btn-mute, #btn-pause { min-width: 30px; padding: 5px; }
+  #btn-pause { min-width: 30px; padding: 5px; }
 }
 
 @media (orientation: landscape) and (max-height: 430px) {

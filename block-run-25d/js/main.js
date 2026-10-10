@@ -1,16 +1,14 @@
-import { TICK } from "./config.js?v=21";
-import { bindAudioUnlock, unlockAudio, setMuted, isMuted } from "./audio.js?v=21";
-import { createInput } from "./input.js?v=21";
-import { createGame } from "./game.js?v=21";
-import { loadSprites } from "./sprites.js?v=21";
-import { createWorld } from "./world.js?v=21";
-import { createHud } from "./hud.js?v=21";
+import { TICK } from "./config.js?v=23";
+import { bindAudioUnlock, unlockAudio } from "./audio.js?v=23";
+import { createInput } from "./input.js?v=23";
+import { createGame } from "./game.js?v=23";
+import { loadSprites } from "./sprites.js?v=23";
+import { createWorld } from "./world.js?v=23";
+import { createHud } from "./hud.js?v=23";
 
 const canvas = document.getElementById("scene");
-const muteBtn = document.getElementById("btn-mute");
 const pauseBtn = document.getElementById("btn-pause");
 const resumeBtn = document.getElementById("btn-resume");
-const restartBtn = document.getElementById("btn-restart");
 
 bindAudioUnlock();
 
@@ -23,12 +21,6 @@ function stopHudClick(e) {
   e.stopPropagation();
 }
 
-muteBtn.addEventListener("pointerdown", (e) => {
-  stopHudClick(e);
-  setMuted(!isMuted());
-  muteBtn.textContent = isMuted() ? "OFF" : "ON";
-});
-
 pauseBtn?.addEventListener("pointerdown", (e) => {
   stopHudClick(e);
   const mode = game.getState().mode;
@@ -39,11 +31,6 @@ pauseBtn?.addEventListener("pointerdown", (e) => {
 resumeBtn?.addEventListener("pointerdown", (e) => {
   stopHudClick(e);
   game.resume();
-});
-
-restartBtn?.addEventListener("pointerdown", (e) => {
-  stopHudClick(e);
-  game.restart();
 });
 
 document.addEventListener("visibilitychange", () => {
@@ -77,7 +64,7 @@ function frame(now) {
     const step = first ? inp : {
       ...inp,
       shoot: false, jump: false, start: false, mute: false, pause: false,
-      exit: false, gearTap: null, shiftStep: 0,
+      exit: false, gearTap: null, shiftStep: 0, accept: false, decline: false,
     };
     game.tick(TICK, step, view);
     acc -= TICK;
@@ -107,6 +94,19 @@ window.__br = {
   setGun: (name) => game.setGun(name),
   setCarrying: (on) => game.setCarrying(on),
   setHeat: (h) => game.setHeat(h),
+  setPacks: (n) => game.setPacks(n),
+  setRep: (n) => game.setRep(n),
+  setStash: (n) => game.setStash(n),
+  setClock: (t) => game.setClock(t),
+  acceptOrder: () => game.acceptOrder(),
+  declineOrder: () => game.declineOrder(),
+  buyPack: () => game.buyPack(),
+  stashCash: () => game.stashCash(),
+  solicit: () => game.solicit(),
+  startUTurn: (dir) => game.startUTurn(dir),
+  setTurnMid: () => game.setTurnMid(),
+  clearOrder: () => game.clearOrder(),
+  setPedX: (i, x) => game.setPedX(i, x),
   spawnOrder: (id, opts) => game.spawnOrder(id, opts),
   setInCar: (on) => game.setInCar(on),
   setGear: (name) => game.setGear(name),
