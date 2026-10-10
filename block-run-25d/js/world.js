@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat,
-} from "./config.js?v=41";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=41";
+} from "./config.js?v=42";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=42";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
