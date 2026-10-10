@@ -1,7 +1,7 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
-} from "../../block-run-25d/js/config.js?v=38";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=38";
+} from "../../block-run-25d/js/config.js?v=39";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=39";
 
 const STREET_CROP = 168;
 const STREET_W = 398;
@@ -114,34 +114,27 @@ export function createWorld(canvas, art) {
     return Math.min(bannerBottom + 16, Math.round(skylineTop - 20));
   }
 
-  function drawSunMoon(sky) {
-    const y = bannerSafeY();
+  function drawSun(sky) {
     const sun = sky?.sun ?? 0;
-    if (sun > 0.12) {
-      const x = VW - 22;
-      const drop = Math.round((1 - sun) * 14);
-      const cy = y + drop;
-      const r = 8;
-      g.fillStyle = `rgba(255,214,90,${Math.min(1, 0.4 + sun * 0.55).toFixed(2)})`;
-      g.fillRect(x - r - 3, cy - 1, r * 2 + 6, 3);
-      g.fillRect(x - 1, cy - r - 3, 3, r * 2 + 6);
-      g.fillStyle = "#ffe46a";
-      g.fillRect(x - r + 1, cy - r + 1, r * 2 - 2, r * 2 - 2);
-      g.fillStyle = "#fff6b0";
-      g.fillRect(x - 3, cy - 3, 6, 6);
-    }
-    const moon = sky?.moon ?? 0;
-    if (moon > 0.12) {
-      const x = 20;
-      g.fillStyle = `rgba(244,240,232,${Math.min(1, moon).toFixed(2)})`;
-      g.fillRect(x - 6, y - 5, 12, 11);
-      g.fillStyle = `rgba(180,176,200,${Math.min(1, moon).toFixed(2)})`;
-      g.fillRect(x - 2, y - 2, 3, 3);
-      g.fillRect(x + 2, y + 1, 2, 2);
-    }
+    if (sun <= 0.12) return;
+    const y = bannerSafeY();
+    const x = VW - 22;
+    const drop = Math.round((1 - sun) * 14);
+    const cy = y + drop;
+    const r = 8;
+    g.fillStyle = `rgba(255,214,90,${Math.min(1, 0.4 + sun * 0.55).toFixed(2)})`;
+    g.fillRect(x - r - 3, cy - 1, r * 2 + 6, 3);
+    g.fillRect(x - 1, cy - r - 3, 3, r * 2 + 6);
+    g.fillStyle = "#ffe46a";
+    g.fillRect(x - r + 1, cy - r + 1, r * 2 - 2, r * 2 - 2);
+    g.fillStyle = "#fff6b0";
+    g.fillRect(x - 3, cy - 3, 6, 6);
   }
 
-  function drawBackdrop(cam) {
+  const streetLayer = document.createElement("canvas");
+  const sl = streetLayer.getContext("2d");
+
+  function drawBackdrop(cam, sky) {
     const street = art.street;
     if (!street || !(street.naturalWidth || street.width)) return;
     const sw = street.naturalWidth || street.width || STREET_W;
@@ -149,16 +142,27 @@ export function createWorld(canvas, art) {
     const destH = Math.max(120, Math.min(ground - 40, 210));
     const destY = ground - 26 - destH;
     const shift = wrap(cam, sw);
-    g.imageSmoothingEnabled = false;
-    for (let x = -shift; x < VW + sw; x += sw) {
-      g.drawImage(street, 0, 0, sw, sh, Math.round(x), destY, sw, destH);
+    if (streetLayer.width !== VW || streetLayer.height !== VH) {
+      streetLayer.width = VW;
+      streetLayer.height = VH;
     }
-  }
-
-  function washBackdrop(sky) {
-    if (!sky?.wash) return;
-    g.fillStyle = sky.wash;
-    g.fillRect(0, 0, VW, ground);
+    sl.clearRect(0, 0, VW, VH);
+    sl.imageSmoothingEnabled = false;
+    for (let x = -shift; x < VW + sw; x += sw) {
+      sl.drawImage(street, 0, 0, sw, sh, Math.round(x), destY, sw, destH);
+    }
+    const sun = sky?.sun ?? 0;
+    if (sun > 0.08) {
+      sl.globalCompositeOperation = "multiply";
+      sl.fillStyle = sun > 0.55 ? "#d2e2f0" : "#e8b898";
+      sl.fillRect(0, destY, VW, destH);
+      sl.globalCompositeOperation = "destination-in";
+      for (let x = -shift; x < VW + sw; x += sw) {
+        sl.drawImage(street, 0, 0, sw, sh, Math.round(x), destY, sw, destH);
+      }
+      sl.globalCompositeOperation = "source-over";
+    }
+    g.drawImage(streetLayer, 0, 0);
   }
 
   function drawStreet(cam) {
@@ -365,9 +369,8 @@ export function createWorld(canvas, art) {
 
     g.imageSmoothingEnabled = false;
     drawSky(state.sky);
-    drawBackdrop(camX);
-    washBackdrop(state.sky);
-    drawSunMoon(state.sky);
+    drawBackdrop(camX, state.sky);
+    drawSun(state.sky);
     drawStreet(camX);
 
     drawWrapped((off) => {
