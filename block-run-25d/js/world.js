@@ -646,40 +646,40 @@ export function createWorld(canvas, sprites) {
     return g;
   }
   const dtla = new THREE.Group();
-  const usBank = litTower(1.35, 11.2, 1.2, 0x5a4a80);
+  const usBank = litTower(1.35, 12.4, 1.2, 0x3a2c58);
   const usCrown = new THREE.Mesh(
     new THREE.BoxGeometry(1.7, 0.55, 1.4),
-    new THREE.MeshBasicMaterial({ color: 0x6a5a90, fog: false }),
+    new THREE.MeshBasicMaterial({ color: 0x4a3c68, fog: false }),
   );
-  usCrown.position.y = 11.45;
+  usCrown.position.y = 12.65;
   usBank.add(usCrown);
   const usSpire = new THREE.Mesh(
     new THREE.BoxGeometry(0.12, 1.4, 0.12),
     new THREE.MeshBasicMaterial({ color: 0x3de0ff, fog: false }),
   );
-  usSpire.position.y = 12.3;
+  usSpire.position.y = 13.5;
   usBank.add(usSpire);
   usBank.userData.dx = -3.2;
-  const wilshire = litTower(1.7, 12.6, 1.35, 0x564878);
+  const wilshire = litTower(1.7, 13.8, 1.35, 0x322850);
   const sail = new THREE.Mesh(
     new THREE.BoxGeometry(2.1, 1.3, 0.8),
-    new THREE.MeshBasicMaterial({ color: 0x6a5a88, fog: false }),
+    new THREE.MeshBasicMaterial({ color: 0x4a3c70, fog: false }),
   );
-  sail.position.set(0.15, 13.1, 0);
+  sail.position.set(0.15, 14.3, 0);
   sail.rotation.z = -0.28;
   wilshire.add(sail);
   const wgSpire = new THREE.Mesh(
     new THREE.BoxGeometry(0.1, 2.8, 0.1),
     new THREE.MeshBasicMaterial({ color: 0xf0c430, fog: false }),
   );
-  wgSpire.position.y = 14.6;
+  wgSpire.position.y = 15.8;
   wilshire.add(wgSpire);
   wilshire.userData.dx = 1.6;
-  const lib = litTower(1.15, 9.4, 1.1, 0x4a3a68);
+  const lib = litTower(1.15, 10.2, 1.1, 0x2e2448);
   lib.userData.dx = -6.4;
-  const midA = litTower(1.4, 7.6, 1.15, 0x3a3058);
+  const midA = litTower(1.4, 8.4, 1.15, 0x2a2038);
   midA.userData.dx = 4.8;
-  const midB = litTower(1.05, 8.2, 1.05, 0x423860);
+  const midB = litTower(1.05, 9.0, 1.05, 0x322848);
   midB.userData.dx = -8.6;
   for (const t of [lib, usBank, wilshire, midA, midB]) dtla.add(t);
   scene.add(dtla);
@@ -1189,7 +1189,7 @@ export function createWorld(canvas, sprites) {
     skyline.position.set(camX + 1.4, 8.9, -10);
     hazeBand.position.set(camX, 5.2, -9.6);
     sky.position.set(camX, 15, -22);
-    dtla.position.set(camX + 0.8, 0, -9.6);
+    dtla.position.set(camX + 0.8, 0, -12.4);
     for (const t of dtla.children) {
       t.position.x = t.userData.dx || 0;
       t.position.z = 0;
