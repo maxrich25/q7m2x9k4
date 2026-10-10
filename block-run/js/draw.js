@@ -1,7 +1,7 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
-} from "../../block-run-25d/js/config.js?v=36";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=36";
+} from "../../block-run-25d/js/config.js?v=37";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=37";
 
 const STREET_CROP = 168;
 const STREET_W = 398;
@@ -106,26 +106,33 @@ export function createWorld(canvas, art) {
     return { destH, destY };
   }
 
+  function bannerSafeY() {
+    const cssH = Math.max(1, dest.cssH || 1);
+    const bannerBottom = Math.round(148 * (VH / cssH));
+    const { destH, destY } = backdropDest();
+    const skylineTop = destY + destH * (50 / 168);
+    return Math.min(bannerBottom + 16, Math.round(skylineTop - 20));
+  }
+
   function drawSunMoon(sky) {
-    const { destY } = backdropDest();
-    const skyMid = Math.round(Math.max(40, destY * 0.36));
+    const y = bannerSafeY();
     const sun = sky?.sun ?? 0;
     if (sun > 0.12) {
-      const x = Math.round(VW * 0.72);
-      const y = skyMid + Math.round((1 - sun) * 18);
-      const r = 9;
+      const x = VW - 22;
+      const drop = Math.round((1 - sun) * 14);
+      const cy = y + drop;
+      const r = 8;
       g.fillStyle = `rgba(255,214,90,${Math.min(1, 0.4 + sun * 0.55).toFixed(2)})`;
-      g.fillRect(x - r - 3, y - 1, r * 2 + 6, 3);
-      g.fillRect(x - 1, y - r - 3, 3, r * 2 + 6);
+      g.fillRect(x - r - 3, cy - 1, r * 2 + 6, 3);
+      g.fillRect(x - 1, cy - r - 3, 3, r * 2 + 6);
       g.fillStyle = "#ffe46a";
-      g.fillRect(x - r + 1, y - r + 1, r * 2 - 2, r * 2 - 2);
+      g.fillRect(x - r + 1, cy - r + 1, r * 2 - 2, r * 2 - 2);
       g.fillStyle = "#fff6b0";
-      g.fillRect(x - 4, y - 4, 8, 8);
+      g.fillRect(x - 3, cy - 3, 6, 6);
     }
     const moon = sky?.moon ?? 0;
     if (moon > 0.12) {
-      const x = Math.round(VW * 0.24);
-      const y = Math.max(22, skyMid - 6);
+      const x = 20;
       g.fillStyle = `rgba(244,240,232,${Math.min(1, moon).toFixed(2)})`;
       g.fillRect(x - 6, y - 5, 12, 11);
       g.fillStyle = `rgba(180,176,200,${Math.min(1, moon).toFixed(2)})`;
@@ -148,14 +155,18 @@ export function createWorld(canvas, art) {
     }
   }
 
-  function coverPaintedSky(sky) {
+  function tintSkyline(sky) {
     const { destH, destY } = backdropDest();
-    const cut = Math.round(destH * 0.42);
-    const grd = g.createLinearGradient(0, destY, 0, destY + cut);
-    grd.addColorStop(0, sky?.cssTop || "#0c0120");
-    grd.addColorStop(1, sky?.cssBot || "#140a28");
+    const y0 = destY + destH * (48 / 168);
+    const y1 = destY + destH * (120 / 168);
+    const day = Math.max(0, sky?.sun ?? 0);
+    if (day < 0.12) return;
+    const grd = g.createLinearGradient(0, y0, 0, y1);
+    grd.addColorStop(0, `rgba(48,78,120,${(0.1 + day * 0.3).toFixed(3)})`);
+    grd.addColorStop(0.55, `rgba(48,78,120,${(0.05 + day * 0.14).toFixed(3)})`);
+    grd.addColorStop(1, "rgba(48,78,120,0)");
     g.fillStyle = grd;
-    g.fillRect(0, destY, VW, cut);
+    g.fillRect(0, Math.round(y0), VW, Math.round(y1 - y0));
   }
 
   function washBackdrop(sky) {
@@ -369,7 +380,7 @@ export function createWorld(canvas, art) {
     g.imageSmoothingEnabled = false;
     drawSky(state.sky);
     drawBackdrop(camX);
-    coverPaintedSky(state.sky);
+    tintSkyline(state.sky);
     washBackdrop(state.sky);
     drawSunMoon(state.sky);
     drawStreet(camX);

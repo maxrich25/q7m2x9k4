@@ -1,7 +1,7 @@
 import {
   pixelCanvas, setFromCanvases, flipCanvas, remapHoodie,
-} from "../../block-run-25d/js/paint.js?v=36";
-import { OUTFITS } from "../../block-run-25d/js/config.js?v=36";
+} from "../../block-run-25d/js/paint.js?v=37";
+import { OUTFITS } from "../../block-run-25d/js/config.js?v=37";
 
 const SPRITE_BASE = new URL("../sprites/", import.meta.url);
 
@@ -119,6 +119,21 @@ function cleanStreet(street) {
   return pixelCanvas(w, h, (g) => {
     g.drawImage(street, 0, 0, w, Math.min(h, street.naturalHeight), 0, 0, w, h);
     g.drawImage(street, 0, 142, 110, 6, 0, 148, 110, 20);
+    const img = g.getImageData(0, 0, w, h);
+    const d = img.data;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        const r = d[i];
+        const gv = d[i + 1];
+        const b = d[i + 2];
+        const lum = r + gv + b;
+        const sky = y < h * 0.58 && lum < 72 && b >= r && r < 42;
+        const moon = y < h * 0.4 && ((r > 150 && gv > 140 && lum > 380) || lum > 500);
+        if (sky || moon) d[i + 3] = 0;
+      }
+    }
+    g.putImageData(img, 0, 0);
   });
 }
 
