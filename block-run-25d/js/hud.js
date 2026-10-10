@@ -187,7 +187,7 @@ export function createHud(opts = {}) {
     const muted = !!state.muted;
     btnMute?.classList.toggle("off", muted);
     if (btnMute) {
-      btnMute.textContent = muted ? "X" : "♪";
+      btnMute.textContent = muted ? "X" : "SP";
       btnMute.setAttribute("aria-label", muted ? "sound off" : "sound on");
     }
     if (btnSound) {
