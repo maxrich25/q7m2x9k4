@@ -1,12 +1,15 @@
 import {
-  WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X, LIGHT_COUNT, lightGameX,
-} from "../../block-run-25d/js/config.js?v=25";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=25";
+  WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
+} from "../../block-run-25d/js/config.js?v=26";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=26";
 
-const VW = 256;
-const VH = 224;
+const STREET_CROP = 176;
+const STREET_W = 398;
 
 export function createWorld(canvas, art) {
+  let VW = 256;
+  let VH = 224;
+  let ground = 198;
   const buf = document.createElement("canvas");
   buf.width = VW;
   buf.height = VH;
@@ -24,17 +27,19 @@ export function createWorld(canvas, art) {
     canvas.height = Math.floor(h * dpr);
     canvas.style.width = w + "px";
     canvas.style.height = h + "px";
-    const scale = Math.max(w / VW, h / VH);
-    const dw = VW * scale;
-    const dh = VH * scale;
+    VW = 256;
+    VH = Math.max(224, Math.round(256 * h / Math.max(1, w)));
+    ground = VH - 36;
+    buf.width = VW;
+    buf.height = VH;
     dest = {
-      x: (w - dw) / 2 * dpr,
-      y: (h - dh) / 2 * dpr,
-      w: dw * dpr,
-      h: dh * dpr,
+      x: 0,
+      y: 0,
+      w: canvas.width,
+      h: canvas.height,
       cssW: w,
       cssH: h,
-      scale: scale * dpr,
+      scale: canvas.width / VW,
     };
   }
   resize();
@@ -47,12 +52,19 @@ export function createWorld(canvas, art) {
     return wrapDelta(camX, gameX, WORLD) + VW / 2;
   }
 
+  function sy(gameY) {
+    return ground - (GROUND_Y - gameY);
+  }
+
   function drawImg(img, x, y, facing = 1, w, h) {
     if (!img) return;
     const src = facing < 0 && img.flipped ? img.flipped : img;
+    if (!src) return;
     const iw = w || src.width || src.naturalWidth || 32;
     const ih = h || src.height || src.naturalHeight || 40;
-    g.drawImage(src, Math.round(x - iw / 2), Math.round(y - ih), iw, ih);
+    try {
+      g.drawImage(src, Math.round(x - iw / 2), Math.round(y - ih), iw, ih);
+    } catch {}
   }
 
   function drawWrapped(drawAt) {
@@ -70,106 +82,111 @@ export function createWorld(canvas, art) {
   }
 
   function drawSky() {
-    g.fillStyle = "#07060c";
+    g.fillStyle = "#0c0120";
     g.fillRect(0, 0, VW, VH);
-    g.fillStyle = "#140c22";
-    g.fillRect(0, 0, VW, 120);
-    g.fillStyle = "#1a1430";
-    g.fillRect(0, 100, VW, 40);
     g.fillStyle = "#f4f0e8";
     g.beginPath();
-    g.arc(28, 28, 7, 0, Math.PI * 2);
+    g.arc(36, 28, 9, 0, Math.PI * 2);
     g.fill();
+    g.fillStyle = "#d8d0e8";
+    g.beginPath();
+    g.arc(38, 26, 3, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = "#c8c0d8";
+    for (let i = 0; i < 18; i++) {
+      const x = (i * 47 + 11) % VW;
+      const y = 8 + ((i * 17) % 40);
+      g.fillRect(x, y, 1, 1);
+    }
   }
 
-  function drawParallax(cam) {
-    const shift = wrap(cam * 0.22, 220);
-    for (let i = -1; i < 4; i++) {
-      const bx = i * 88 - (shift % 88);
-      const h = 46 + ((i + 8) % 3) * 10;
-      g.fillStyle = i % 2 ? "#1e1830" : "#241c38";
-      g.fillRect(Math.round(bx), 118 - h, 70, h);
-      g.fillStyle = "#ffe06a";
-      for (let r = 0; r < 4; r++) {
-        for (let c = 0; c < 3; c++) {
-          if ((i + r + c) % 3 === 0) continue;
-          g.fillRect(Math.round(bx) + 8 + c * 18, 118 - h + 8 + r * 10, 6, 5);
-        }
-      }
+  function drawBackdrop(cam) {
+    const street = art.street;
+    if (!street || !street.naturalWidth) return;
+    const sw = street.naturalWidth || STREET_W;
+    const sh = Math.min(STREET_CROP, street.naturalHeight || STREET_CROP);
+    const destH = Math.max(120, Math.min(ground - 40, 210));
+    const destY = ground - 26 - destH;
+    const shift = wrap(cam, sw);
+    g.imageSmoothingEnabled = false;
+    for (let x = -shift; x < VW + sw; x += sw) {
+      g.drawImage(street, 0, 0, sw, sh, Math.round(x), destY, sw, destH);
     }
   }
 
   function drawStreet(cam) {
-    g.fillStyle = "#8a8694";
-    g.fillRect(0, 164, VW, 18);
-    g.fillStyle = "#6a6674";
-    for (let x = -((cam | 0) % 16); x < VW; x += 16) g.fillRect(x, 164, 1, 18);
-    g.fillStyle = "#b8b4c0";
-    g.fillRect(0, 164, VW, 2);
+    const walk = ground - 22;
+    g.fillStyle = "#9a8a7c";
+    g.fillRect(0, walk, VW, 22);
+    g.fillStyle = "#7a6c62";
+    for (let x = -((cam | 0) % 18); x < VW; x += 18) g.fillRect(x, walk, 1, 22);
+    g.fillStyle = "#c8b8a8";
+    g.fillRect(0, walk, VW, 3);
+    g.fillStyle = "#6a5a50";
+    g.fillRect(0, ground - 2, VW, 3);
 
-    g.fillStyle = "#1a1822";
-    g.fillRect(0, 182, VW, 42);
-    g.fillStyle = "#f0c430";
+    g.fillStyle = "#1c1824";
+    g.fillRect(0, ground + 1, VW, VH - (ground + 1));
+    g.fillStyle = "#141018";
+    g.fillRect(0, ground + 1, VW, 2);
+    g.fillStyle = "#e8c44a";
     const dash = wrap(cam, 28);
-    for (let x = -dash; x < VW; x += 28) g.fillRect(Math.round(x), 200, 12, 2);
-
-    if (art.street && art.street.naturalWidth) {
-      const sw = art.street.naturalWidth;
-      const t = wrap(cam * 0.35, sw);
-      g.globalAlpha = 0.28;
-      g.drawImage(art.street, t, 40, 180, 120, 0, 40, 180, 88);
-      if (t + 180 > sw) {
-        const extra = t + 180 - sw;
-        g.drawImage(art.street, 0, 40, extra, 120, 180 - extra, 40, extra, 88);
-      }
-      g.globalAlpha = 1;
-    }
+    for (let x = -dash; x < VW; x += 28) g.fillRect(Math.round(x), ground + 14, 15, 3);
   }
 
-  function drawPalm(x, y) {
+  function drawPalm(x) {
+    const y = ground - 22;
     g.fillStyle = "#6a4430";
-    g.fillRect(Math.round(x) - 1, y - 22, 3, 22);
+    g.fillRect(Math.round(x) - 2, y - 42, 4, 42);
+    g.fillStyle = "#1f6a38";
+    g.fillRect(Math.round(x) - 14, y - 52, 28, 14);
     g.fillStyle = "#2f8a4a";
-    g.fillRect(Math.round(x) - 8, y - 28, 16, 8);
+    g.fillRect(Math.round(x) - 16, y - 48, 10, 6);
+    g.fillRect(Math.round(x) + 6, y - 48, 10, 6);
     g.fillStyle = "#3dff7a";
-    g.fillRect(Math.round(x) - 6, y - 26, 3, 2);
+    g.fillRect(Math.round(x) - 6, y - 46, 4, 3);
   }
 
   function drawCali(x) {
-    g.fillStyle = "#6a6258";
-    g.fillRect(Math.round(x) - 28, 132, 56, 32);
-    g.fillStyle = "#e21b7a";
-    g.font = "10px 'Press Start 2P', monospace";
+    const y = ground - 58;
+    g.fillStyle = "#c8b8a0";
+    g.fillRect(Math.round(x) - 36, y, 72, 40);
+    g.fillStyle = "#b0a088";
+    g.fillRect(Math.round(x) - 36, y, 72, 3);
+    g.fillStyle = "#f4f0e8";
+    g.font = "11px 'Press Start 2P', monospace";
     g.textAlign = "center";
-    g.fillText("CALI", Math.round(x), 142);
+    g.fillText("CALI", Math.round(x), y + 12);
     g.fillStyle = "#3de0ff";
     g.font = "6px 'Press Start 2P', monospace";
-    g.fillText("LA NIGHTS", Math.round(x), 154);
+    g.fillText("LA NIGHTS", Math.round(x), y + 26);
   }
 
   function drawHouse(x) {
+    const y = ground - 50;
     g.fillStyle = "#3a3048";
-    g.fillRect(Math.round(x) - 18, 136, 36, 28);
+    g.fillRect(Math.round(x) - 22, y, 44, 38);
     g.fillStyle = "#1a1424";
-    g.fillRect(Math.round(x) - 20, 132, 40, 6);
+    g.fillRect(Math.round(x) - 24, y - 8, 48, 10);
     g.fillStyle = "#3de0ff";
-    g.fillRect(Math.round(x) - 5, 148, 10, 16);
+    g.fillRect(Math.round(x) - 6, y + 16, 12, 22);
     g.fillStyle = "#f0c430";
-    g.fillRect(Math.round(x) + 8, 142, 7, 7);
-    text("HOME", x, 122, "#3de0ff");
+    g.fillRect(Math.round(x) + 8, y + 8, 8, 8);
+    text("HOME", x, y - 14, "#3de0ff");
   }
 
   function drawLight(x, phase) {
+    const y = ground - 50;
     g.fillStyle = "#2a2430";
-    g.fillRect(Math.round(x) - 1, 140, 3, 24);
+    g.fillRect(Math.round(x) - 1, y, 3, 38);
     g.fillStyle = "#141018";
-    g.fillRect(Math.round(x) - 4, 132, 8, 16);
+    g.fillRect(Math.round(x) - 6, y - 18, 12, 20);
     g.fillStyle = phase === "red" ? "#ff2a3a" : "#3a1018";
-    g.fillRect(Math.round(x) - 2, 133, 4, 4);
+    g.fillRect(Math.round(x) - 4, y - 16, 8, 5);
     g.fillStyle = phase === "yellow" ? "#f0c430" : "#3a3010";
-    g.fillRect(Math.round(x) - 2, 138, 4, 4);
+    g.fillRect(Math.round(x) - 4, y - 9, 8, 5);
     g.fillStyle = phase === "green" ? "#3dff7a" : "#103a18";
-    g.fillRect(Math.round(x) - 2, 143, 4, 4);
+    g.fillRect(Math.round(x) - 4, y - 2, 8, 5);
   }
 
   function actorFrame(set, anim, moving, waving) {
@@ -181,7 +198,7 @@ export function createWorld(canvas, art) {
 
   function project(gameX, gameY) {
     const xLog = sx(gameX);
-    const yLog = gameY;
+    const yLog = sy(gameY);
     return {
       x: dest.cssW / 2 + (xLog - VW / 2) * (dest.cssW / VW),
       y: dest.cssH / 2 + (yLog - VH / 2) * (dest.cssH / VH),
@@ -200,6 +217,15 @@ export function createWorld(canvas, art) {
   }
 
   function sync(state, dt, alpha = 1) {
+    try {
+      return syncInner(state, dt, alpha);
+    } catch (err) {
+      console.error(err);
+      return { camX, project };
+    }
+  }
+
+  function syncInner(state, dt, alpha = 1) {
     const p = state.player;
     const px = renderGameX(p, alpha);
     const paused = state.mode === "paused";
@@ -217,25 +243,21 @@ export function createWorld(canvas, art) {
 
     g.imageSmoothingEnabled = false;
     drawSky();
-    drawParallax(camX);
-
-    drawWrapped((off) => {
-      const cali = sx(HOME_X + 180 + off);
-      if (cali > -40 && cali < VW + 40) drawCali(cali);
-      for (let i = 0; i < 8; i++) {
-        const gx = i * (WORLD / 8) + 40;
-        const x = sx(gx + off);
-        if (x > -20 && x < VW + 20) drawPalm(x, 164);
-      }
-    });
-
+    drawBackdrop(camX);
     drawStreet(camX);
 
     drawWrapped((off) => {
+      const cali = sx(HOME_X + 180 + off);
+      if (cali > -50 && cali < VW + 50) drawCali(cali);
+      for (let i = 0; i < 8; i++) {
+        const gx = i * (WORLD / 8) + 40;
+        const x = sx(gx + off);
+        if (x > -20 && x < VW + 20) drawPalm(x);
+      }
       const hx = sx(HOME_X + off);
       if (hx > -30 && hx < VW + 30) drawHouse(hx);
       const plugX = sx((state.plugMeet?.x ?? PLUG_X) + off);
-      if (plugX > -30 && plugX < VW + 30) text("PLUG", plugX, 122, "#e21b7a");
+      if (plugX > -30 && plugX < VW + 30) text("PLUG", plugX, sy(GROUND_Y) - 64, "#e21b7a");
       (state.lights || []).forEach((L) => {
         const x = sx(L.x + off);
         if (x > -10 && x < VW + 10) drawLight(x, L.phase);
@@ -243,12 +265,13 @@ export function createWorld(canvas, art) {
     });
 
     const looks = art.peds || art.buyers || [];
+    const feet = sy(GROUND_Y);
     for (const ped of state.peds || []) {
       const set = looks[ped.look % looks.length];
       const fr = actorFrame(set, ped.anim, Math.abs(ped.vx || 0) > 2, false);
       drawWrapped((off) => {
         const x = sx(ped.x + off);
-        if (x > -20 && x < VW + 20) drawImg(fr, x, GROUND_Y, ped.facing);
+        if (x > -20 && x < VW + 20) drawImg(fr, x, feet - 1, ped.facing, 40, 50);
       });
     }
 
@@ -256,7 +279,7 @@ export function createWorld(canvas, art) {
       const fr = actorFrame(art.plug, state.clock || 1, false, true);
       drawWrapped((off) => {
         const x = sx(state.plugMeet.x + off);
-        if (x > -20 && x < VW + 20) drawImg(fr, x, GROUND_Y, 1);
+        if (x > -20 && x < VW + 20) drawImg(fr, x, feet - 1, 1, 40, 50);
       });
     }
 
@@ -269,30 +292,25 @@ export function createWorld(canvas, art) {
         if (x < -20 || x > VW + 20) return;
         g.fillStyle = "#f0c430";
         g.beginPath();
-        g.moveTo(x, 148);
-        g.lineTo(x - 4, 156);
-        g.lineTo(x + 4, 156);
+        g.moveTo(x, feet - 58);
+        g.lineTo(x - 5, feet - 48);
+        g.lineTo(x + 5, feet - 48);
         g.fill();
-        drawImg(fr, x, GROUND_Y, wrapDelta(state.order.x, px, WORLD) >= 0 ? 1 : -1);
+        drawImg(fr, x, feet - 1, wrapDelta(state.order.x, px, WORLD) >= 0 ? 1 : -1, 40, 50);
       });
     }
 
     if (state.car && art.car) {
       const cx = renderGameX(state.car, alpha);
-      const facing = state.car.facing;
-      const turning = (state.car.turnT || 0) > 0;
+      let facing = state.car.facing < 0 ? -1 : 1;
+      if ((state.car.turnT || 0) > 0) {
+        const u = 1 - state.car.turnT / 1;
+        if (Math.cos(Math.max(0, Math.min(1, u)) * Math.PI) < 0) facing *= -1;
+      }
       drawWrapped((off) => {
         const x = sx(cx + off);
-        if (x < -40 || x > VW + 40) return;
-        g.save();
-        g.translate(Math.round(x), GROUND_Y);
-        if (turning) {
-          const u = 1 - state.car.turnT;
-          g.scale(Math.cos(u * Math.PI), 1);
-        }
-        const img = facing < 0 && art.car.flipped ? art.car.flipped : art.car;
-        g.drawImage(img, -28, -22);
-        g.restore();
+        if (x < -50 || x > VW + 50) return;
+        drawImg(art.car, x, ground + 22, facing, 88, 32);
       });
     }
 
@@ -300,13 +318,13 @@ export function createWorld(canvas, art) {
       const cx = renderGameX(state.copCar, alpha);
       drawWrapped((off) => {
         const x = sx(cx + off);
-        if (x < -40 || x > VW + 40) return;
-        drawImg(art.copCar, x, GROUND_Y + 2, state.copCar.facing, 56, 24);
+        if (x < -50 || x > VW + 50) return;
+        drawImg(art.copCar, x, ground + 22, state.copCar.facing, 88, 32);
       });
     }
 
     if (!state.inCar) {
-      const blink = state.invuln > 0 && Math.floor(state.invuln * 20) % 2 === 0;
+      const blink = state.mode === "play" && state.invuln > 0.4 && Math.floor(state.invuln * 20) % 2 === 0;
       if (!blink) {
         const airborne = p.y < 197.2;
         const set = state.muzzle > 0 ? art.shoot
@@ -317,7 +335,7 @@ export function createWorld(canvas, art) {
         const fr = frameAt(set, p.anim, rate);
         drawWrapped((off) => {
           const x = sx(px + off);
-          if (x > -20 && x < VW + 20) drawImg(fr, x, p.y, p.facing);
+          if (x > -20 && x < VW + 20) drawImg(fr, x, sy(p.y), p.facing, 48, 48);
         });
       }
     }
@@ -325,12 +343,12 @@ export function createWorld(canvas, art) {
     if (art.dumpster) {
       drawWrapped((off) => {
         const x = sx(493 + off);
-        if (x > -20 && x < VW + 20) drawImg(art.dumpster, x, GROUND_Y, 1, 36, 36);
+        if (x > -20 && x < VW + 20) drawImg(art.dumpster, x, feet, 1, 36, 36);
       });
     }
 
     out.imageSmoothingEnabled = false;
-    out.fillStyle = "#07060c";
+    out.fillStyle = "#0c0120";
     out.fillRect(0, 0, canvas.width, canvas.height);
     if (state.shake > 0) {
       const s = state.shake * state.shake;

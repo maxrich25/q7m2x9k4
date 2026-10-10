@@ -1,7 +1,7 @@
 import {
   pixelCanvas, paintLook, paintCopFig, paintPlugFig, PED_LOOKS,
   setFromCanvases, flipCanvas,
-} from "../../block-run-25d/js/paint.js?v=25";
+} from "../../block-run-25d/js/paint.js?v=26";
 
 const SPRITE_BASE = new URL("../sprites/", import.meta.url);
 
@@ -75,29 +75,35 @@ function sheetFrom(src, extras) {
 }
 
 function paintCar(cop = false) {
-  return pixelCanvas(56, 24, (g) => {
-    g.fillStyle = cop ? "#e8eef4" : "#141418";
-    g.fillRect(4, 10, 48, 8);
-    g.fillStyle = cop ? "#1a2430" : "#0c0c10";
-    g.fillRect(16, 4, 20, 8);
-    g.fillStyle = "#152028";
-    g.fillRect(18, 5, 16, 5);
-    g.fillStyle = cop ? "#111018" : "#d8dee8";
-    g.fillRect(8, 16, 8, 8);
-    g.fillRect(40, 16, 8, 8);
-    g.fillStyle = "#c8d0dc";
-    g.fillRect(10, 18, 4, 4);
-    g.fillRect(42, 18, 4, 4);
+  return pixelCanvas(88, 32, (g) => {
+    g.fillStyle = "#0a0810";
+    g.fillRect(10, 28, 68, 3);
+    g.fillStyle = cop ? "#e8eef4" : "#2a1840";
+    g.fillRect(6, 14, 76, 12);
+    g.fillRect(4, 16, 80, 8);
+    g.fillStyle = cop ? "#1a2430" : "#1a1028";
+    g.fillRect(20, 6, 40, 10);
+    g.fillStyle = "#3a4868";
+    g.fillRect(24, 8, 14, 7);
+    g.fillRect(42, 8, 14, 7);
+    g.fillStyle = "#c8b8a0";
+    g.fillRect(6, 24, 76, 1);
+    g.fillStyle = "#111018";
+    g.fillRect(14, 22, 12, 10);
+    g.fillRect(60, 22, 12, 10);
+    g.fillStyle = "#d0d4dc";
+    g.fillRect(17, 25, 6, 4);
+    g.fillRect(63, 25, 6, 4);
     if (cop) {
       g.fillStyle = "#e21b7a";
-      g.fillRect(20, 2, 6, 3);
+      g.fillRect(32, 3, 8, 3);
       g.fillStyle = "#3de0ff";
-      g.fillRect(27, 2, 6, 3);
+      g.fillRect(42, 3, 8, 3);
     } else {
       g.fillStyle = "#c8e8ff";
-      g.fillRect(48, 11, 4, 3);
+      g.fillRect(76, 16, 6, 3);
       g.fillStyle = "#e21b7a";
-      g.fillRect(4, 11, 3, 3);
+      g.fillRect(6, 16, 4, 3);
     }
   });
 }
