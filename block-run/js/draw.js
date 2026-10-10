@@ -153,14 +153,16 @@ export function createWorld(canvas, art) {
     }
     const sun = sky?.sun ?? 0;
     if (sun > 0.08) {
-      sl.globalCompositeOperation = "multiply";
-      sl.fillStyle = sun > 0.55 ? "#d2e2f0" : "#e8b898";
-      sl.fillRect(0, destY, VW, destH);
-      sl.globalCompositeOperation = "destination-in";
-      for (let x = -shift; x < VW + sw; x += sw) {
-        sl.drawImage(street, 0, 0, sw, sh, Math.round(x), destY, sw, destH);
+      const tint = sun > 0.55 ? [210, 226, 240] : [232, 184, 152];
+      const id = sl.getImageData(0, destY, VW, destH);
+      const p = id.data;
+      for (let i = 0; i < p.length; i += 4) {
+        if (!p[i + 3]) continue;
+        p[i] = (p[i] * tint[0] / 255) | 0;
+        p[i + 1] = (p[i + 1] * tint[1] / 255) | 0;
+        p[i + 2] = (p[i + 2] * tint[2] / 255) | 0;
       }
-      sl.globalCompositeOperation = "source-over";
+      sl.putImageData(id, 0, destY);
     }
     g.drawImage(streetLayer, 0, 0);
   }
