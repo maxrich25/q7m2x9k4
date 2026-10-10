@@ -10,9 +10,9 @@ import {
   INTRO_TEXT, SALE_POP_T, SERVE_SLOW, fmtGrams, streetGrams,
   restLat, CAR_KINDS, GREEN_TIERS, WHITE_TIERS, STALL_LINES,
   OUTFITS, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
-  nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen,
-} from "./config.js?v=42";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=42";
+  nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen, SAVE_KEY,
+} from "./config.js?v=43";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=43";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -99,6 +99,63 @@ export function createGame() {
   let lastView = null;
   const reduced = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  function sense() {
+    const nearCar = !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && player.y >= 197.5;
+    const nearPlug = Math.abs(wrapDelta(player.x, plugMeet?.x ?? PLUG_X, WORLD)) < 28;
+    const nearHome = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && player.y >= 197.5;
+    const nearPed = !inCar && peds.some((p) => Math.abs(wrapDelta(player.x, p.x, WORLD)) < 18);
+    const exitOk = inCar && car.gear === "P";
+    const liveDeal = !!(order && (order.phase === "active" || order.phase === "nudge"));
+    const nearDeal = !!(liveDeal && Math.abs(wrapDelta(player.x, order.x, WORLD)) < 32);
+    const slowEnough = Math.abs(player.vx) < SERVE_SLOW;
+    const canServe = !!(mode === "play" && !ui && nearDeal && slowEnough);
+    const canBuy = !!(plugMeet && nearPlug && slowEnough);
+    const offer = !!(order && (order.phase === "offer" || order.phase === "stalling"));
+    let prompt = "";
+    let gate = "";
+    if (mode === "play" && !ui) {
+      if (exitOk) gate = "EXIT";
+      else if (nearCar) gate = "ENTER";
+      else if (nearHome) gate = "ENTER";
+      else if (canBuy) gate = "BUY";
+      if (canServe) prompt = "SERVE";
+      else if (nearDeal && !slowEnough) prompt = "SLOW TO SERVE";
+      else if (gate) prompt = gate;
+      else if (nearPlug && !plugMeet) prompt = "TEXT";
+      else if (nearPed && !nearCar && !nearHome) prompt = "TALK";
+    }
+    let actionLabel = "ACTION";
+    let actionOk = false;
+    let actionKind = "";
+    if (mode === "play") {
+      if (offer) {
+        actionLabel = "ACCEPT";
+        actionOk = true;
+        actionKind = "accept";
+      } else if (!ui && canServe) {
+        actionLabel = "SERVE";
+        actionOk = true;
+        actionKind = "serve";
+      } else if (!ui && (exitOk || nearCar || nearHome || canBuy)) {
+        actionLabel = gate || (exitOk ? "EXIT" : canBuy ? "BUY" : "ENTER");
+        actionOk = true;
+        actionKind = "gate";
+      } else if (!ui && nearPlug && !plugMeet) {
+        actionLabel = "TEXT";
+        actionOk = true;
+        actionKind = "text";
+      } else if (!ui && nearPed && !nearCar && !nearHome) {
+        actionLabel = "TALK";
+        actionOk = true;
+        actionKind = "talk";
+      }
+    }
+    return {
+      nearCar, nearPlug, nearHome, nearPed, exitOk, liveDeal, nearDeal, slowEnough,
+      canServe, canBuy, offer, prompt, gate, actionLabel, actionOk, actionKind,
+    };
+  }
+
   function snapshot() {
     let edgeL = false;
     let edgeR = false;
@@ -122,29 +179,10 @@ export function createGame() {
         destSide = edgeSide(plugMeet.x, lastView);
       }
     }
-    const nearCar = !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && player.y >= 197.5;
-    const nearPlug = Math.abs(wrapDelta(player.x, plugMeet?.x ?? PLUG_X, WORLD)) < 28;
-    const nearHome = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && player.y >= 197.5;
-    const nearPed = !inCar && peds.some((p) => Math.abs(wrapDelta(player.x, p.x, WORLD)) < 18);
-    const exitOk = inCar && car.gear === "P";
-    const liveDeal = order && (order.phase === "active" || order.phase === "nudge");
-    const nearDeal = !!(liveDeal && Math.abs(wrapDelta(player.x, order.x, WORLD)) < 32);
-    const slowEnough = Math.abs(player.vx) < SERVE_SLOW;
-    const canServe = !!(mode === "play" && !ui && nearDeal && slowEnough && ( !inCar || inCar ));
-    const canBuy = !!(plugMeet && nearPlug && slowEnough);
-    let prompt = "";
-    let gate = "";
-    if (mode === "play" && !ui) {
-      if (exitOk) gate = "EXIT";
-      else if (nearCar) gate = "ENTER";
-      else if (nearHome) gate = "ENTER";
-      else if (canBuy) gate = "BUY";
-      if (canServe) prompt = "SERVE";
-      else if (nearDeal && !slowEnough) prompt = "SLOW TO SERVE";
-      else if (gate) prompt = gate;
-      else if (nearPlug && !plugMeet) prompt = "TEXT PLUG";
-      else if (nearPed && !nearCar && !nearHome) prompt = "HIT UP";
-    }
+    const {
+      nearCar, nearPlug, nearHome, nearPed, exitOk, liveDeal, nearDeal, slowEnough,
+      canServe, canBuy, offer, prompt, gate, actionLabel, actionOk,
+    } = sense();
     const hour = wrapHour(timeHours);
     const dealD = liveDeal ? wrapDelta(player.x, order.x, WORLD) : 0;
     const navTarget = liveDeal ? order.x : (plugMeet ? plugMeet.x : HOME_X);
@@ -169,12 +207,13 @@ export function createGame() {
       peds: peds.map((p) => ({ ...p })),
       lights,
       copCar: copCar ? { ...copCar } : null,
-      prompt, gate, destSide, hitUp: prompt === "HIT UP",
+      prompt, gate, destSide, hitUp: prompt === "TALK",
       canServe, canBuy, nearHome, nearCar, nearPlug, nearPed, exitOk,
       showServe: canServe,
       slowToServe: !!(nearDeal && !slowEnough && mode === "play" && !ui),
       showGate: !!(gate && mode === "play" && !ui),
-      showHitUp: prompt === "HIT UP",
+      showHitUp: prompt === "TALK",
+      actionLabel, actionOk, offer: !!offer,
       turnOk: inCar && car.gear === "D" && car.turnT <= 0,
       stopped: inCar && Math.abs(car.vx) < CAR_STOP,
       boughtOnce,
@@ -796,6 +835,71 @@ export function createGame() {
     return true;
   }
 
+  function saveCrib() {
+    if (mode !== "play") return false;
+    const data = {
+      cash, stash, inv, stashInv, rep, outfit, timeHours, boughtOnce, packs,
+      contacts, inbox, playerX: player.x, carX: car.x, carFacing: car.facing,
+      gear: car.gear, inCar,
+    };
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch {}
+    pop(HOME_X, 150, "SAVED");
+    sfx.drop();
+    return true;
+  }
+
+  function loadSave() {
+    let raw = null;
+    try { raw = localStorage.getItem(SAVE_KEY); } catch { return false; }
+    if (!raw) return false;
+    try {
+      const s = JSON.parse(raw);
+      cash = Math.max(0, Number(s.cash) || 0);
+      stash = Math.max(0, Number(s.stash) || 0);
+      inv = { GREEN: Math.max(0, Number(s.inv?.GREEN) || 0), WHITE: Math.max(0, Number(s.inv?.WHITE) || 0) };
+      stashInv = { GREEN: Math.max(0, Number(s.stashInv?.GREEN) || 0), WHITE: Math.max(0, Number(s.stashInv?.WHITE) || 0) };
+      packs = Math.max(0, Number(s.packs) || 0);
+      rep = Math.max(0, Math.min(MAX_REP, Number(s.rep) || 1));
+      outfit = ((Number(s.outfit) || 0) % OUTFITS.length + OUTFITS.length) % OUTFITS.length;
+      timeHours = wrapHour(s.timeHours);
+      boughtOnce = !!s.boughtOnce;
+      if (Array.isArray(s.contacts) && s.contacts.length) {
+        contacts = s.contacts.map((c) => ({ ...c }));
+        usedNames = new Set(contacts.map((c) => c.name).filter(Boolean));
+      }
+      if (Array.isArray(s.inbox)) inbox = s.inbox.map((m) => ({ ...m }));
+      if (Number.isFinite(Number(s.playerX))) {
+        player.x = wrap(Number(s.playerX), WORLD);
+        player.px = player.x;
+      }
+      if (Number.isFinite(Number(s.carX))) {
+        car.x = wrap(Number(s.carX), WORLD);
+        car.px = car.x;
+      }
+      if (s.carFacing) car.facing = s.carFacing < 0 ? -1 : 1;
+      car.yaw = car.facing < 0 ? Math.PI : 0;
+      car.lat = restLat(car.facing);
+      if (s.inCar && car.hp > 0) enterCar();
+      else if (inCar) leaveCar();
+      if (GEARS.includes(s.gear)) car.gear = s.gear;
+      syncCrowd();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function doAction() {
+    const a = sense();
+    if (!a.actionOk) return false;
+    if (a.actionKind === "accept") return acceptOrder();
+    if (a.actionKind === "serve") return serve();
+    if (a.actionKind === "gate") return useGate();
+    if (a.actionKind === "text") return textPlug();
+    if (a.actionKind === "talk") return solicit();
+    return false;
+  }
+
   function useGate() {
     const nearCarNow = !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && onGround();
     const nearHomeNow = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && onGround();
@@ -1107,8 +1211,10 @@ export function createGame() {
   function beginPlay(keepWave) {
     unlockAudio();
     reset(keepWave);
-    mode = keepWave ? "play" : "intro";
+    const loaded = !keepWave && loadSave();
+    mode = keepWave || loaded ? "play" : "intro";
     if (keepWave) ui = null;
+    else if (loaded) ui = Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 40 ? "crib" : null;
     sfx.start();
     startMusic();
   }
@@ -1185,6 +1291,7 @@ export function createGame() {
     if (input.cribClothes) cycleOutfit();
     if (input.cribSleep) sleepCrib();
     if (input.cribWait) waitCrib();
+    if (input.cribSave) saveCrib();
     if (input.cribStash) { fromCrib = true; openStash(); }
     if (input.stashClose) {
       ui = fromCrib ? "crib" : null;
@@ -1198,7 +1305,7 @@ export function createGame() {
     if (input.stashOutWhite) transfer("WHITE", -1);
 
     if (ui) {
-      if (input.accept) acceptOrder();
+      if (input.accept || input.action) acceptOrder();
       if (input.decline) declineOrder();
       clock += dt;
       atHome = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28;
@@ -1224,6 +1331,7 @@ export function createGame() {
     } else if (input.gate) {
       useGate();
     }
+    if (input.action) doAction();
     if (input.serve || (input.shoot && Math.abs(wrapDelta(player.x, order?.x ?? player.x, WORLD)) < 32 && Math.abs(player.vx) < SERVE_SLOW)) serve();
     if (input.hitup && !inCar) solicit();
     if (input.accept) acceptOrder();
@@ -1301,8 +1409,8 @@ export function createGame() {
       player.x = wrap(player.x + player.vx * dt, WORLD);
 
       coyote = onGround() ? COYOTE : Math.max(0, coyote - dt);
-      jumpBuf = usedJump ? 0 : (input.jump ? JUMP_BUFFER : Math.max(0, jumpBuf - dt));
-      if (!usedJump && jumpBuf > 0 && coyote > 0) {
+      jumpBuf = usedJump || !COMBAT ? 0 : (input.jump ? JUMP_BUFFER : Math.max(0, jumpBuf - dt));
+      if (COMBAT && !usedJump && jumpBuf > 0 && coyote > 0) {
         player.vy = JUMP_VEL;
         jumpBuf = 0;
         coyote = 0;
@@ -1353,8 +1461,9 @@ export function createGame() {
       if (salePop.life <= 0) salePop = null;
     }
     if (plugMeet) {
-      plugMeet.t -= dt;
-      if (plugMeet.t <= 0) {
+      const nearMeet = Math.abs(wrapDelta(player.x, plugMeet.x, WORLD)) < 40 || ui === "buy";
+      if (!nearMeet) plugMeet.t -= dt;
+      if (plugMeet.t <= 0 && !nearMeet) {
         plugMeet = null;
         const plug = findContact("plug");
         if (plug) plug.status = "idle";
@@ -1395,13 +1504,20 @@ export function createGame() {
 
     for (const t of traffic) {
       t.x = wrap(t.x + t.vx * dt, WORLD);
+      if (car.hp > 0) {
+        const sameLane = Math.abs((t.lat ?? restLat(t.facing)) - (car.lat ?? restLat(car.facing))) < 2.2;
+        const d = wrapDelta(car.x, t.x, WORLD);
+        if (sameLane && Math.abs(d) < 48) {
+          t.x = wrap(car.x + Math.sign(d || t.facing || 1) * 52, WORLD);
+        }
+      }
     }
 
-    if (inCar && Math.abs(car.vx) > 22) {
+    if (inCar && Math.abs(car.vx) > 10) {
       for (let i = 0; i < LIGHT_COUNT; i++) {
         if (lightPhaseAt(clock, i) !== "red") continue;
         const d = Math.abs(wrapDelta(car.x, lightGameX(i), WORLD));
-        if (d >= 16) continue;
+        if (d >= 26) continue;
         const key = i + ":" + Math.floor((clock + i * 3.7) / 16);
         if (ranReds.has(key)) continue;
         ranReds.add(key);
@@ -1762,6 +1878,8 @@ export function createGame() {
     cycleOutfit,
     sleepCrib,
     waitCrib,
+    saveCrib,
+    doAction,
     useGate,
     doUTurn,
     addContact,

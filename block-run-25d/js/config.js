@@ -52,6 +52,7 @@ export const TELEGRAPH = 0.4;
 export const BOSS_CASH_BASE = 280;
 export const BOSS_CASH_PER_WAVE = 120;
 export const HI_KEY = "block-run-25d-hi";
+export const SAVE_KEY = "block-run-save";
 
 export const SHOP_X = 175;
 export const DUMPSTER_X = 493;
@@ -137,8 +138,12 @@ export function hourOf(clock, extra = 0) {
 }
 
 export function fmtHour(h) {
-  const hr = Math.floor(wrapHour(h));
-  return (hr % 12 || 12) + (hr < 12 ? " AM" : " PM");
+  const wrapped = wrapHour(h);
+  const hr = Math.floor(wrapped);
+  const min = Math.floor((wrapped - hr) * 60);
+  const h12 = hr % 12 || 12;
+  const ap = hr < 12 ? " AM" : " PM";
+  return h12 + ":" + String(min).padStart(2, "0") + ap;
 }
 
 /** dawn 5-7A, day 7A-5P, dusk 5-8P, night 8P-5A */
@@ -235,8 +240,8 @@ function lerpHex(a, b, t) {
 const SKY_KEYS = [
   { h: 0, top: 0x0a0118, bot: 0x12081e, fog: 0x10061a, star: 1, moon: 1, sun: 0, light: 0.5, windows: 0.95, lamps: 1 },
   { h: 3, top: 0x080114, bot: 0x10061a, fog: 0x0c0416, star: 1, moon: 1, sun: 0, light: 0.46, windows: 0.82, lamps: 1 },
-  { h: 5, top: 0x1a1030, bot: 0x3a1840, fog: 0x241028, star: 0.5, moon: 0.55, sun: 0.12, light: 0.68, windows: 0.5, lamps: 0.35 },
-  { h: 6, top: 0xc86a48, bot: 0xe8a060, fog: 0x8a4a40, star: 0.1, moon: 0.18, sun: 0.55, light: 1.02, windows: 0.22, lamps: 0.08 },
+  { h: 5, top: 0x1a1438, bot: 0x4a2858, fog: 0x2a1838, star: 0.5, moon: 0.55, sun: 0.12, light: 0.68, windows: 0.5, lamps: 0.35 },
+  { h: 6, top: 0x6a5088, bot: 0xc88878, fog: 0x5a3a58, star: 0.12, moon: 0.18, sun: 0.55, light: 1.02, windows: 0.28, lamps: 0.12 },
   { h: 7, top: 0x4a90d0, bot: 0x7ab8e8, fog: 0x6aa0c8, star: 0, moon: 0, sun: 0.92, light: 1.18, windows: 0.08, lamps: 0 },
   { h: 12, top: 0x5aa8e8, bot: 0x9ad0f0, fog: 0x7ab8d8, star: 0, moon: 0, sun: 1, light: 1.32, windows: 0.05, lamps: 0 },
   { h: 16, top: 0x3a78b8, bot: 0x6aa8d8, fog: 0x5a90c0, star: 0, moon: 0, sun: 0.88, light: 1.12, windows: 0.1, lamps: 0 },

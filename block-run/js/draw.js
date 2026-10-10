@@ -1,7 +1,7 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
-} from "../../block-run-25d/js/config.js?v=42";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=42";
+} from "../../block-run-25d/js/config.js?v=43";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=43";
 
 const STREET_CROP = 168;
 const STREET_W = 398;
@@ -16,6 +16,7 @@ export function createWorld(canvas, art) {
   const g = buf.getContext("2d");
   const out = canvas.getContext("2d");
   let camX = 80;
+  let lookFace = 1;
   let dest = { x: 0, y: 0, w: VW, h: VH };
 
   function resize() {
@@ -317,13 +318,13 @@ export function createWorld(canvas, art) {
   function drawPixelCar(x, carY, facing, color, lights) {
     const dir = facing < 0 ? -1 : 1;
     g.fillStyle = color || "#2a3048";
-    g.fillRect(Math.round(x) - 20, carY - 12, 40, 11);
+    g.fillRect(Math.round(x) - 36, carY - 16, 72, 16);
     g.fillStyle = "#152028";
-    g.fillRect(Math.round(x) - 8, carY - 18, 16, 7);
+    g.fillRect(Math.round(x) - 14, carY - 26, 28, 11);
     g.fillStyle = "#111018";
-    g.fillRect(Math.round(x) - 16, carY - 3, 7, 4);
-    g.fillRect(Math.round(x) + 9, carY - 3, 7, 4);
-    drawHeadlights(x, dir, carY, lights);
+    g.fillRect(Math.round(x) - 28, carY - 4, 12, 6);
+    g.fillRect(Math.round(x) + 16, carY - 4, 12, 6);
+    drawHeadlights(x, dir, carY - 4, lights);
   }
 
   function drawLight(x, phase) {
@@ -338,6 +339,12 @@ export function createWorld(canvas, art) {
     g.fillRect(Math.round(x) - 4, y - 9, 8, 5);
     g.fillStyle = phase === "green" ? "#3dff7a" : "#103a18";
     g.fillRect(Math.round(x) - 4, y - 2, 8, 5);
+    g.fillStyle = "#f4f0e8";
+    g.fillRect(Math.round(x) - 18, ground + 2, 4, 28);
+    g.fillStyle = "#e8e0d0";
+    for (let i = 0; i < 5; i++) {
+      g.fillRect(Math.round(x) - 12 + i * 8, ground + 4, 5, 18);
+    }
   }
 
   function actorFrame(set, anim, moving, waving) {
@@ -382,11 +389,13 @@ export function createWorld(canvas, art) {
     const paused = state.mode === "paused";
     const stepDt = paused ? 0 : dt;
     const playing = state.mode === "play" || paused;
+    const wantFace = p.facing < 0 ? -1 : 1;
+    lookFace += (wantFace - lookFace) * (1 - Math.exp(-4.2 * Math.max(stepDt, 0.0001)));
     if (playing) {
       const lead = state.inCar ? 18 : 24;
-      const look = wrap(px + p.facing * lead, WORLD);
+      const look = wrap(px + lookFace * lead, WORLD);
       const dx = wrapDelta(camX, look, WORLD);
-      const follow = state.inCar ? 10 : 7;
+      const follow = state.inCar ? 6.2 : 4.0;
       camX = wrap(camX + dx * (1 - Math.exp(-follow * Math.max(stepDt, 0.0001))), WORLD);
     } else {
       camX = wrap(camX + stepDt * 12, WORLD);
@@ -399,12 +408,12 @@ export function createWorld(canvas, art) {
     drawBackdrop(camX, state.sky);
     drawStreet(camX);
 
+    const CALI_X = HOME_X + 340;
     drawWrapped((off) => {
-      const cali = sx(HOME_X + 180 + off);
-      if (cali > -50 && cali < VW + 50) drawCali(cali);
       for (let i = 0; i < 12; i++) {
         const gx = i * (WORLD / 12) + 70;
-        if (Math.abs(wrapDelta(gx, HOME_X, WORLD)) < 70) continue;
+        if (Math.abs(wrapDelta(gx, HOME_X, WORLD)) < 90) continue;
+        if (Math.abs(wrapDelta(gx, CALI_X, WORLD)) < 80) continue;
         const x = sx(gx + off);
         if (x > -30 && x < VW + 30) drawFacade(x, state.sky, i);
       }
@@ -420,6 +429,8 @@ export function createWorld(canvas, art) {
       }
       const hx = sx(HOME_X + off);
       if (hx > -30 && hx < VW + 30) drawHouse(hx, state.sky);
+      const cali = sx(CALI_X + off);
+      if (cali > -50 && cali < VW + 50) drawCali(cali);
       const plugX = sx((state.plugMeet?.x ?? PLUG_X) + off);
       if (plugX > -30 && plugX < VW + 30) text("PLUG", plugX, sy(GROUND_Y) - 64, "#e21b7a");
       (state.lights || []).forEach((L) => {
@@ -469,11 +480,16 @@ export function createWorld(canvas, art) {
     for (const t of state.traffic || []) {
       const cx = renderGameX(t, alpha);
       const facing = t.facing < 0 ? -1 : 1;
-      const carY = facing > 0 ? ground + 24 : ground + 8;
+      const carY = facing > 0 ? ground + 22 : ground + 10;
       drawWrapped((off) => {
         const x = sx(cx + off);
         if (x < -50 || x > VW + 50) return;
-        drawPixelCar(x, carY, facing, t.color, nightLights);
+        if (art.car) {
+          drawImg(art.car, x, carY, facing, 88, 26);
+          drawHeadlights(x, facing, carY - 8, nightLights);
+        } else {
+          drawPixelCar(x, carY, facing, t.color, nightLights);
+        }
       });
     }
 
@@ -518,12 +534,12 @@ export function createWorld(canvas, art) {
         const fr = frameAt(set, p.anim, rate);
         drawWrapped((off) => {
           const x = sx(px + off);
-          if (x > -20 && x < VW + 20) drawImg(fr, x, sy(p.y), p.facing, 48, 48);
+          if (x > -20 && x < VW + 20) drawImg(fr, x, sy(p.y), lookFace < 0 ? -1 : 1, 48, 48);
         });
       }
     }
 
-    if (art.dumpster) {
+    if (art.dumpster && state.combat) {
       drawWrapped((off) => {
         const x = sx(493 + off);
         if (x > -20 && x < VW + 20) drawImg(art.dumpster, x, feet, 1, 36, 36);

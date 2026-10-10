@@ -1,4 +1,4 @@
-import { unlockAudio } from "./audio.js?v=42";
+import { unlockAudio } from "./audio.js?v=43";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyS", "KeyJ", "KeyK", "KeyZ", "KeyX",
@@ -32,6 +32,7 @@ const TAP_ROLES = {
   "crib-clothes": "cribClothes",
   "crib-sleep": "cribSleep",
   "crib-wait": "cribWait",
+  "crib-save": "cribSave",
   "crib-stash": "cribStash",
   "stash-in-cash": "stashInCash",
   "stash-out-cash": "stashOutCash",
@@ -42,6 +43,7 @@ const TAP_ROLES = {
   accept: "accept",
   decline: "decline",
   stall: "decline",
+  action: "action",
   inventory: "inventory",
   "inv-close": "invClose",
   "tab-texts": "tabTexts",
@@ -200,7 +202,15 @@ export function createInput(root = document) {
   root.addEventListener("pointercancel", onPointerUp);
   root.addEventListener("contextmenu", prevent);
   document.addEventListener("gesturestart", prevent, { passive: false });
+  document.addEventListener("gesturechange", prevent, { passive: false });
   document.addEventListener("touchmove", prevent, { passive: false });
+  let lastTouchEnd = 0;
+  document.addEventListener("touchend", (e) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 350 && e.cancelable) e.preventDefault();
+    lastTouchEnd = now;
+  }, { passive: false });
+  document.addEventListener("dblclick", prevent, { passive: false });
 
   function held(code) {
     return (forced ?? down).has(code);
@@ -286,8 +296,8 @@ export function createInput(root = document) {
     qWas = qOn;
     eWas = eOn;
 
-    const accept = acceptPulse;
-    const decline = declinePulse;
+    const accept = acceptPulse || take("accept");
+    const decline = declinePulse || take("decline");
     acceptPulse = false;
     declinePulse = false;
 
@@ -329,6 +339,7 @@ export function createInput(root = document) {
       exit: exitEdge,
       accept,
       decline,
+      action: take("action"),
       shiftGear,
       gearTap,
       shiftStep,
@@ -355,6 +366,7 @@ export function createInput(root = document) {
       cribClothes: take("cribClothes"),
       cribSleep: take("cribSleep"),
       cribWait: take("cribWait"),
+      cribSave: take("cribSave"),
       cribStash: take("cribStash"),
       stashInCash: take("stashInCash"),
       stashOutCash: take("stashOutCash"),

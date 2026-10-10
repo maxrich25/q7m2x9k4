@@ -3,8 +3,8 @@ import {
   pixelCanvas, derivePose, paintLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
   remapHoodie,
-} from "./paint.js?v=42";
-import { OUTFITS } from "./config.js?v=42";
+} from "./paint.js?v=43";
+import { OUTFITS } from "./config.js?v=43";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -184,7 +184,10 @@ export async function loadSprites() {
   const runner = setFromOriginal(runnerBase, { idle: runnerOrig.length ? runnerOrig : null, walk: runnerOrig.length ? runnerOrig : null });
 
   const cop = setFromOriginal(paintCopFig());
-  const buyers = PED_LOOKS.map((_, i) => setFromOriginal(paintLook(i)));
+  const buyers = PED_LOOKS.map((look) => {
+    const set = makePlayer(look.shirt);
+    return { idle: set.idle, walk: set.walk, jump: set.jump, shoot: set.shoot, wave: set.idle };
+  });
   const plug = setFromOriginal(paintPlugFig());
 
   const bossFrames = bossImgs.filter(Boolean).map((img) => texturize(img, true));
@@ -266,7 +269,9 @@ export function setBillboardFrame(mesh, texture, facing = 1) {
 }
 
 export function orientBillboard(mesh, camera) {
-  mesh.quaternion.copy(camera.quaternion);
+  const dx = camera.position.x - mesh.position.x;
+  const dz = camera.position.z - mesh.position.z;
+  mesh.rotation.set(0, Math.atan2(dx, dz), 0);
 }
 
 export function frameAt(frames, anim, rate) {
