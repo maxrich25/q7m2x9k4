@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=28";
-import { isUnlocked } from "./audio.js?v=28";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=29";
+import { isUnlocked } from "./audio.js?v=29";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";

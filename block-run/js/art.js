@@ -1,7 +1,7 @@
 import {
   pixelCanvas, paintLook, paintCopFig, paintPlugFig, PED_LOOKS,
   setFromCanvases, flipCanvas,
-} from "../../block-run-25d/js/paint.js?v=28";
+} from "../../block-run-25d/js/paint.js?v=29";
 
 const SPRITE_BASE = new URL("../sprites/", import.meta.url);
 

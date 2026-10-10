@@ -1,7 +1,7 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
-} from "../../block-run-25d/js/config.js?v=28";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=28";
+} from "../../block-run-25d/js/config.js?v=29";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=29";
 
 const STREET_CROP = 168;
 const STREET_W = 398;
@@ -102,9 +102,9 @@ export function createWorld(canvas, art) {
 
   function drawBackdrop(cam) {
     const street = art.street;
-    if (!street || !street.naturalWidth) return;
-    const sw = street.naturalWidth || STREET_W;
-    const sh = Math.min(STREET_CROP, street.naturalHeight || STREET_CROP);
+    if (!street || !(street.naturalWidth || street.width)) return;
+    const sw = street.naturalWidth || street.width || STREET_W;
+    const sh = Math.min(STREET_CROP, street.naturalHeight || street.height || STREET_CROP);
     const destH = Math.max(120, Math.min(ground - 40, 210));
     const destY = ground - 26 - destH;
     const shift = wrap(cam, sw);

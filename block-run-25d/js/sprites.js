@@ -2,7 +2,7 @@ import * as THREE from "three";
 import {
   pixelCanvas, derivePose, paintLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
-} from "./paint.js?v=28";
+} from "./paint.js?v=29";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 

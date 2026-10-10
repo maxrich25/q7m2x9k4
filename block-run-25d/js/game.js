@@ -8,8 +8,8 @@ import {
   PLUG_X, HOME_X, PED_COUNT, LIGHT_COUNT, lightGameX, lightPhaseAt,
   PRODUCTS, HALF_OZ, SALE_AMOUNTS, FLAKE_LIMIT, CONTACT_NAMES, MORE_NAMES,
   INTRO_TEXT, SALE_POP_T, SERVE_SLOW, fmtGrams, streetGrams,
-} from "./config.js?v=28";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=28";
+} from "./config.js?v=29";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=29";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
