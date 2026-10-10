@@ -682,7 +682,7 @@ html, body {
 .sheet.hidden { display: none; }
 .sheet-card {
   width: min(94%, 320px);
-  max-height: calc(100% - 8px);
+  max-height: min(calc(100% - 8px), calc(100dvh - 88px));
   overflow: auto;
   background: #1a1624;
   border: 2px solid #3a3644;
@@ -709,12 +709,12 @@ html, body {
 }
 .sheet-head button {
   font-family: var(--font);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--cream);
   background: #121018;
   border: 2px solid #3a3644;
-  min-width: 36px;
-  min-height: 32px;
+  min-width: 44px;
+  min-height: 44px;
 }
 .sheet-note {
   font-size: 7px;
@@ -920,7 +920,7 @@ html, body {
   -webkit-touch-callout: none;
 }
 .sheet-card {
-  max-height: calc(100dvh - 88px);
+  max-height: min(calc(100% - 8px), calc(100dvh - 88px));
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -1079,24 +1079,26 @@ html, body {
   }
   #pad.gb.sa #pad-foot {
     position: absolute;
-    left: 10px;
-    bottom: calc(16px + var(--sab));
-    width: min(46vw, 200px);
-    height: 128px;
+    left: 8px;
+    bottom: calc(12px + var(--sab));
+    width: min(58vw, 248px);
+    height: 156px;
     pointer-events: auto;
   }
   #pad.gb.sa #gb-dpad {
-    gap: 10px;
-    height: 128px;
+    gap: 12px;
+    height: 156px;
   }
   #pad.gb.sa .gb-dir {
-    min-width: 84px;
-    min-height: 128px;
-    height: 128px;
-    font-size: 22px;
-    opacity: 0.62;
-    background: rgba(18, 16, 24, 0.42);
-    border-color: rgba(244, 240, 232, 0.32);
+    min-width: 110px;
+    min-height: 156px;
+    height: 156px;
+    font-size: 32px;
+    opacity: 0.9;
+    background: rgba(244, 240, 232, 0.18);
+    border: 3px solid rgba(244, 240, 232, 0.62);
+    border-radius: 18px;
+    color: #f4f0e8;
   }
   #pad.gb.sa #gb-btns {
     position: absolute;
