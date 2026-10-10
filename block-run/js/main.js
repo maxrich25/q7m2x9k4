@@ -1,10 +1,10 @@
-import { TICK } from "../../block-run-25d/js/config.js?v=29";
-import { bindAudioUnlock, unlockAudio, startMusic } from "../../block-run-25d/js/audio.js?v=29";
-import { createInput } from "../../block-run-25d/js/input.js?v=29";
-import { createGame } from "../../block-run-25d/js/game.js?v=29";
-import { createHud } from "../../block-run-25d/js/hud.js?v=29";
-import { loadArt } from "./art.js?v=29";
-import { createWorld } from "./draw.js?v=29";
+import { TICK } from "../../block-run-25d/js/config.js?v=32";
+import { bindAudioUnlock, unlockAudio, startMusic } from "../../block-run-25d/js/audio.js?v=32";
+import { createInput } from "../../block-run-25d/js/input.js?v=32";
+import { createGame } from "../../block-run-25d/js/game.js?v=32";
+import { createHud } from "../../block-run-25d/js/hud.js?v=32";
+import { loadArt } from "./art.js?v=32";
+import { createWorld } from "./draw.js?v=32";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -60,6 +60,7 @@ const PULSE_KEYS = [
   "inventory", "invClose", "phoneTab",
   "stashInCash", "stashOutCash", "stashInGreen", "stashOutGreen",
   "stashInWhite", "stashOutWhite",
+  "cribClose", "cribClothes", "cribSleep", "cribWait", "cribStash",
 ];
 
 function frame(now) {
@@ -125,6 +126,12 @@ window.__br = {
   setUi: (name) => game.setUi(name),
   openBuy: () => game.openBuy(),
   openStash: () => game.openStash(),
+  openCrib: () => game.openCrib(),
+  cycleOutfit: () => game.cycleOutfit(),
+  sleepCrib: () => game.sleepCrib(),
+  waitCrib: () => game.waitCrib(),
+  setTimeHours: (h) => game.setTimeHours(h),
+  setOutfit: (i) => game.setOutfit(i),
   useGate: () => game.useGate(),
   doUTurn: () => game.doUTurn(),
   addContact: (n, look) => game.addContact(n, look),

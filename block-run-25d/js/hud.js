@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=30";
-import { isUnlocked } from "./audio.js?v=30";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=32";
+import { isUnlocked } from "./audio.js?v=32";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -47,6 +47,10 @@ export function createHud(opts = {}) {
   const sheetPhone = document.getElementById("sheet-phone");
   const sheetBuy = document.getElementById("sheet-buy");
   const sheetStash = document.getElementById("sheet-stash");
+  const sheetCrib = document.getElementById("sheet-crib");
+  const cribClock = document.getElementById("crib-clock");
+  const cribFit = document.getElementById("crib-fit");
+  const hudTime = document.getElementById("hud-time");
   const phoneInv = document.getElementById("phone-inv");
   const phoneList = document.getElementById("phone-list");
   const phoneHomeDist = document.getElementById("phone-home-dist");
@@ -162,6 +166,14 @@ export function createHud(opts = {}) {
     )).join("");
   }
 
+  function renderCrib(state) {
+    if (cribClock) cribClock.textContent = (state.timeLabel || "9P") + "  R" + Math.round(state.rep || 0);
+    if (cribFit) {
+      const cur = (state.outfits || [])[state.outfit | 0];
+      cribFit.textContent = cur ? cur.label : "RED HOOD";
+    }
+  }
+
   let popNodes = [];
 
   function sync(state, project) {
@@ -169,6 +181,7 @@ export function createHud(opts = {}) {
     if (invEl) invEl.textContent = invLine(state);
     pips(heatEl, 3, Math.min(3, Math.ceil(state.heat)), "heat");
     if (repEl) repEl.textContent = "R" + Math.round(state.rep || 0);
+    if (hudTime) hudTime.textContent = state.timeLabel || "";
     edgeL?.classList.toggle("hidden", !state.edgeL);
     edgeR?.classList.toggle("hidden", !state.edgeR);
     destL?.classList.toggle("hidden", state.destSide !== -1);
@@ -259,10 +272,12 @@ export function createHud(opts = {}) {
     sheetPhone?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "phone"));
     sheetBuy?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "buy"));
     sheetStash?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "stash"));
+    sheetCrib?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "crib"));
     sheetInv?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "inv"));
     if (state.ui === "phone") renderPhone(state);
     if (state.ui === "buy") renderBuy(state);
     if (state.ui === "stash") renderStash(state);
+    if (state.ui === "crib") renderCrib(state);
     if (state.ui === "inv" && invRows) {
       const g = state.inv || {};
       const s = state.stashInv || {};

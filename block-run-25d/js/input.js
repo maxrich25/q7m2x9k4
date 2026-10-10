@@ -1,4 +1,4 @@
-import { unlockAudio } from "./audio.js?v=30";
+import { unlockAudio } from "./audio.js?v=32";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyS", "KeyJ", "KeyK", "KeyZ", "KeyX",
@@ -28,6 +28,11 @@ const TAP_ROLES = {
   "buy-white": "buyWhite",
   "buy-close": "buyClose",
   "stash-close": "stashClose",
+  "crib-close": "cribClose",
+  "crib-clothes": "cribClothes",
+  "crib-sleep": "cribSleep",
+  "crib-wait": "cribWait",
+  "crib-stash": "cribStash",
   "stash-in-cash": "stashInCash",
   "stash-out-cash": "stashOutCash",
   "stash-in-green": "stashInGreen",
@@ -365,6 +370,11 @@ export function createInput(root = document) {
       invClose: take("invClose"),
       phoneTab: take("tabTexts") ? "texts" : take("tabContacts") ? "contacts" : null,
       stashClose: take("stashClose"),
+      cribClose: take("cribClose"),
+      cribClothes: take("cribClothes"),
+      cribSleep: take("cribSleep"),
+      cribWait: take("cribWait"),
+      cribStash: take("cribStash"),
       stashInCash: take("stashInCash"),
       stashOutCash: take("stashOutCash"),
       stashInGreen: take("stashInGreen"),

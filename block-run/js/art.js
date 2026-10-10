@@ -1,6 +1,7 @@
 import {
-  pixelCanvas, setFromCanvases, flipCanvas,
-} from "../../block-run-25d/js/paint.js?v=30";
+  pixelCanvas, setFromCanvases, flipCanvas, remapHoodie,
+} from "../../block-run-25d/js/paint.js?v=32";
+import { OUTFITS } from "../../block-run-25d/js/config.js?v=32";
 
 const SPRITE_BASE = new URL("../sprites/", import.meta.url);
 
@@ -141,28 +142,40 @@ export async function loadArt() {
 
   const idleBase = toCanvas(idleImgs[0] || fallback("idle"));
   const walkBase = toCanvas(walkImgs[0] || idleBase);
-  const playerIdle = withFlip((idleImgs.every(Boolean) ? idleImgs : [idleBase]).map((img) => toCanvas(img)));
-  const playerWalkOrig = walkImgs.filter(Boolean).map((img) => toCanvas(img));
-  const derived = setFromCanvases(walkBase);
-  const playerWalk = withFlip(playerWalkOrig.length
-    ? [
-      playerWalkOrig[0],
-      derived.walk[1],
-      playerWalkOrig[1] || derived.walk[2],
-      playerWalkOrig[2] || derived.walk[3],
-      playerWalkOrig[3] || derived.walk[4],
-      derived.walk[5],
-    ]
-    : derived.walk);
-  const playerShoot = withFlip((shootImgs.every(Boolean) ? shootImgs : derived.shoot).map((img) => (
-    img instanceof HTMLCanvasElement ? img : toCanvas(img)
-  )));
-  const player = {
-    idle: playerIdle,
-    walk: playerWalk,
-    jump: withFlip(derived.jump),
-    shoot: playerShoot,
-  };
+
+  function makePlayer(hex) {
+    const rec = (img) => {
+      const c = img instanceof HTMLCanvasElement ? img : toCanvas(img);
+      return hex ? remapHoodie(c, hex) : c;
+    };
+    const srcIdle = idleImgs.every(Boolean) ? idleImgs : [idleBase];
+    const srcWalk = walkImgs.filter(Boolean);
+    const srcShoot = shootImgs.every(Boolean) ? shootImgs : null;
+    const tintWalk = rec(walkBase);
+    const derived = setFromCanvases(tintWalk);
+    const playerIdle = withFlip(srcIdle.map((img) => rec(img)));
+    const walkOrig = srcWalk.map((img) => rec(img));
+    const playerWalk = withFlip(walkOrig.length
+      ? [
+        walkOrig[0],
+        derived.walk[1],
+        walkOrig[1] || derived.walk[2],
+        walkOrig[2] || derived.walk[3],
+        walkOrig[3] || derived.walk[4],
+        derived.walk[5],
+      ]
+      : derived.walk);
+    const playerShoot = withFlip((srcShoot || derived.shoot).map((img) => rec(img)));
+    return {
+      idle: playerIdle,
+      walk: playerWalk,
+      jump: withFlip(derived.jump),
+      shoot: playerShoot,
+    };
+  }
+
+  const player = makePlayer(null);
+  const outfits = OUTFITS.map((o) => (o.hex ? makePlayer(o.hex) : player));
 
   function sheetFromImgs(imgs, fallbackSrc) {
     const live = imgs.filter(Boolean).map((img) => toCanvas(img));
@@ -184,6 +197,7 @@ export async function loadArt() {
 
   return {
     player,
+    outfits,
     idle: player.idle,
     walk: player.walk,
     jump: player.jump,

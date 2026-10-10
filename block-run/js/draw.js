@@ -1,7 +1,7 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
-} from "../../block-run-25d/js/config.js?v=30";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=30";
+} from "../../block-run-25d/js/config.js?v=32";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=32";
 
 const STREET_CROP = 168;
 const STREET_W = 398;
@@ -81,22 +81,17 @@ export function createWorld(canvas, art) {
     g.fillText(str, Math.round(x), Math.round(y));
   }
 
-  function drawSky() {
-    g.fillStyle = "#0c0120";
+  function drawSky(sky) {
+    g.fillStyle = sky?.cssTop || "#0c0120";
     g.fillRect(0, 0, VW, VH);
-    g.fillStyle = "#f4f0e8";
-    g.beginPath();
-    g.arc(36, 28, 9, 0, Math.PI * 2);
-    g.fill();
-    g.fillStyle = "#d8d0e8";
-    g.beginPath();
-    g.arc(38, 26, 3, 0, Math.PI * 2);
-    g.fill();
-    g.fillStyle = "#c8c0d8";
-    for (let i = 0; i < 18; i++) {
-      const x = (i * 47 + 11) % VW;
-      const y = 8 + ((i * 17) % 40);
-      g.fillRect(x, y, 1, 1);
+    const starA = sky?.star ?? 1;
+    if (starA > 0.08) {
+      g.fillStyle = `rgba(200,192,216,${Math.min(1, starA).toFixed(2)})`;
+      for (let i = 0; i < 18; i++) {
+        const x = (i * 47 + 11) % VW;
+        const y = 8 + ((i * 17) % 40);
+        g.fillRect(x, y, 1, 1);
+      }
     }
   }
 
@@ -112,6 +107,12 @@ export function createWorld(canvas, art) {
     for (let x = -shift; x < VW + sw; x += sw) {
       g.drawImage(street, 0, 0, sw, sh, Math.round(x), destY, sw, destH);
     }
+  }
+
+  function washBackdrop(sky) {
+    if (!sky?.wash) return;
+    g.fillStyle = sky.wash;
+    g.fillRect(0, 0, VW, ground);
   }
 
   function drawStreet(cam) {
@@ -243,8 +244,9 @@ export function createWorld(canvas, art) {
     }
 
     g.imageSmoothingEnabled = false;
-    drawSky();
+    drawSky(state.sky);
     drawBackdrop(camX);
+    washBackdrop(state.sky);
     drawStreet(camX);
 
     drawWrapped((off) => {
@@ -331,10 +333,11 @@ export function createWorld(canvas, art) {
       const blink = state.mode === "play" && state.invuln > 0.4 && Math.floor(state.invuln * 20) % 2 === 0;
       if (!blink) {
         const airborne = p.y < 197.2;
-        const set = state.muzzle > 0 ? art.shoot
-          : airborne ? art.jump
-            : Math.abs(p.vx) > 8 ? art.walk
-              : art.idle;
+        const fit = (art.outfits && art.outfits[state.outfit | 0]) || art;
+        const set = state.muzzle > 0 ? fit.shoot
+          : airborne ? fit.jump
+            : Math.abs(p.vx) > 8 ? fit.walk
+              : fit.idle;
         const rate = state.muzzle > 0 ? 14 : airborne ? 8 : Math.abs(p.vx) > 8 ? 11 : 5;
         const fr = frameAt(set, p.anim, rate);
         drawWrapped((off) => {
@@ -352,7 +355,7 @@ export function createWorld(canvas, art) {
     }
 
     out.imageSmoothingEnabled = false;
-    out.fillStyle = "#0c0120";
+    out.fillStyle = state.sky?.cssTop || "#0c0120";
     out.fillRect(0, 0, canvas.width, canvas.height);
     if (state.shake > 0) {
       const s = state.shake * state.shake;
