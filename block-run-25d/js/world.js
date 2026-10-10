@@ -615,16 +615,74 @@ export function createWorld(canvas, sprites) {
   moonGlow.position.copy(moon.position);
   scene.add(moonGlow);
 
-  const skylineMat = new THREE.MeshBasicMaterial({
+  const skylineMat = new THREE.SpriteMaterial({
     map: skylineTex(),
     transparent: true,
     depthWrite: false,
     fog: false,
+    depthTest: false,
   });
-  const skyline = new THREE.Mesh(new THREE.PlaneGeometry(220, 14), skylineMat);
-  skyline.position.set(0, 9.4, -12);
-  skyline.renderOrder = -2;
+  const skyline = new THREE.Sprite(skylineMat);
+  skyline.scale.set(52, 11.5, 1);
+  skyline.position.set(0, 8.8, -10);
+  skyline.renderOrder = -4;
   scene.add(skyline);
+
+  function litTower(w, h, d, color, win = 0xf0c430) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(w, h, d),
+      new THREE.MeshBasicMaterial({ color, fog: false }),
+    );
+    body.position.y = h / 2;
+    g.add(body);
+    const glass = new THREE.Mesh(
+      new THREE.PlaneGeometry(w * 0.82, h * 0.78),
+      new THREE.MeshBasicMaterial({ map: windowTex(true), fog: false }),
+    );
+    glass.position.set(0, h * 0.52, d / 2 + 0.03);
+    g.add(glass);
+    g.userData.win = win;
+    return g;
+  }
+  const dtla = new THREE.Group();
+  const usBank = litTower(1.35, 11.2, 1.2, 0x5a4a80);
+  const usCrown = new THREE.Mesh(
+    new THREE.BoxGeometry(1.7, 0.55, 1.4),
+    new THREE.MeshBasicMaterial({ color: 0x6a5a90, fog: false }),
+  );
+  usCrown.position.y = 11.45;
+  usBank.add(usCrown);
+  const usSpire = new THREE.Mesh(
+    new THREE.BoxGeometry(0.12, 1.4, 0.12),
+    new THREE.MeshBasicMaterial({ color: 0x3de0ff, fog: false }),
+  );
+  usSpire.position.y = 12.3;
+  usBank.add(usSpire);
+  usBank.userData.dx = -3.2;
+  const wilshire = litTower(1.7, 12.6, 1.35, 0x564878);
+  const sail = new THREE.Mesh(
+    new THREE.BoxGeometry(2.1, 1.3, 0.8),
+    new THREE.MeshBasicMaterial({ color: 0x6a5a88, fog: false }),
+  );
+  sail.position.set(0.15, 13.1, 0);
+  sail.rotation.z = -0.28;
+  wilshire.add(sail);
+  const wgSpire = new THREE.Mesh(
+    new THREE.BoxGeometry(0.1, 2.8, 0.1),
+    new THREE.MeshBasicMaterial({ color: 0xf0c430, fog: false }),
+  );
+  wgSpire.position.y = 14.6;
+  wilshire.add(wgSpire);
+  wilshire.userData.dx = 1.6;
+  const lib = litTower(1.15, 9.4, 1.1, 0x4a3a68);
+  lib.userData.dx = -6.4;
+  const midA = litTower(1.4, 7.6, 1.15, 0x3a3058);
+  midA.userData.dx = 4.8;
+  const midB = litTower(1.05, 8.2, 1.05, 0x423860);
+  midB.userData.dx = -8.6;
+  for (const t of [lib, usBank, wilshire, midA, midB]) dtla.add(t);
+  scene.add(dtla);
   const hazeTex = canvasTex(64, 32, (g, w, h) => {
     const grd = g.createLinearGradient(0, 0, 0, h);
     grd.addColorStop(0, "rgba(180,140,220,0)");
@@ -1117,7 +1175,7 @@ export function createWorld(canvas, sprites) {
       const follow = state.inCar ? 10.5 : 7.2;
       camX = wrap(camX + dx * (1 - Math.exp(-follow * Math.max(stepDt, 0.0001) * (paused ? 0 : 1))), STREET_LEN);
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.08, camZ);
-      tmp.set(camX + p.facing * (state.inCar ? 0.7 : 0.75), 1.72 + gameToWorldY(p.y) * 0.12, state.inCar ? 2.2 : 0.85);
+      tmp.set(camX + p.facing * (state.inCar ? 0.7 : 0.75), 1.48 + gameToWorldY(p.y) * 0.12, state.inCar ? 3.1 : 1.85);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
     } else {
@@ -1126,11 +1184,16 @@ export function createWorld(canvas, sprites) {
       camera.lookAt(camX, 1.32, 1.4);
     }
 
-    moon.position.set(camX - 7.5, 13.6, -28);
+    moon.position.set(camX - 6.2, 10.4, -16);
     moonGlow.position.copy(moon.position);
-    skyline.position.set(camX + 1.2, 9.4, -12);
-    hazeBand.position.set(camX, 5.4, -11.2);
-    sky.position.set(camX, 16, -26);
+    skyline.position.set(camX + 1.4, 8.9, -10);
+    hazeBand.position.set(camX, 5.2, -9.6);
+    sky.position.set(camX, 15, -22);
+    dtla.position.set(camX + 0.8, 0, -9.6);
+    for (const t of dtla.children) {
+      t.position.x = t.userData.dx || 0;
+      t.position.z = 0;
+    }
     for (const fp of farPalms) {
       fp.mesh.position.set(camX + fp.dx, 0, fp.z);
     }
