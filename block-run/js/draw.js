@@ -1,7 +1,7 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
-} from "../../block-run-25d/js/config.js?v=39";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=39";
+} from "../../block-run-25d/js/config.js?v=40";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=40";
 
 const STREET_CROP = 168;
 const STREET_W = 398;
@@ -131,6 +131,27 @@ export function createWorld(canvas, art) {
     g.fillRect(x - 3, cy - 3, 6, 6);
   }
 
+  function drawMoon(sky) {
+    const moon = sky?.moon ?? 0;
+    if (moon <= 0.12) return;
+    const y = bannerSafeY();
+    const x = 22;
+    const drop = Math.round((1 - moon) * 10);
+    const cy = y + drop;
+    const a = Math.min(1, 0.62 + moon * 0.38);
+    g.fillStyle = `rgba(232,224,208,${a.toFixed(2)})`;
+    g.fillRect(x - 3, cy - 6, 6, 1);
+    g.fillRect(x - 5, cy - 5, 10, 2);
+    g.fillRect(x - 6, cy - 3, 12, 6);
+    g.fillRect(x - 5, cy + 3, 10, 2);
+    g.fillRect(x - 3, cy + 5, 6, 1);
+    g.fillStyle = `rgba(244,240,232,${a.toFixed(2)})`;
+    g.fillRect(x - 3, cy - 3, 6, 6);
+    g.fillStyle = "#b8b0a0";
+    g.fillRect(x - 1, cy - 1, 2, 2);
+    g.fillRect(x + 2, cy + 1, 2, 2);
+  }
+
   const streetLayer = document.createElement("canvas");
   const sl = streetLayer.getContext("2d");
 
@@ -158,6 +179,8 @@ export function createWorld(canvas, art) {
       const p = id.data;
       for (let i = 0; i < p.length; i += 4) {
         if (!p[i + 3]) continue;
+        const sat = Math.max(p[i], p[i + 1], p[i + 2]) - Math.min(p[i], p[i + 1], p[i + 2]);
+        if (sat > 80) continue;
         p[i] = (p[i] * tint[0] / 255) | 0;
         p[i + 1] = (p[i + 1] * tint[1] / 255) | 0;
         p[i + 2] = (p[i + 2] * tint[2] / 255) | 0;
@@ -371,8 +394,9 @@ export function createWorld(canvas, art) {
 
     g.imageSmoothingEnabled = false;
     drawSky(state.sky);
-    drawBackdrop(camX, state.sky);
+    drawMoon(state.sky);
     drawSun(state.sky);
+    drawBackdrop(camX, state.sky);
     drawStreet(camX);
 
     drawWrapped((off) => {
@@ -504,11 +528,6 @@ export function createWorld(canvas, art) {
         const x = sx(493 + off);
         if (x > -20 && x < VW + 20) drawImg(art.dumpster, x, feet, 1, 36, 36);
       });
-    }
-
-    if ((state.sky?.star || 0) > 0.25) {
-      g.fillStyle = `rgba(12,4,28,${(state.sky.star * 0.2).toFixed(3)})`;
-      g.fillRect(0, 0, VW, VH);
     }
 
     out.imageSmoothingEnabled = false;
