@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat,
-} from "./config.js?v=45";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=45";
+} from "./config.js?v=47";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=47";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -1456,13 +1456,14 @@ export function createWorld(canvas, sprites) {
     const turnSet = turning ? (fit.shoot || animSet) : animSet;
     setBillboardFrame(playerSprite, frameAt(turnSet, p.anim, rate), sprFace);
     place(playerSprite, px, GROUND_Y, camX, 1.15);
-    playerSprite.position.y = 0;
+    playerSprite.position.y = boarding ? (state.inCar ? -boardU * 0.35 : (1 - boardU) * 0.28) : 0;
     if (boarding) {
       const door = state.inCar ? boardU : (1 - boardU);
       playerSprite.position.x += (state.car?.facing || 1) * door * 0.35;
     }
     orientBillboard(playerSprite, camera);
-    playerSprite.scale.x = playerSprite.userData.baseW || playerSprite.scale.x;
+    const spinW = Math.max(0.16, Math.abs(lookFace));
+    playerSprite.scale.x = (playerSprite.userData.baseW || 1) * spinW;
     playerSprite.material.color.set(p.flash > 0 ? 0xffffff : 0xffffff);
     if (p.flash > 0) playerSprite.material.color.setHex(0xffc8e8);
     else playerSprite.material.color.setHex(0xffffff);
