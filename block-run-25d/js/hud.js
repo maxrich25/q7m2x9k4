@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=33";
-import { isUnlocked } from "./audio.js?v=33";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=34";
+import { isUnlocked } from "./audio.js?v=34";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -51,6 +51,8 @@ export function createHud(opts = {}) {
   const sheetStash = document.getElementById("sheet-stash");
   const sheetCrib = document.getElementById("sheet-crib");
   const cribClock = document.getElementById("crib-clock");
+  const cribTime = document.getElementById("crib-time");
+  const cribRep = document.getElementById("crib-rep");
   const cribFit = document.getElementById("crib-fit");
   const hudTime = document.getElementById("hud-time");
   const phoneInv = document.getElementById("phone-inv");
@@ -169,7 +171,11 @@ export function createHud(opts = {}) {
   }
 
   function renderCrib(state) {
-    if (cribClock) cribClock.textContent = (state.timeLabel || "9P") + "  R" + Math.round(state.rep || 0);
+    const clock = state.timeLabel || "9 PM";
+    const repLine = "REP " + Math.round(state.rep || 0);
+    if (cribTime) cribTime.textContent = clock;
+    if (cribRep) cribRep.textContent = repLine;
+    else if (cribClock) cribClock.textContent = clock + "   " + repLine;
     if (cribFit) {
       const cur = (state.outfits || [])[state.outfit | 0];
       cribFit.textContent = cur ? cur.label : "RED HOOD";
@@ -182,8 +188,8 @@ export function createHud(opts = {}) {
     cashEl.textContent = "$" + String(state.cash).padStart(4, "0");
     if (invEl) invEl.textContent = invLine(state);
     pips(heatEl, 3, Math.min(3, Math.ceil(state.heat)), "heat");
-    if (repEl) repEl.textContent = "R" + Math.round(state.rep || 0);
-    if (hudTime) hudTime.textContent = state.timeLabel || "";
+    if (repEl) repEl.textContent = "REP " + Math.round(state.rep || 0);
+    if (hudTime) hudTime.textContent = state.timeLabel || "9 PM";
     const muted = !!state.muted;
     btnMute?.classList.toggle("off", muted);
     if (btnMute) {

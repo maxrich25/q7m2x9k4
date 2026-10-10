@@ -84,8 +84,8 @@ html, body {
   white-space: nowrap;
   font-size: 7px;
 }
-#hud-rep { color: var(--muted); flex: 0 0 auto; }
-#hud-time { color: var(--cream); flex: 0 0 auto; }
+#hud-rep { color: var(--muted); flex: 0 0 auto; white-space: nowrap; }
+#hud-time { color: var(--cream); flex: 0 0 auto; white-space: nowrap; }
 #hud-heat, #hud-hp {
   display: flex;
   gap: 3px;
@@ -652,6 +652,12 @@ html, body {
   margin-bottom: 10px;
   line-height: 1.6;
 }
+.crib-meta {
+  display: flex;
+  gap: 16px;
+  white-space: pre;
+}
+.crib-meta span { white-space: pre; }
 .contact {
   display: flex;
   align-items: center;

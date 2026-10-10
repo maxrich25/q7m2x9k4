@@ -131,8 +131,7 @@ export function hourOf(clock, extra = 0) {
 
 export function fmtHour(h) {
   const hr = Math.floor(wrapHour(h));
-  const suffix = hr < 12 ? "A" : "P";
-  return (hr % 12 || 12) + suffix;
+  return (hr % 12 || 12) + (hr < 12 ? " AM" : " PM");
 }
 
 export function hexCss(n) {
