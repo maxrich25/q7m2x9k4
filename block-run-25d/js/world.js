@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX,
-} from "./config.js?v=22";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=22";
+} from "./config.js?v=23";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=23";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -247,10 +247,10 @@ function makeLuxuryCar() {
   deck.rotation.z = 0.12;
   g.add(deck);
   const cabin = new THREE.Mesh(
-    new THREE.BoxGeometry(1.55, 0.34, 1.16),
+    new THREE.BoxGeometry(1.55, 0.42, 1.16),
     new THREE.MeshLambertMaterial({ color: 0x0c0c10 }),
   );
-  cabin.position.set(-0.18, 0.78, 0);
+  cabin.position.set(-0.22, 0.86, 0);
   g.add(cabin);
   const wind = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.28, 1.12), tint);
   wind.position.set(0.62, 0.8, 0);
@@ -314,6 +314,7 @@ function makeTrafficLight() {
     );
     m.name = name;
     m.position.set(0, y, 0.22);
+    m.material.side = THREE.DoubleSide;
     g.add(m);
     return m;
   };
@@ -805,6 +806,7 @@ export function createWorld(canvas, sprites) {
   const lightMeshes = [];
   for (let i = 0; i < LIGHT_COUNT; i++) {
     const m = makeTrafficLight();
+    m.scale.setScalar(1.2);
     scene.add(m);
     lightMeshes.push(m);
   }
@@ -835,6 +837,10 @@ export function createWorld(canvas, sprites) {
   const destPin = makePin();
   destPin.visible = false;
   scene.add(destPin);
+  const plugLabel = makeLabel("PLUG", "#e21b7a");
+  scene.add(plugLabel);
+  const homeLabel = makeLabel("HOME", "#3de0ff");
+  scene.add(homeLabel);
   const buyerSprite = makeBillboard(sprites.buyers[0].idle[0], 2.2);
   buyerSprite.visible = false;
   scene.add(buyerSprite);
@@ -1056,6 +1062,11 @@ export function createWorld(canvas, sprites) {
       packHeld.position.y = playerSprite.position.y + 1.55;
       orientBillboard(packHeld, camera);
     }
+
+    place(plugLabel, PLUG_X, 154, camX, 1.15);
+    plugLabel.position.y = 2.55;
+    place(homeLabel, HOME_X, 154, camX, 1.15);
+    homeLabel.position.y = 2.55;
 
     place(dumpSprite, DUMPSTER_X, 198, camX, -0.35);
     dumpSprite.position.y = 0;

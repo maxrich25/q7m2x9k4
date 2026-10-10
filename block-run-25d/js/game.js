@@ -6,8 +6,8 @@ import {
   SHOP_X, DUMPSTER_X, CAR_X, ORDER_SPOTS, WEAPONS, wrap, wrapDelta, hitWrap,
   formatDeal, dealFeet, COMBAT, START_CASH, PACK_COST, PACK_PAY,
   PLUG_X, HOME_X, PED_COUNT, LIGHT_COUNT, lightGameX, lightPhaseAt,
-} from "./config.js?v=22";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=22";
+} from "./config.js?v=23";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=23";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -1152,6 +1152,14 @@ export function createGame() {
       const u = 0.5;
       car.lat = Math.sin(u * Math.PI) * CAR_TURN_ARC;
       car.yaw = car.turnFrom + (car.turnTo - car.turnFrom) * u;
+    },
+    clearOrder() { order = null; },
+    setPedX(i, x) {
+      if (peds[i]) {
+        peds[i].x = wrap(x, WORLD);
+        peds[i].wait = 2;
+        peds[i].vx = 0;
+      }
     },
     spawnOrder,
     setInCar(on) {

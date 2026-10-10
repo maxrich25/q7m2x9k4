@@ -1,12 +1,12 @@
-import { GEARS } from "./config.js?v=22";
-import { isUnlocked } from "./audio.js?v=22";
+import { GEARS } from "./config.js?v=23";
+import { isUnlocked } from "./audio.js?v=23";
 
 const TITLE_TIPS = [
-  "BUY PACKS AT THE PLUG",
-  "ACCEPT DEALS ON YOUR PHONE",
-  "HIT UP PEDS ON THE BLOCK",
+  "BUY PACKS AT PLUG",
+  "ACCEPT DEAL TEXTS",
+  "HIT UP PEDS",
   "STASH CASH AT HOME",
-  "REDS AND HEAT BRING 5-0",
+  "REDS ADD HEAT",
 ];
 
 const CONTROL_TIPS = [

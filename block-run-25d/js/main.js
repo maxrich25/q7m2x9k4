@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=22";
-import { bindAudioUnlock, unlockAudio } from "./audio.js?v=22";
-import { createInput } from "./input.js?v=22";
-import { createGame } from "./game.js?v=22";
-import { loadSprites } from "./sprites.js?v=22";
-import { createWorld } from "./world.js?v=22";
-import { createHud } from "./hud.js?v=22";
+import { TICK } from "./config.js?v=23";
+import { bindAudioUnlock, unlockAudio } from "./audio.js?v=23";
+import { createInput } from "./input.js?v=23";
+import { createGame } from "./game.js?v=23";
+import { loadSprites } from "./sprites.js?v=23";
+import { createWorld } from "./world.js?v=23";
+import { createHud } from "./hud.js?v=23";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -105,6 +105,8 @@ window.__br = {
   solicit: () => game.solicit(),
   startUTurn: (dir) => game.startUTurn(dir),
   setTurnMid: () => game.setTurnMid(),
+  clearOrder: () => game.clearOrder(),
+  setPedX: (i, x) => game.setPedX(i, x),
   spawnOrder: (id, opts) => game.spawnOrder(id, opts),
   setInCar: (on) => game.setInCar(on),
   setGear: (name) => game.setGear(name),
