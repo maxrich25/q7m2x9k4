@@ -1016,11 +1016,11 @@ export function createWorld(canvas, sprites) {
     door.position.set(0, 0.72, 1.24);
     g.add(door);
     const pane = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.7, 0.7),
-      new THREE.MeshBasicMaterial({ color: 0xf0c430 }),
+      new THREE.PlaneGeometry(1.05, 0.85),
+      new THREE.MeshBasicMaterial({ color: 0xf0c430, side: THREE.DoubleSide }),
     );
     pane.name = "homePane";
-    pane.position.set(1.15, 1.55, 1.22);
+    pane.position.set(1.2, 1.55, 1.22);
     g.add(pane);
     const stoop = new THREE.Mesh(
       new THREE.BoxGeometry(1.4, 0.12, 0.7),
