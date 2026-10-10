@@ -1,9 +1,9 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
-} from "../../block-run-25d/js/config.js?v=27";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=27";
+} from "../../block-run-25d/js/config.js?v=28";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=28";
 
-const STREET_CROP = 148;
+const STREET_CROP = 168;
 const STREET_W = 398;
 
 export function createWorld(canvas, art) {
@@ -310,7 +310,7 @@ export function createWorld(canvas, art) {
       drawWrapped((off) => {
         const x = sx(cx + off);
         if (x < -50 || x > VW + 50) return;
-        drawImg(art.car, x, ground + 20, facing, 100, 32);
+        drawImg(art.car, x, ground + 18, facing, 104, 32);
       });
     }
 
@@ -319,7 +319,7 @@ export function createWorld(canvas, art) {
       drawWrapped((off) => {
         const x = sx(cx + off);
         if (x < -50 || x > VW + 50) return;
-        drawImg(art.copCar, x, ground + 20, state.copCar.facing, 100, 32);
+        drawImg(art.copCar, x, ground + 18, state.copCar.facing, 104, 32);
       });
     }
 

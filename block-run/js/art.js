@@ -1,7 +1,7 @@
 import {
   pixelCanvas, paintLook, paintCopFig, paintPlugFig, PED_LOOKS,
   setFromCanvases, flipCanvas,
-} from "../../block-run-25d/js/paint.js?v=27";
+} from "../../block-run-25d/js/paint.js?v=28";
 
 const SPRITE_BASE = new URL("../sprites/", import.meta.url);
 
@@ -74,8 +74,6 @@ function sheetFrom(src, extras) {
   };
 }
 
-const STREET_CAR = { x: 5, y: 149, w: 95, h: 29 };
-
 function paintCarFallback(cop = false) {
   return pixelCanvas(95, 29, (g) => {
     g.fillStyle = cop ? "#e8eef4" : "#2a1840";
@@ -100,41 +98,37 @@ function paintCarFallback(cop = false) {
   });
 }
 
-function extractStreetCar(street, cop = false) {
-  if (!street || !street.naturalWidth) return paintCarFallback(cop);
-  const { x, y, w, h } = STREET_CAR;
-  const raw = pixelCanvas(w, h, (g) => {
-    g.drawImage(street, x, y, w, h, 0, 0, w, h);
-    const img = g.getImageData(0, 0, w, h);
-    const d = img.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const r = d[i];
-      const gb = d[i + 1];
-      const b = d[i + 2];
-      const sky = r < 45 && gb < 40 && b < 60 && r + gb < 80;
-      const walk = r > 90 && gb > 70 && b > 70 && Math.abs(r - gb) < 50;
-      if (sky || walk) d[i + 3] = 0;
-    }
-    g.putImageData(img, 0, 0);
+function cleanStreet(street) {
+  if (!street || !street.naturalWidth) return street;
+  const w = street.naturalWidth;
+  const h = 168;
+  return pixelCanvas(w, h, (g) => {
+    g.drawImage(street, 0, 0, w, Math.min(h, street.naturalHeight), 0, 0, w, h);
+    g.drawImage(street, 0, 142, 110, 6, 0, 148, 110, 20);
   });
-  const facingRight = flipCanvas(raw);
+}
+
+function carFrom(img, cop = false) {
+  const src = img ? toCanvas(img) : paintCarFallback(cop);
+  const facingRight = flipCanvas(src);
   if (!cop) return facingRight;
+  const w = facingRight.width;
+  const h = facingRight.height;
   return pixelCanvas(w, h, (g) => {
     g.drawImage(facingRight, 0, 0);
-    const img = g.getImageData(0, 0, w, h);
-    const d = img.data;
+    const data = g.getImageData(0, 0, w, h);
+    const d = data.data;
     for (let i = 0; i < d.length; i += 4) {
       if (d[i + 3] < 8) continue;
       const r = d[i];
-      const gb = d[i + 1];
       const b = d[i + 2];
       if (b > r + 8 && b > 40) {
         d[i] = Math.min(255, r + 150);
-        d[i + 1] = Math.min(255, gb + 150);
+        d[i + 1] = Math.min(255, d[i + 1] + 150);
         d[i + 2] = Math.min(255, b + 110);
       }
     }
-    g.putImageData(img, 0, 0);
+    g.putImageData(data, 0, 0);
     g.fillStyle = "#e21b7a";
     g.fillRect(40, 1, 8, 3);
     g.fillStyle = "#3de0ff";
@@ -143,7 +137,7 @@ function extractStreetCar(street, cop = false) {
 }
 
 export async function loadArt() {
-  const [idleImgs, walkImgs, shootImgs, packImg, cashImg, dumpImg, streetImg] = await Promise.all([
+  const [idleImgs, walkImgs, shootImgs, packImg, cashImg, dumpImg, streetImg, carImg] = await Promise.all([
     Promise.all([1, 2, 3, 4].map((i) => loadRaw(`idle-${i}.png`))),
     Promise.all([1, 2, 3, 4].map((i) => loadRaw(`walk-${i}.png`))),
     Promise.all([1, 2, 3, 4].map((i) => loadRaw(`shoot-${i}.png`))),
@@ -151,6 +145,7 @@ export async function loadArt() {
     loadRaw("cash.png"),
     loadRaw("dumpster.png"),
     loadImage(new URL("../map/street.png", import.meta.url).href),
+    loadRaw("car.png"),
   ]);
 
   const idleBase = toCanvas(idleImgs[0] || fallback("idle"));
@@ -195,8 +190,8 @@ export async function loadArt() {
     pack: toCanvas(packImg || fallback("pack")),
     cash: toCanvas(cashImg || fallback("cash")),
     dumpster: toCanvas(dumpImg || fallback("dumpster")),
-    street: streetImg,
-    car: withFlip([extractStreetCar(streetImg, false)])[0],
-    copCar: withFlip([extractStreetCar(streetImg, true)])[0],
+    street: cleanStreet(streetImg),
+    car: withFlip([carFrom(carImg, false)])[0],
+    copCar: withFlip([carFrom(carImg, true)])[0],
   };
 }
