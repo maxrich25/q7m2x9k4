@@ -10,8 +10,8 @@ import {
   INTRO_TEXT, SALE_POP_T, SERVE_SLOW, fmtGrams, streetGrams,
   restLat, CAR_KINDS, GREEN_TIERS, WHITE_TIERS, STALL_LINES,
   OUTFITS, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
-} from "./config.js?v=32";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=32";
+} from "./config.js?v=33";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=33";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -988,6 +988,7 @@ export function createGame() {
     }
     if (input.invClose) ui = null;
     if (input.buyTier && input.buyProduct) buyProduct(input.buyProduct, input.buyTierId);
+    if (input.mute) setMuted(!isMuted());
     if (input.pause) {
       if (mode === "play") mode = "paused";
       else if (mode === "paused") mode = "play";
@@ -1558,6 +1559,8 @@ export function createGame() {
     pause() { if (mode === "play") mode = "paused"; },
     resume() { if (mode === "paused") mode = "play"; },
     restart() { beginPlay(false); },
+    setMuted,
+    toggleMute: () => setMuted(!isMuted()),
     toTitle() { mode = "title"; ui = null; reset(false); },
     giveCash(n) { cash += n; maybeHi(); },
     setGun(name) { if (WEAPONS[name]) gun = name; },

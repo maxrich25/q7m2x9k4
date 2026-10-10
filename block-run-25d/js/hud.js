@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=32";
-import { isUnlocked } from "./audio.js?v=32";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=33";
+import { isUnlocked } from "./audio.js?v=33";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -14,6 +14,8 @@ export function createHud(opts = {}) {
   const hiEl = document.getElementById("overlay-hi");
   const promptEl = document.getElementById("overlay-prompt");
   const pauseActions = document.getElementById("pause-actions");
+  const btnMute = document.getElementById("btn-mute");
+  const btnSound = document.getElementById("btn-sound");
   const popsEl = document.getElementById("pops");
   const edgeL = document.getElementById("edge-left");
   const edgeR = document.getElementById("edge-right");
@@ -182,6 +184,16 @@ export function createHud(opts = {}) {
     pips(heatEl, 3, Math.min(3, Math.ceil(state.heat)), "heat");
     if (repEl) repEl.textContent = "R" + Math.round(state.rep || 0);
     if (hudTime) hudTime.textContent = state.timeLabel || "";
+    const muted = !!state.muted;
+    btnMute?.classList.toggle("off", muted);
+    if (btnMute) {
+      btnMute.textContent = muted ? "X" : "♪";
+      btnMute.setAttribute("aria-label", muted ? "sound off" : "sound on");
+    }
+    if (btnSound) {
+      btnSound.textContent = muted ? "SOUND OFF" : "SOUND ON";
+      btnSound.classList.toggle("off", muted);
+    }
     edgeL?.classList.toggle("hidden", !state.edgeL);
     edgeR?.classList.toggle("hidden", !state.edgeR);
     destL?.classList.toggle("hidden", state.destSide !== -1);

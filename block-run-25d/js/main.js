@@ -148,6 +148,8 @@ window.__br = {
   getView: () => world?.getView?.() || view,
   unlockAudio,
   startMusic,
+  setMuted: (on) => game.setMuted(on),
+  toggleMute: () => game.toggleMute(),
 };
 
 window.__controlsTest = {

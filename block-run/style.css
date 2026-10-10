@@ -244,7 +244,7 @@ html, body {
 #dest-left { left: 8px; }
 #dest-right { right: 8px; }
 
-#btn-phone, #btn-pause {
+#btn-phone, #btn-pause, #btn-mute {
   pointer-events: auto;
   font-family: var(--font);
   font-size: 8px;
@@ -261,6 +261,8 @@ html, body {
   justify-content: center;
 }
 #btn-phone { color: var(--cyan); }
+#btn-mute { color: var(--gold); text-shadow: none; }
+#btn-mute.off { color: var(--muted); }
 
 #pops {
   position: absolute;
@@ -369,6 +371,8 @@ html, body {
   text-decoration: none;
 }
 #pause-actions #btn-resume { color: #07060c; background: var(--gold); border-color: var(--gold); }
+#pause-actions #btn-sound { color: #07060c; background: var(--gold); border-color: var(--gold); }
+#pause-actions #btn-sound.off { color: var(--cream); background: #1a1620; border-color: #3a3644; }
 #pause-actions #btn-restart { color: var(--cyan); }
 #pause-actions #btn-mainmenu { color: var(--pink); }
 #overlay-hi {
@@ -749,7 +753,7 @@ html, body {
 
 @media (max-width: 400px) {
   #hud-top { gap: 5px; padding-left: calc(6px + var(--sal)); padding-right: 6px; }
-  #btn-pause, #btn-phone { min-width: 30px; padding: 5px; }
+  #btn-pause, #btn-phone, #btn-mute { min-width: 30px; padding: 5px; }
 }
 
 @media (orientation: landscape) and (max-height: 430px) {
