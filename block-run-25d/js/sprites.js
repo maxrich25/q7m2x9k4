@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import {
   pixelCanvas, derivePose, paintLook, paintCopFig, paintPlugFig, PED_LOOKS,
-  WALK_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
+  WALK_POSES, PED_WALK_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
   remapHoodie,
-} from "./paint.js?v=44";
-import { OUTFITS } from "./config.js?v=44";
+} from "./paint.js?v=45";
+import { OUTFITS } from "./config.js?v=45";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -184,7 +184,10 @@ export async function loadSprites() {
   const runner = setFromOriginal(runnerBase, { idle: runnerOrig.length ? runnerOrig : null, walk: runnerOrig.length ? runnerOrig : null });
 
   const cop = setFromOriginal(paintCopFig());
-  const buyers = PED_LOOKS.map((_, i) => setFromOriginal(paintLook(i)));
+  const buyers = PED_LOOKS.map((_, i) => {
+    const src = paintLook(i);
+    return setFromOriginal(src, { walk: PED_WALK_POSES.map((p) => texPose(src, p)) });
+  });
   const plug = setFromOriginal(paintPlugFig());
 
   const bossFrames = bossImgs.filter(Boolean).map((img) => texturize(img, true));

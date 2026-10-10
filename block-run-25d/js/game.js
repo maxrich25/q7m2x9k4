@@ -11,8 +11,8 @@ import {
   restLat, CAR_KINDS, GREEN_TIERS, WHITE_TIERS, STALL_LINES,
   OUTFITS, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
   nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen, SAVE_KEY,
-} from "./config.js?v=44";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=44";
+} from "./config.js?v=45";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=45";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -72,6 +72,8 @@ export function createGame() {
   let timeHours = START_HOUR;
   let fromCrib = false;
   let boardT = 0;
+  let holdLight = false;
+  let holdCar = false;
   let hi = loadHi();
   let wave = 1;
   let gun = "pistol";
@@ -129,31 +131,31 @@ export function createGame() {
       else if (nearPlug && !plugMeet) prompt = "TEXT";
       else if (nearPed && !nearCar && !nearHome) prompt = "TALK";
     }
+    const picks = [];
+    if (mode === "play" && ui !== "crib" && ui !== "buy" && ui !== "stash" && ui !== "inv") {
+      if (canServe) picks.push({ id: "serve", label: "SERVE" });
+      if (exitOk) picks.push({ id: "exit", label: "EXIT" });
+      if (nearCar) picks.push({ id: "car", label: "ENTER CAR" });
+      if (nearHome) picks.push({ id: "crib", label: "ENTER CRIB" });
+      if (canBuy) picks.push({ id: "buy", label: "BUY" });
+      if (nearPlug && !plugMeet) picks.push({ id: "text", label: "TEXT" });
+      if (nearPed && !nearCar && !nearHome && !canBuy) picks.push({ id: "talk", label: "TALK" });
+    }
     let actionLabel = "ACTION";
     let actionOk = false;
     let actionKind = "";
-    if (mode === "play" && ui !== "crib" && ui !== "buy" && ui !== "stash" && ui !== "inv") {
-      if (canServe) {
-        actionLabel = "SERVE";
-        actionOk = true;
-        actionKind = "serve";
-      } else if (exitOk || nearCar || nearHome || canBuy) {
-        actionLabel = gate || (exitOk ? "EXIT" : canBuy ? "BUY" : "ENTER");
-        actionOk = true;
-        actionKind = "gate";
-      } else if (nearPlug && !plugMeet) {
-        actionLabel = "TEXT";
-        actionOk = true;
-        actionKind = "text";
-      } else if (nearPed && !nearCar && !nearHome) {
-        actionLabel = "TALK";
-        actionOk = true;
-        actionKind = "talk";
-      }
+    if (picks.length === 1) {
+      actionLabel = picks[0].label;
+      actionOk = true;
+      actionKind = picks[0].id;
+    } else if (picks.length > 1) {
+      actionLabel = "DO";
+      actionOk = true;
+      actionKind = "pick";
     }
     return {
       nearCar, nearPlug, nearHome, nearPed, exitOk, liveDeal, nearDeal, slowEnough,
-      canServe, canBuy, offer, prompt, gate, actionLabel, actionOk, actionKind,
+      canServe, canBuy, offer, prompt, gate, actionLabel, actionOk, actionKind, picks,
     };
   }
 
@@ -182,7 +184,7 @@ export function createGame() {
     }
     const {
       nearCar, nearPlug, nearHome, nearPed, exitOk, liveDeal, nearDeal, slowEnough,
-      canServe, canBuy, offer, prompt, gate, actionLabel, actionOk,
+      canServe, canBuy, offer, prompt, gate, actionLabel, actionOk, actionKind, picks,
     } = sense();
     const hour = wrapHour(timeHours);
     const dealD = liveDeal ? wrapDelta(player.x, order.x, WORLD) : 0;
@@ -214,8 +216,9 @@ export function createGame() {
       slowToServe: !!(nearDeal && !slowEnough && mode === "play" && !ui),
       showGate: !!(gate && mode === "play" && !ui),
       showHitUp: prompt === "TALK",
-      actionLabel, actionOk, offer: !!offer,
+      actionLabel, actionOk, actionKind, picks, offer: !!offer,
       turnOk: inCar && car.gear === "D" && car.turnT <= 0,
+      holdLight, holdCar,
       stopped: inCar && Math.abs(car.vx) < CAR_STOP,
       boughtOnce,
       unread: inbox.some((m) => m.unread) || !!(order && (order.phase === "offer" || order.phase === "stalling")),
@@ -375,7 +378,20 @@ export function createGame() {
       pop(car.x, 150, "DRIVE");
       return false;
     }
+    const destLat = restLat(-car.facing);
+    if (laneBusyNow(destLat, car.x, 96)) {
+      pop(car.x, 150, "WAIT");
+      return false;
+    }
     return requestTurn(-car.facing, { force: true });
+  }
+
+  function laneBusyNow(lat, x, span = 72) {
+    for (const o of traffic) {
+      if (Math.abs((o.lat ?? restLat(o.facing)) - lat) < 1.8
+        && Math.abs(wrapDelta(x, o.x, WORLD)) < span) return true;
+    }
+    return false;
   }
 
   const TRAFFIC_COLS = ["#2a3048", "#6a3a24", "#1a3a48", "#4a2030", "#3a3a38", "#204028", "#5a4030"];
@@ -895,15 +911,56 @@ export function createGame() {
     }
   }
 
+  function runPick(id) {
+    ui = null;
+    if (id === "serve") return serve();
+    if (id === "exit" || id === "car" || id === "crib" || id === "buy" || id === "gate") return useGatePick(id);
+    if (id === "text") return textPlug();
+    if (id === "talk") return solicit();
+    return false;
+  }
+
   function doAction() {
     const a = sense();
     if (!a.actionOk) return false;
+    if (a.actionKind === "pick") {
+      ui = "pick";
+      return true;
+    }
     if (a.actionKind === "accept") return acceptOrder();
     if (a.actionKind === "serve") return serve();
-    if (a.actionKind === "gate") return useGate();
+    if (a.actionKind === "gate" || a.actionKind === "exit" || a.actionKind === "car" || a.actionKind === "crib" || a.actionKind === "buy") {
+      return useGatePick(a.actionKind);
+    }
     if (a.actionKind === "text") return textPlug();
     if (a.actionKind === "talk") return solicit();
     return false;
+  }
+
+  function useGatePick(id) {
+    if (id === "exit") {
+      if (inCar && car.gear === "P") { leaveCar(); return true; }
+      if (inCar) { pop(car.x, 150, "PARK"); return false; }
+    }
+    if (id === "car") {
+      if (!inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && onGround()) {
+        enterCar();
+        return true;
+      }
+    }
+    if (id === "crib") {
+      if (!inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && onGround()) {
+        openCrib();
+        return true;
+      }
+    }
+    if (id === "buy") {
+      if (plugMeet && Math.abs(wrapDelta(player.x, plugMeet.x, WORLD)) < 28) {
+        openBuy();
+        return true;
+      }
+    }
+    return useGate();
   }
 
   function useGate() {
@@ -1255,8 +1312,10 @@ export function createGame() {
       setEngine("off");
       return snapshot();
     }
-    timeHours = wrapHour(timeHours + dt / SEC_PER_HOUR);
-    if (mode === "play") syncCrowd();
+    if (mode === "play") {
+      timeHours = wrapHour(timeHours + dt / SEC_PER_HOUR);
+      syncCrowd();
+    }
 
     if (mode === "title") {
       if (input.start || input.shoot || input.jump) beginPlay(false);
@@ -1288,6 +1347,8 @@ export function createGame() {
 
     if (input.phone) togglePhone();
     if (input.phoneClose) ui = null;
+    if (input.pickClose) ui = ui === "pick" ? null : ui;
+    if (input.pickId) runPick(input.pickId);
     if (input.pingContact) pingContact(input.pingContactId);
     if (input.textPlug) textPlug();
     if (input.buyGreen) buyProduct("GREEN");
@@ -1349,9 +1410,32 @@ export function createGame() {
       const accel = spec.accel || CAR_ACCEL;
       const vmax = spec.max || CAR_MAX;
       const creep = spec.creep || CAR_CREEP;
-      const brake = !!input.brake;
-      const gas = !!input.gas;
+      let brake = !!input.brake;
+      let gas = !!input.gas;
       const gasAmt = gas ? Math.max(0.12, Math.min(1, Number(input.gasAmt) || 1)) : 0;
+      const brakeAmt = brake ? Math.max(0.18, Math.min(1, Number(input.brakeAmt) || 1)) : 1;
+      holdLight = false;
+      holdCar = false;
+      let redHold = false;
+      let carHold = false;
+      for (let i = 0; i < LIGHT_COUNT; i++) {
+        if (lightPhaseAt(clock, i) !== "red") continue;
+        const d = wrapDelta(car.x, lightGameX(i), WORLD);
+        if (Math.sign(d) === Math.sign(car.facing || 1) && Math.abs(d) < 48) redHold = true;
+      }
+      const myLat = car.lat ?? restLat(car.facing);
+      for (const t of traffic) {
+        const same = Math.abs((t.lat ?? restLat(t.facing)) - myLat) < 1.8;
+        const ahead = wrapDelta(car.x, t.x, WORLD);
+        if (same && Math.sign(ahead || 1) === Math.sign(car.facing || 1) && Math.abs(ahead) < 38) carHold = true;
+      }
+      if ((redHold || carHold) && car.gear !== "P") {
+        brake = true;
+        gas = false;
+      }
+      if (redHold || carHold) gas = false;
+      holdLight = redHold;
+      holdCar = carHold;
       if (car.turnT > 0) {
         car.turnT = Math.max(0, car.turnT - dt);
         const u = 1 - car.turnT / CAR_TURN_TIME;
@@ -1371,7 +1455,7 @@ export function createGame() {
           car.vx = 0;
         } else if (brake) {
           if (Math.abs(car.vx) > 6) {
-            car.vx -= Math.sign(car.vx) * accel * 1.7 * dt;
+            car.vx -= Math.sign(car.vx) * accel * 1.7 * brakeAmt * dt;
             if (Math.abs(car.vx) < 6) car.vx = 0;
           } else {
             car.vx = 0;
@@ -1409,6 +1493,8 @@ export function createGame() {
       player.vy = 0;
       player.anim += dt;
     } else {
+      holdLight = false;
+      holdCar = false;
       setEngine("off");
       if (input.moveX < 0) player.facing = -1;
       if (input.moveX > 0) player.facing = 1;
@@ -1469,7 +1555,8 @@ export function createGame() {
       if (salePop.life <= 0) salePop = null;
     }
     if (plugMeet) {
-      const nearMeet = Math.abs(wrapDelta(player.x, plugMeet.x, WORLD)) < 40 || ui === "buy";
+      const nearMeet = Math.abs(wrapDelta(player.x, plugMeet.x, WORLD)) < 56 || ui === "buy";
+      if (nearMeet) plugMeet.t = Math.max(plugMeet.t, 18);
       if (!nearMeet) plugMeet.t -= dt;
       if (plugMeet.t <= 0 && !nearMeet) {
         plugMeet = null;

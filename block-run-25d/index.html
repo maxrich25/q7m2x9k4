@@ -12,7 +12,7 @@
   <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <!-- Cache bust: GitHub Pages max-age=600. Bump ?v= here, on js/main.js, and every relative import in js/*.js (see README). -->
-  <link rel="stylesheet" href="style.css?v=44" />
+  <link rel="stylesheet" href="style.css?v=45" />
   <script type="importmap">
   {
     "imports": {
@@ -95,6 +95,7 @@
             <div id="buy-cash" class="sheet-inv"></div>
             <div id="buy-green-list"></div>
             <div id="buy-white-list"></div>
+            <button type="button" class="sheet-buy white" data-role="buy-close">CLOSE</button>
           </div>
         </div>
         <div id="sheet-inv" class="sheet hidden">
@@ -134,6 +135,16 @@
             <button type="button" class="sheet-buy" data-role="crib-sleep">SLEEP</button>
             <button type="button" class="sheet-buy" data-role="crib-wait">WAIT</button>
             <button type="button" class="sheet-buy white" data-role="crib-stash">STASH</button>
+            <button type="button" class="sheet-buy white" data-role="crib-close">CLOSE</button>
+          </div>
+        </div>
+        <div id="sheet-pick" class="sheet hidden">
+          <div class="sheet-card">
+            <div class="sheet-head">
+              <h2>DO</h2>
+              <button type="button" data-role="pick-close">X</button>
+            </div>
+            <div id="pick-list"></div>
           </div>
         </div>
         <div id="overlay">
@@ -141,8 +152,8 @@
             <h1 id="overlay-title">BLOCK<br><span>RUN</span></h1>
             <p id="overlay-sub">2.5D NIGHT BLOCK</p>
             <div id="cart-picks" class="hidden">
-              <a class="cart-pick" href="../block-run/?v=44&fresh=gb">CLASSIC</a>
-              <a class="cart-pick on" href="../block-run-25d/?v=44&fresh=gb">2.5D</a>
+              <a class="cart-pick" href="../block-run/?v=45&fresh=sa">CLASSIC</a>
+              <a class="cart-pick on" href="../block-run-25d/?v=45&fresh=sa">2.5D</a>
             </div>
             <div id="overlay-body"></div>
             <p id="overlay-hi"></p>
@@ -156,7 +167,7 @@
         </div>
       </div>
     </div>
-    <div id="pad" class="gb">
+    <div id="pad" class="gb sa">
       <div id="gb-grill" aria-hidden="true"></div>
       <div id="gb-face">
         <div id="pad-foot">
@@ -200,6 +211,6 @@
     </div>
   </div>
   <p id="status" class="sr-only">title</p>
-  <script type="module" src="js/main.js?v=44"></script>
+  <script type="module" src="js/main.js?v=45"></script>
 </body>
 </html>

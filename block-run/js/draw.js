@@ -1,7 +1,8 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
-} from "../../block-run-25d/js/config.js?v=44";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=44";
+  CAR_LANE_NEAR, CAR_LANE_FAR,
+} from "../../block-run-25d/js/config.js?v=45";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=45";
 
 const STREET_CROP = 168;
 const STREET_W = 398;
@@ -286,40 +287,31 @@ export function createWorld(canvas, art) {
   }
 
   function drawHouse(x, sky) {
-    const y = ground - 50;
-    g.fillStyle = "#3a3048";
-    g.fillRect(Math.round(x) - 22, y, 44, 38);
-    g.fillStyle = "#1a1424";
-    g.fillRect(Math.round(x) - 24, y - 8, 48, 10);
+    const y = ground - 46;
+    g.fillStyle = "#2a2438";
+    g.fillRect(Math.round(x) - 20, y, 40, 34);
+    g.fillStyle = "#1a1420";
+    g.fillRect(Math.round(x) - 22, y - 6, 44, 8);
     g.fillStyle = "#3de0ff";
-    g.fillRect(Math.round(x) - 6, y + 16, 12, 22);
+    g.fillRect(Math.round(x) - 5, y + 16, 10, 18);
     g.fillStyle = windowColor(sky, true);
-    g.fillRect(Math.round(x) + 7, y + 6, 12, 10);
-    if ((sky?.windows ?? 0) > 0.32) {
-      g.fillStyle = "rgba(255,230,120,0.35)";
-      g.fillRect(Math.round(x) + 5, y + 4, 16, 14);
-    }
+    g.fillRect(Math.round(x) + 8, y + 8, 8, 8);
     g.fillStyle = "#141018";
-    g.fillRect(Math.round(x) - 28, y - 30, 56, 24);
-    g.fillStyle = "#3de0ff";
-    g.fillRect(Math.round(x) - 28, y - 30, 56, 3);
-    text("HOME", x, y - 26, "#3de0ff");
-    text("STASH", x, y - 16, "#f0c430");
+    g.fillRect(Math.round(x) - 26, y - 22, 52, 16);
+    text("HOME", x, y - 20, "#3de0ff");
+    text("STASH", x, y - 10, "#f0c430");
   }
 
   function drawHeadlights(x, facing, carY, on) {
     if (!on) return;
     const dir = facing < 0 ? -1 : 1;
     const nose = x + dir * 22;
-    g.fillStyle = "rgba(255,236,170,0.55)";
-    g.beginPath();
-    g.moveTo(nose, carY - 10);
-    g.lineTo(nose + dir * 38, carY - 4);
-    g.lineTo(nose + dir * 38, carY + 6);
-    g.lineTo(nose, carY - 4);
-    g.fill();
+    g.fillStyle = "rgba(255,236,170,0.38)";
+    g.fillRect(Math.round(nose), Math.round(carY - 2), dir * 46, 10);
+    g.fillStyle = "rgba(255,242,176,0.22)";
+    g.fillRect(Math.round(nose + dir * 8), Math.round(carY + 4), dir * 52, 8);
     g.fillStyle = "#fff6c0";
-    g.fillRect(Math.round(nose - 2), Math.round(carY - 11), 4, 3);
+    g.fillRect(Math.round(nose - 2), Math.round(carY - 8), 4, 3);
   }
 
   function drawPixelCar(x, carY, facing, color, lights) {
@@ -442,7 +434,7 @@ export function createWorld(canvas, art) {
       if (plugX > -30 && plugX < VW + 30) text("PLUG", plugX, sy(GROUND_Y) - 64, "#e21b7a");
       (state.lights || []).forEach((L) => {
         const x = sx(L.x + off);
-        if (x > -10 && x < VW + 10) drawLight(x, L.phase);
+        if (x > -80 && x < VW + 80) drawLight(x, L.phase);
       });
     });
 
@@ -484,10 +476,18 @@ export function createWorld(canvas, art) {
 
     const nightLights = !!(state.sky?.headlights);
 
+    function laneY(lat, facing) {
+      const nearY = ground + 22;
+      const farY = ground + 10;
+      const span = CAR_LANE_NEAR - CAR_LANE_FAR || 1;
+      const u = Math.max(0, Math.min(1, ((lat ?? (facing > 0 ? CAR_LANE_NEAR : CAR_LANE_FAR)) - CAR_LANE_FAR) / span));
+      return farY + (nearY - farY) * u;
+    }
+
     for (const t of state.traffic || []) {
       const cx = renderGameX(t, alpha);
       const facing = t.facing < 0 ? -1 : 1;
-      const carY = facing > 0 ? ground + 22 : ground + 10;
+      const carY = laneY(t.lat, facing);
       drawWrapped((off) => {
         const x = sx(cx + off);
         if (x < -50 || x > VW + 50) return;
@@ -504,14 +504,13 @@ export function createWorld(canvas, art) {
       const cx = renderGameX(state.car, alpha);
       const yaw = Number.isFinite(state.car.yaw) ? state.car.yaw : (state.car.facing < 0 ? Math.PI : 0);
       let facing = Math.cos(yaw) < 0 ? -1 : 1;
-      const squash = Math.max(0.28, Math.abs(Math.cos(yaw)));
       const nearY = ground + 24;
       const farY = ground + 8;
       const carY = farY + (nearY - farY) * (0.5 + 0.5 * Math.cos(yaw));
       drawWrapped((off) => {
         const x = sx(cx + off);
         if (x < -50 || x > VW + 50) return;
-        if (art.car) drawImg(art.car, x, carY, facing, Math.round(100 * squash), 30);
+        if (art.car) drawImg(art.car, x, carY, facing, 100, 30);
         else drawPixelCar(x, carY, facing, "#6a3a24", nightLights);
         drawHeadlights(x, facing, carY - 8, nightLights);
         g.fillStyle = "#3de0ff";
@@ -542,17 +541,16 @@ export function createWorld(canvas, art) {
           : airborne ? fit.jump
             : Math.abs(p.vx) > 8 ? fit.walk
               : fit.idle;
-        const rate = state.muzzle > 0 ? 14 : airborne ? 8 : Math.abs(p.vx) > 8 ? 11 : 5;
+        const running = Math.abs(p.vx) > 55;
+        const rate = state.muzzle > 0 ? 14 : airborne ? 8 : running ? 16 : Math.abs(p.vx) > 8 ? 12 : 5;
         const fr = frameAt(set, p.anim, rate);
-        const spinW = Math.max(0.18, Math.abs(lookFace));
         const boardU = 1 - Math.max(0, Math.min(1, (state.boardT || 0) / 0.38));
-        const sink = boarding ? (state.inCar ? boardU * 10 : (1 - boardU) * 8) : 0;
         drawWrapped((off) => {
           const x = sx(px + off);
           if (x > -20 && x < VW + 20) {
             g.save();
             if (boarding) g.globalAlpha = state.inCar ? (1 - boardU) : boardU;
-            drawImg(fr, x, sy(p.y) + sink, lookFace < 0 ? -1 : 1, Math.round(48 * spinW), 48);
+            drawImg(fr, x, sy(p.y), lookFace < 0 ? -1 : 1, 48, 48);
             g.restore();
           }
         });

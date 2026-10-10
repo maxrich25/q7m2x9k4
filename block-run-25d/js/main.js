@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=44";
-import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=44";
-import { createInput } from "./input.js?v=44";
-import { createGame } from "./game.js?v=44";
-import { loadSprites } from "./sprites.js?v=44";
-import { createWorld } from "./world.js?v=44";
-import { createHud } from "./hud.js?v=44";
+import { TICK } from "./config.js?v=45";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=45";
+import { createInput } from "./input.js?v=45";
+import { createGame } from "./game.js?v=45";
+import { loadSprites } from "./sprites.js?v=45";
+import { createWorld } from "./world.js?v=45";
+import { createHud } from "./hud.js?v=45";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -61,6 +61,7 @@ const PULSE_KEYS = [
   "stashInCash", "stashOutCash", "stashInGreen", "stashOutGreen",
   "stashInWhite", "stashOutWhite",
   "cribClose", "cribClothes", "cribSleep", "cribWait", "cribSave", "cribStash",
+  "pickClose", "pickId",
 ];
 
 function frame(now) {

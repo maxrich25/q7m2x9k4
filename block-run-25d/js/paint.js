@@ -73,6 +73,16 @@ export const WALK_POSES = [
   { legDx: -2, armDx: 1, bob: 1, legDy: -1 },
   { legDx: 1, armDx: -1, bob: 0, legDy: 0 },
 ];
+export const PED_WALK_POSES = [
+  { legDx: 1, armDx: -1, bob: 0, legDy: 0 },
+  { legDx: 0, armDx: 0, bob: 1, legDy: -1 },
+  { legDx: -1, armDx: 1, bob: 0, legDy: 0 },
+  { legDx: 0, armDx: 0, bob: 0, legDy: 0 },
+];
+export const TURN_POSES = [
+  { armDx: 2, legDx: 1, bob: 0 },
+  { armDx: -1, legDx: 0, bob: 1 },
+];
 export const IDLE_POSES = [
   { bob: 0 },
   { bob: 1 },

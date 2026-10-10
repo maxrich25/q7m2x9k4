@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=44";
-import { isUnlocked } from "./audio.js?v=44";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=45";
+import { isUnlocked } from "./audio.js?v=45";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -223,8 +223,9 @@ export function createHud(opts = {}) {
     edgeR?.classList.toggle("hidden", !state.edgeR);
     destL?.classList.toggle("hidden", state.destSide !== -1);
     destR?.classList.toggle("hidden", state.destSide !== 1);
-    if (destL) destL.textContent = "◀ " + (state.navLabel || "DEAL");
-    if (destR) destR.textContent = (state.navLabel || "DEAL") + " ▶";
+    const edge = `${state.navLabel || "HOME"} ${state.dealLabel || ""}`.trim();
+    if (destL) destL.textContent = "◀ " + edge;
+    if (destR) destR.textContent = edge + " ▶";
 
     const driving = !!(state.inCar && state.mode === "play");
     document.getElementById("pad")?.classList.toggle("driving", driving);
@@ -288,8 +289,8 @@ export function createHud(opts = {}) {
       phoneActions?.classList.add("hidden");
     }
     if (dealNav) {
-      const on = (state.mode === "play" || state.mode === "paused") && !state.ui;
-      dealNav.classList.toggle("hidden", !on);
+      dealNav.classList.add("hidden");
+      const on = false;
       if (on && dealDist) {
         const arrow = state.dealDir < 0 ? "<<" : ">>";
         dealDist.textContent = `${state.navLabel || "HOME"} ${state.dealLabel || (state.dealM + " ft")} ${arrow}`;
@@ -315,11 +316,19 @@ export function createHud(opts = {}) {
       }
     }
 
+    const sheetPick = document.getElementById("sheet-pick");
+    const pickList = document.getElementById("pick-list");
     sheetPhone?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "phone"));
     sheetBuy?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "buy"));
     sheetStash?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "stash"));
     sheetCrib?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "crib"));
     sheetInv?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "inv"));
+    sheetPick?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "pick"));
+    if (state.ui === "pick" && pickList) {
+      pickList.innerHTML = (state.picks || []).map((p) => (
+        `<button type="button" class="sheet-buy" data-role="pick" data-pick="${p.id}">${p.label}</button>`
+      )).join("");
+    }
     if (state.ui === "phone") renderPhone(state);
     if (state.ui === "buy") renderBuy(state);
     if (state.ui === "stash") renderStash(state);
