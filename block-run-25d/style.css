@@ -702,6 +702,21 @@ html, body {
   background: var(--cream);
   border-color: var(--cream);
 }
+.sheet-buy.locked {
+  background: #3a2438;
+  color: var(--cream);
+  border-color: var(--pink);
+}
+.need-rep {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  color: #07060c;
+  background: var(--pink);
+  white-space: pre;
+}
+.inv-rep { color: var(--cyan); text-shadow: 0 0 8px var(--cyan); }
+.inv-next { color: var(--gold); }
 .stash-row {
   display: grid;
   grid-template-columns: 1fr auto auto;

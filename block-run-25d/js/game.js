@@ -10,8 +10,9 @@ import {
   INTRO_TEXT, SALE_POP_T, SERVE_SLOW, fmtGrams, streetGrams,
   restLat, CAR_KINDS, GREEN_TIERS, WHITE_TIERS, STALL_LINES,
   OUTFITS, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
-} from "./config.js?v=34";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=34";
+  nextUnlock,
+} from "./config.js?v=35";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=35";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -44,6 +45,7 @@ export function createGame() {
   };
   let inCar = false;
   let boughtOnce = false;
+  let repTipSent = false;
   let inbox = [];
   let phoneTab = "texts";
   let wreckT = 0;
@@ -175,6 +177,11 @@ export function createGame() {
       phoneTab,
       greenTiers: GREEN_TIERS,
       whiteTiers: WHITE_TIERS,
+      repMax: MAX_REP,
+      nextUnlock: (() => {
+        const nxt = nextUnlock(rep);
+        return nxt ? { label: nxt.label, minRep: nxt.minRep } : null;
+      })(),
       dealM: Math.round(dealFeet(player.x, navTarget)),
       dealLabel: formatDeal(player.x, navTarget),
       dealDir: navD >= 0 ? 1 : -1,
@@ -366,6 +373,19 @@ export function createGame() {
     return contacts.find((c) => c.id === id);
   }
 
+  function sendRepTip() {
+    if (repTipSent) return;
+    repTipSent = true;
+    const plug = findContact("plug");
+    inbox.unshift({
+      from: plug?.name || "PLUG",
+      text: "every sale = +2 rep, flake = -2. more rep = more custies + bigger weight",
+      t: clock,
+      unread: true,
+    });
+    sfx.ping();
+  }
+
   function loseContact(c, why) {
     if (!c || c.kind === "plug") return;
     pop(player.x, 150, "LOST " + c.name);
@@ -448,7 +468,7 @@ export function createGame() {
     const tier = tiers.find((t) => t.id === tierId) || tiers[0];
     if (!tier) return false;
     if ((rep || 0) < (tier.minRep || 0)) {
-      pop(plugMeet.x, 154, "NEED R" + tier.minRep);
+      pop(plugMeet.x, 154, "NEED REP " + tier.minRep);
       return false;
     }
     if (cash < tier.cost) {
@@ -458,9 +478,11 @@ export function createGame() {
     cash -= tier.cost;
     inv[id] = gramsOf(id) + tier.grams;
     packs = Math.round((gramsOf("GREEN") + gramsOf("WHITE")) / HALF_OZ);
+    const firstBuy = !boughtOnce;
     boughtOnce = true;
     sfx.buy();
     pop(plugMeet.x, 150, "+" + tier.grams + "g " + id);
+    if (firstBuy) sendRepTip();
     maybeHi();
     return true;
   }
@@ -706,6 +728,7 @@ export function createGame() {
       ui = null;
       salePop = null;
       boughtOnce = false;
+      repTipSent = false;
       inbox = [];
       phoneTab = "texts";
       outfit = 0;

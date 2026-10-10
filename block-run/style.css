@@ -696,6 +696,21 @@ html, body {
   background: var(--cream);
   border-color: var(--cream);
 }
+.sheet-buy.locked {
+  background: #2a2430;
+  color: var(--cream);
+  border-color: var(--gold);
+}
+.need-rep {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  color: #07060c;
+  background: var(--gold);
+  white-space: pre;
+}
+.inv-rep { color: var(--gold); }
+.inv-next { color: var(--cream); }
 .stash-row {
   display: grid;
   grid-template-columns: 1fr auto auto;
