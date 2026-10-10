@@ -5,14 +5,14 @@ import {
   MOVE_SPEED, TELEGRAPH, BOSS_CASH_BASE, BOSS_CASH_PER_WAVE, HI_KEY,
   SHOP_X, DUMPSTER_X, CAR_X, ORDER_SPOTS, WEAPONS, wrap, wrapDelta, hitWrap,
   formatDeal, dealFeet, COMBAT, START_CASH, PACK_COST, PACK_PAY,
-  PLUG_X, HOME_X, PED_COUNT, LIGHT_COUNT, lightGameX, lightPhaseAt,
+  PLUG_X, HOME_X, PED_COUNT, TRAFFIC_MAX, LIGHT_COUNT, lightGameX, lightPhaseAt,
   PRODUCTS, HALF_OZ, SALE_AMOUNTS, FLAKE_LIMIT, CONTACT_NAMES, MORE_NAMES,
   INTRO_TEXT, SALE_POP_T, SERVE_SLOW, fmtGrams, streetGrams,
   restLat, CAR_KINDS, GREEN_TIERS, WHITE_TIERS, STALL_LINES,
   OUTFITS, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
-  nextUnlock,
-} from "./config.js?v=35";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=35";
+  nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen,
+} from "./config.js?v=36";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=36";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -75,6 +75,7 @@ export function createGame() {
   let gun = "pistol";
   let heat = 0;
   let peds = [];
+  let traffic = [];
   let ranReds = new Set();
   let atHome = false;
   let foes = [];
@@ -192,6 +193,10 @@ export function createGame() {
       liveDeal: !!liveDeal,
       hour,
       timeLabel: fmtHour(hour),
+      phase: dayPhase(hour),
+      streetBusy: streetBusy(hour),
+      plugOpen: plugOpen(hour),
+      traffic: traffic.map((t) => ({ ...t })),
       outfit,
       outfits: OUTFITS.map((o) => ({ id: o.id, label: o.label })),
       sky: skyTint(hour),
@@ -324,23 +329,59 @@ export function createGame() {
     return requestTurn(-car.facing);
   }
 
+  const TRAFFIC_COLS = ["#2a3048", "#6a3a24", "#1a3a48", "#4a2030", "#3a3a38", "#204028", "#5a4030"];
+
+  function makePed(i) {
+    return {
+      x: wrap((WORLD / Math.max(1, PED_COUNT)) * ((i ?? 0) % PED_COUNT) + Math.random() * 90, WORLD),
+      facing: (i ?? 0) % 2 === 0 ? 1 : -1,
+      look: (i ?? 0) % BUYER_COUNT,
+      anim: Math.random(),
+      wait: Math.random() < 0.3 ? 0.8 + Math.random() * 2 : 0,
+      speed: 9 + Math.random() * 8,
+      hitCd: 0,
+      vx: 0,
+    };
+  }
+
+  function makeTrafficCar(i) {
+    const facing = i % 2 === 0 ? 1 : -1;
+    const x = wrap((WORLD / Math.max(1, TRAFFIC_MAX)) * (i % TRAFFIC_MAX) + Math.random() * 140, WORLD);
+    return {
+      x,
+      px: x,
+      facing,
+      vx: facing * (48 + Math.random() * 38),
+      lat: restLat(facing),
+      kind: i % 4 === 0 ? "luxury" : "beater",
+      color: TRAFFIC_COLS[i % TRAFFIC_COLS.length],
+      yaw: facing < 0 ? Math.PI : 0,
+    };
+  }
+
+  function syncCrowd() {
+    const busy = streetBusy(timeHours);
+    const nPed = Math.max(0, Math.round(PED_COUNT * busy));
+    const nCar = Math.max(0, Math.round(TRAFFIC_MAX * busy));
+    while (peds.length < nPed) peds.push(makePed(peds.length));
+    if (peds.length > nPed) peds.length = nPed;
+    while (traffic.length < nCar) traffic.push(makeTrafficCar(traffic.length));
+    if (traffic.length > nCar) traffic.length = nCar;
+  }
+
   function spawnPeds() {
     peds = [];
-    for (let i = 0; i < PED_COUNT; i++) {
-      peds.push({
-        x: wrap((WORLD / PED_COUNT) * i + Math.random() * 90, WORLD),
-        facing: i % 2 === 0 ? 1 : -1,
-        look: i % BUYER_COUNT,
-        anim: Math.random(),
-        wait: Math.random() < 0.3 ? 0.8 + Math.random() * 2 : 0,
-        speed: 9 + Math.random() * 8,
-        hitCd: 0,
-      });
-    }
+    traffic = [];
+    syncCrowd();
   }
 
   function nextOrderWait() {
-    return Math.max(5, 18 - rep * 1.3) + Math.random() * 5;
+    const base = Math.max(5, 18 - rep * 1.3) + Math.random() * 5;
+    return base * orderWaitMul(timeHours);
+  }
+
+  function bumpHeat(n) {
+    heat = Math.min(3, heat + n * heatMul(timeHours));
   }
 
   function seedContacts() {
@@ -449,6 +490,22 @@ export function createGame() {
   function textPlug() {
     const plug = findContact("plug");
     if (!plug) return false;
+    if (!plugOpen(timeHours)) {
+      const already = inbox.some((m) => m.from === (plug.name || "PLUG") && m.text === "hit me later");
+      if (!already) {
+        inbox.unshift({
+          from: plug.name || "PLUG",
+          text: "hit me later",
+          t: clock,
+          unread: true,
+        });
+      }
+      ui = "phone";
+      phoneTab = "texts";
+      sfx.ping();
+      pop(player.x, 150, "LATER");
+      return false;
+    }
     plugMeet = { x: PLUG_X, t: 90, label: "the plug" };
     plug.status = "meet";
     ui = null;
@@ -596,7 +653,7 @@ export function createGame() {
     packs = Math.round((gramsOf("GREEN") + gramsOf("WHITE")) / HALF_OZ);
     const pay = order.dollars;
     cash += pay;
-    heat = Math.min(3, heat + 0.18);
+    bumpHeat(0.18);
     rep = Math.min(MAX_REP, rep + 2);
     salePop = {
       product: order.product,
@@ -624,7 +681,7 @@ export function createGame() {
     const ped = peds.find((p) => Math.abs(wrapDelta(player.x, p.x, WORLD)) < 18 && p.hitCd <= 0);
     if (!ped) return false;
     ped.hitCd = 4;
-    heat = Math.min(3, heat + 0.12);
+    bumpHeat(0.12);
     if (Math.random() < 0.55) {
       const c = addContact(null, ped.look);
       if (c) pop(ped.x, 150, c.name);
@@ -665,6 +722,7 @@ export function createGame() {
 
   function sleepCrib() {
     timeHours = wrapHour(timeHours + 7);
+    syncCrowd();
     player.hp = MAX_HP;
     invuln = 0.35;
     pop(HOME_X, 150, "ZZZ " + fmtHour(timeHours));
@@ -674,6 +732,7 @@ export function createGame() {
 
   function waitCrib() {
     timeHours = wrapHour(timeHours + 1);
+    syncCrowd();
     pop(HOME_X, 150, "WAIT " + fmtHour(timeHours));
     sfx.ping();
     return true;
@@ -1021,7 +1080,8 @@ export function createGame() {
       setEngine("off");
       return snapshot();
     }
-    timeHours += dt / SEC_PER_HOUR;
+    timeHours = wrapHour(timeHours + dt / SEC_PER_HOUR);
+    if (mode === "play") syncCrowd();
 
     if (mode === "title") {
       if (input.start || input.shoot || input.jump) beginPlay(false);
@@ -1049,6 +1109,7 @@ export function createGame() {
     player.px = player.x;
     car.px = car.x;
     if (copCar) copCar.px = copCar.x;
+    for (const t of traffic) t.px = t.x;
 
     if (input.phone) togglePhone();
     if (input.phoneClose) ui = null;
@@ -1263,6 +1324,10 @@ export function createGame() {
       }
     }
 
+    for (const t of traffic) {
+      t.x = wrap(t.x + t.vx * dt, WORLD);
+    }
+
     if (inCar && Math.abs(car.vx) > 22) {
       for (let i = 0; i < LIGHT_COUNT; i++) {
         if (lightPhaseAt(clock, i) !== "red") continue;
@@ -1271,7 +1336,7 @@ export function createGame() {
         const key = i + ":" + Math.floor((clock + i * 3.7) / 16);
         if (ranReds.has(key)) continue;
         ranReds.add(key);
-        heat = Math.min(3, heat + 0.55);
+        bumpHeat(0.55);
         pop(car.x, 148, "RED +HEAT");
         sfx.honk();
       }
@@ -1311,7 +1376,8 @@ export function createGame() {
       }
     }
 
-    if (heat >= 1.6 && !copCar) {
+    const late = heatMul(timeHours) >= 1.18;
+    if (heat >= (late ? 1.42 : 1.6) && !copCar) {
       const behind = player.facing !== 0 ? -player.facing : -1;
       copCar = {
         x: wrap(player.x + behind * 150, WORLD),
@@ -1324,7 +1390,7 @@ export function createGame() {
       pop(player.x, 146, "5-0");
     }
     if (copCar) {
-      if (heat < 1.15) {
+      if (heat < (late ? 1.05 : 1.15)) {
         copCar = null;
       } else {
         const dx = wrapDelta(copCar.x, player.x, WORLD);
