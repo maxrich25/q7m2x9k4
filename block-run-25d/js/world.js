@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX,
-} from "./config.js?v=31";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=31";
+} from "./config.js?v=32";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=32";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -479,7 +479,7 @@ function skylineTex() {
       }
     }
 
-    function block(x, bw, bh, fill = "#2a2240") {
+    function block(x, bw, bh, fill = "#4a3a68") {
       const y = h - bh;
       g.fillStyle = fill;
       g.fillRect(x, y, bw, bh);
@@ -517,7 +517,7 @@ function skylineTex() {
     const usbX = 360;
     const usbW = 30;
     const usbH = 188;
-    const usbY = block(usbX, usbW, usbH, "#322848");
+    const usbY = block(usbX, usbW, usbH, "#5a4a80");
     g.fillStyle = "#4a3a68";
     g.fillRect(usbX - 4, usbY - 14, usbW + 8, 16);
     g.fillStyle = "#5a4a78";
@@ -532,7 +532,7 @@ function skylineTex() {
     const wgW = 38;
     const wgH = 210;
     const wgY = h - wgH;
-    g.fillStyle = "#2e2644";
+    g.fillStyle = "#564878";
     g.fillRect(wgX, wgY + 28, wgW, wgH - 28);
     g.beginPath();
     g.moveTo(wgX - 6, wgY + 36);
@@ -606,43 +606,48 @@ export function createWorld(canvas, sprites) {
   scene.add(sky);
 
   const moon = new THREE.Mesh(
-    new THREE.SphereGeometry(1.8, 16, 16),
-    new THREE.MeshBasicMaterial({ color: 0xf4f0e8, transparent: true }),
+    new THREE.SphereGeometry(1.15, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xf4f0e8, transparent: true, fog: false }),
   );
-  moon.position.set(-10, 12, -28);
+  moon.position.set(-10, 14, -30);
   scene.add(moon);
-  const moonGlow = glowSprite("#f4e8c0", 8);
+  const moonGlow = glowSprite("#f4e8c0", 6);
   moonGlow.position.copy(moon.position);
   scene.add(moonGlow);
 
-  const skyline = new THREE.Mesh(
-    new THREE.PlaneGeometry(190, 24),
-    new THREE.MeshBasicMaterial({ map: skylineTex(), transparent: true, depthWrite: false }),
-  );
-  skyline.position.set(0, 13.4, -22);
+  const skylineMat = new THREE.MeshBasicMaterial({
+    map: skylineTex(),
+    transparent: true,
+    depthWrite: false,
+    fog: false,
+  });
+  const skyline = new THREE.Mesh(new THREE.PlaneGeometry(220, 14), skylineMat);
+  skyline.position.set(0, 9.4, -12);
+  skyline.renderOrder = -2;
   scene.add(skyline);
   const hazeTex = canvasTex(64, 32, (g, w, h) => {
     const grd = g.createLinearGradient(0, 0, 0, h);
     grd.addColorStop(0, "rgba(180,140,220,0)");
-    grd.addColorStop(0.55, "rgba(90,60,130,0.28)");
-    grd.addColorStop(1, "rgba(50,32,80,0.4)");
+    grd.addColorStop(0.6, "rgba(90,60,130,0.16)");
+    grd.addColorStop(1, "rgba(50,32,80,0.28)");
     g.fillStyle = grd;
     g.fillRect(0, 0, w, h);
   });
   hazeTex.wrapS = THREE.ClampToEdgeWrapping;
   hazeTex.wrapT = THREE.ClampToEdgeWrapping;
   const hazeBand = new THREE.Mesh(
-    new THREE.PlaneGeometry(210, 12),
-    new THREE.MeshBasicMaterial({ map: hazeTex, transparent: true, depthWrite: false }),
+    new THREE.PlaneGeometry(230, 7),
+    new THREE.MeshBasicMaterial({ map: hazeTex, transparent: true, depthWrite: false, fog: false, depthTest: false }),
   );
-  hazeBand.position.set(0, 7.2, -18);
+  hazeBand.position.set(0, 5.4, -11.2);
+  hazeBand.renderOrder = -3;
   scene.add(hazeBand);
   const farPalms = [];
   for (let i = 0; i < 14; i++) {
     const palm = makePalm();
     palm.scale.setScalar(1.35 + (i % 3) * 0.22);
     scene.add(palm);
-    farPalms.push({ mesh: palm, dx: (i - 6.5) * 10.2 + (i % 2) * 2.4, z: -15.5 - (i % 3) * 0.8 });
+    farPalms.push({ mesh: palm, dx: (i - 6.5) * 10.2 + (i % 2) * 2.4, z: -9.2 - (i % 3) * 0.45 });
   }
 
   const city = new THREE.Group();
@@ -764,16 +769,16 @@ export function createWorld(canvas, sprites) {
         city.add(pane);
       }
     } else if (theme.id === "motel") {
-      propBox(16.5, 3.4, 2.3, 0x3a3048, x + 1, 1.7, -1.85);
-      propBox(16.9, 0.22, 2.7, 0x2a2438, x + 1, 3.5, -1.85);
+      propBox(16.5, 2.5, 2.3, 0x3a3048, x + 1, 1.25, -1.85);
+      propBox(16.9, 0.18, 2.7, 0x2a2438, x + 1, 2.6, -1.85);
       for (let i = 0; i < 7; i++) {
         propBox(0.72, 1.45, 0.08, 0x1a1424, x - 6.2 + i * 2.15, 0.95, -0.68);
         propBox(0.22, 0.22, 0.06, 0xf0c430, x - 5.95 + i * 2.15, 1.15, -0.64);
       }
       addNeon("VACANCY", "#3de0ff", x + 5.2, 4.15, -1.45, false);
     } else if (theme.id === "studio") {
-      propBox(8.4, 4.6, 2.5, 0x8a7a58, x - 1.2, 2.3, -1.75);
-      propBox(2.2, 3.2, 0.2, 0x1a1420, x - 1.2, 1.7, -0.48);
+      propBox(6.4, 2.8, 2.2, 0x8a7a58, x - 1.2, 1.4, -1.75);
+      propBox(1.8, 2.1, 0.2, 0x1a1420, x - 1.2, 1.15, -0.48);
     } else if (theme.id === "taco") {
       propBox(3.6, 1.85, 1.7, 0x6a3a20, x, 0.92, -1.05);
       propBox(4.1, 0.1, 2.15, 0xf0c430, x, 1.92, -0.95);
@@ -1112,7 +1117,7 @@ export function createWorld(canvas, sprites) {
       const follow = state.inCar ? 10.5 : 7.2;
       camX = wrap(camX + dx * (1 - Math.exp(-follow * Math.max(stepDt, 0.0001) * (paused ? 0 : 1))), STREET_LEN);
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.08, camZ);
-      tmp.set(camX + p.facing * (state.inCar ? 0.7 : 0.75), 1.22 + gameToWorldY(p.y) * 0.12, state.inCar ? 3.6 : 2.15);
+      tmp.set(camX + p.facing * (state.inCar ? 0.7 : 0.75), 1.72 + gameToWorldY(p.y) * 0.12, state.inCar ? 2.2 : 0.85);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
     } else {
@@ -1121,11 +1126,11 @@ export function createWorld(canvas, sprites) {
       camera.lookAt(camX, 1.32, 1.4);
     }
 
-    moon.position.set(camX - 4.5, 9.2, -11);
+    moon.position.set(camX - 7.5, 13.6, -28);
     moonGlow.position.copy(moon.position);
-    skyline.position.set(camX + 2, 13.4, -22);
-    hazeBand.position.set(camX, 7.2, -18);
-    sky.position.set(camX, 18, -32);
+    skyline.position.set(camX + 1.2, 9.4, -12);
+    hazeBand.position.set(camX, 5.4, -11.2);
+    sky.position.set(camX, 16, -26);
     for (const fp of farPalms) {
       fp.mesh.position.set(camX + fp.dx, 0, fp.z);
     }
