@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat,
-} from "./config.js?v=39";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=39";
+} from "./config.js?v=40";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=40";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -691,8 +691,8 @@ export function createWorld(canvas, sprites) {
     depthTest: false,
   });
   const skyline = new THREE.Sprite(skylineMat);
-  skyline.scale.set(52, 11.5, 1);
-  skyline.position.set(0, 8.8, -10);
+  skyline.scale.set(72, 18, 1);
+  skyline.position.set(0, 13.2, -22);
   skyline.renderOrder = -4;
   scene.add(skyline);
 
@@ -1033,7 +1033,7 @@ export function createWorld(canvas, sprites) {
   const homeHouse = makeSafeHouse();
   homeHouse.position.set(gameToWorldX(HOME_X), 0, -1.05);
   city.add(homeHouse);
-  addNeon("HOME", "#3de0ff", gameToWorldX(HOME_X), 3.55, 0.35, true);
+  addNeon("HOME", "#3de0ff", gameToWorldX(HOME_X), 4.35, 0.55, true);
   addNeon("PLUG", "#e21b7a", gameToWorldX(PLUG_X), 2.55, 0.15, true);
 
   const shop = makeKiosk();
@@ -1275,12 +1275,12 @@ export function createWorld(canvas, sprites) {
       if (bar) bar.material.color.setHex(on ? 0xfff6c8 : 0x6a7080);
     }
 
-    moon.position.set(camX - 6.2, 10.4, -16);
+    moon.position.set(camX - 8.4, 14.6, -28);
     moonGlow.position.copy(moon.position);
-    skyline.position.set(camX + 1.4, 8.9, -10);
-    hazeBand.position.set(camX, 5.2, -9.6);
-    sky.position.set(camX, 15, -22);
-    dtla.position.set(camX + 0.8, 0, -12.4);
+    skyline.position.set(camX + 1.6, 13.4, -22);
+    hazeBand.position.set(camX, 7.4, -18);
+    sky.position.set(camX, 18, -36);
+    dtla.position.set(camX + 0.8, 2.4, -20);
     for (const t of dtla.children) {
       t.position.x = t.userData.dx || 0;
       t.position.z = 0;
@@ -1305,7 +1305,7 @@ export function createWorld(canvas, sprites) {
       moonGlow.material.opacity = 0.2 + skyInfo.moon * 0.65;
       sun.visible = skyInfo.sun > 0.12;
       sunGlow.visible = skyInfo.sun > 0.12;
-      sun.position.set(camX + 7.4, 6.2 + skyInfo.sun * 8.5, -16);
+      sun.position.set(camX + 8.6, 12.8 + skyInfo.sun * 4.2, -28);
       sunGlow.position.copy(sun.position);
       sunGlow.material.opacity = 0.25 + skyInfo.sun * 0.6;
       hemi.intensity = 0.55 + skyInfo.light * 0.7;

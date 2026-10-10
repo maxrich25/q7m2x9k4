@@ -11,8 +11,8 @@ import {
   restLat, CAR_KINDS, GREEN_TIERS, WHITE_TIERS, STALL_LINES,
   OUTFITS, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
   nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen,
-} from "./config.js?v=39";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=39";
+} from "./config.js?v=40";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=40";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -137,6 +137,7 @@ export function createGame() {
       else if (nearHome) gate = "ENTER";
       else if (canBuy) gate = "BUY";
       if (canServe) prompt = "SERVE";
+      else if (nearDeal && !slowEnough) prompt = "SLOW TO SERVE";
       else if (gate) prompt = gate;
       else if (nearPlug && !plugMeet) prompt = "TEXT PLUG";
       else if (nearPed && !nearCar && !nearHome) prompt = "HIT UP";
@@ -168,6 +169,7 @@ export function createGame() {
       prompt, gate, destSide, hitUp: prompt === "HIT UP",
       canServe, canBuy, nearHome, nearCar, nearPlug, nearPed, exitOk,
       showServe: canServe,
+      slowToServe: !!(nearDeal && !slowEnough && mode === "play" && !ui),
       showGate: !!(gate && mode === "play" && !ui),
       showHitUp: prompt === "HIT UP",
       turnOk: inCar && car.gear === "D" && Math.abs(car.vx) > 18 && car.turnT <= 0,
@@ -1160,7 +1162,7 @@ export function createGame() {
     } else if (input.gate) {
       useGate();
     }
-    if (input.serve) serve();
+    if (input.serve || (input.shoot && Math.abs(wrapDelta(player.x, order?.x ?? player.x, WORLD)) < 32 && Math.abs(player.vx) < SERVE_SLOW)) serve();
     if (input.hitup && !inCar) solicit();
     if (input.accept) acceptOrder();
     if (input.decline) declineOrder();
@@ -1223,7 +1225,6 @@ export function createGame() {
       player.y = GROUND_Y;
       player.vy = 0;
       player.anim += dt;
-      setEngine("off");
     } else {
       setEngine("off");
       if (input.moveX < 0) player.facing = -1;

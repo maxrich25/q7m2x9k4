@@ -1,7 +1,7 @@
 import {
   pixelCanvas, setFromCanvases, flipCanvas, remapHoodie,
-} from "../../block-run-25d/js/paint.js?v=39";
-import { OUTFITS } from "../../block-run-25d/js/config.js?v=39";
+} from "../../block-run-25d/js/paint.js?v=40";
+import { OUTFITS } from "../../block-run-25d/js/config.js?v=40";
 
 const SPRITE_BASE = new URL("../sprites/", import.meta.url);
 
@@ -128,8 +128,10 @@ function cleanStreet(street) {
     const isOpenSky = (r, gv, b, y) => {
       const lum = r + gv + b;
       const dist = Math.abs(r - 12) + Math.abs(gv - 1) + Math.abs(b - 31);
-      if (dist <= 36 && lum <= 64) return true;
-      if (y < 52 && lum >= 200) return true;
+      const sat = Math.max(r, gv, b) - Math.min(r, gv, b);
+      if (dist <= 42 && lum <= 90) return true;
+      // painted moon + glow sit in the upper sky, not on the skyline
+      if (y < 88 && lum >= 130 && sat < 55 && r > 80) return true;
       return false;
     };
     const tops = new Array(w);

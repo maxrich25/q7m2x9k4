@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=39";
-import { isUnlocked } from "./audio.js?v=39";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=40";
+import { isUnlocked } from "./audio.js?v=40";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -233,6 +233,7 @@ export function createHud(opts = {}) {
       ctx.classList.toggle("hidden", !any);
     }
     btnServe?.classList.toggle("hidden", !(playUi && state.showServe));
+    btnServe?.classList.toggle("pulse", !!(playUi && state.showServe));
     btnGate?.classList.toggle("hidden", !(playUi && state.showGate));
     if (btnGate && state.gate) btnGate.textContent = state.gate;
     btnHit?.classList.toggle("hidden", !(playUi && state.showHitUp));

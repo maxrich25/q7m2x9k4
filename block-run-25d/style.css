@@ -583,6 +583,15 @@ html, body {
   min-height: 58px;
   letter-spacing: 2px;
 }
+#btn-serve.pulse {
+  animation: servePulse 0.7s ease-in-out infinite;
+}
+@keyframes servePulse {
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 18px rgba(240, 196, 48, 0.85);
+  }
+}
 #btn-gate { color: var(--cyan); }
 #btn-hitup { color: var(--pink); }
 
