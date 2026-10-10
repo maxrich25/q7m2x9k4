@@ -100,28 +100,36 @@ export function createWorld(canvas, art) {
     }
   }
 
+  function backdropDest() {
+    const destH = Math.max(120, Math.min(ground - 40, 210));
+    const destY = ground - 26 - destH;
+    return { destH, destY };
+  }
+
   function drawSunMoon(sky) {
+    const { destY } = backdropDest();
+    const skyMid = Math.round(Math.max(40, destY * 0.36));
     const sun = sky?.sun ?? 0;
     if (sun > 0.12) {
-      const x = Math.round(VW * 0.74);
-      const y = Math.round(14 + (1 - sun) * 28);
-      const r = 7;
-      g.fillStyle = `rgba(255,210,70,${Math.min(1, 0.35 + sun * 0.55).toFixed(2)})`;
-      g.fillRect(x - r - 2, y - 1, r * 2 + 4, 3);
-      g.fillRect(x - 1, y - r - 2, 3, r * 2 + 4);
+      const x = Math.round(VW * 0.72);
+      const y = skyMid + Math.round((1 - sun) * 18);
+      const r = 9;
+      g.fillStyle = `rgba(255,214,90,${Math.min(1, 0.4 + sun * 0.55).toFixed(2)})`;
+      g.fillRect(x - r - 3, y - 1, r * 2 + 6, 3);
+      g.fillRect(x - 1, y - r - 3, 3, r * 2 + 6);
       g.fillStyle = "#ffe46a";
       g.fillRect(x - r + 1, y - r + 1, r * 2 - 2, r * 2 - 2);
       g.fillStyle = "#fff6b0";
-      g.fillRect(x - 3, y - 3, 6, 6);
+      g.fillRect(x - 4, y - 4, 8, 8);
     }
     const moon = sky?.moon ?? 0;
     if (moon > 0.12) {
-      const x = Math.round(VW * 0.22);
-      const y = 16;
+      const x = Math.round(VW * 0.24);
+      const y = Math.max(22, skyMid - 6);
       g.fillStyle = `rgba(244,240,232,${Math.min(1, moon).toFixed(2)})`;
-      g.fillRect(x - 5, y - 4, 10, 9);
-      g.fillStyle = `rgba(200,196,216,${Math.min(1, moon).toFixed(2)})`;
-      g.fillRect(x - 1, y - 2, 3, 3);
+      g.fillRect(x - 6, y - 5, 12, 11);
+      g.fillStyle = `rgba(180,176,200,${Math.min(1, moon).toFixed(2)})`;
+      g.fillRect(x - 2, y - 2, 3, 3);
       g.fillRect(x + 2, y + 1, 2, 2);
     }
   }
@@ -140,16 +148,20 @@ export function createWorld(canvas, art) {
     }
   }
 
+  function coverPaintedSky(sky) {
+    const { destH, destY } = backdropDest();
+    const cut = Math.round(destH * 0.42);
+    const grd = g.createLinearGradient(0, destY, 0, destY + cut);
+    grd.addColorStop(0, sky?.cssTop || "#0c0120");
+    grd.addColorStop(1, sky?.cssBot || "#140a28");
+    g.fillStyle = grd;
+    g.fillRect(0, destY, VW, cut);
+  }
+
   function washBackdrop(sky) {
     if (!sky?.wash) return;
     g.fillStyle = sky.wash;
     g.fillRect(0, 0, VW, ground);
-    // Hide the painted moon on street.png so the clock-driven sun/moon owns the sky.
-    const top = sky.cssTop || "#0c0120";
-    g.fillStyle = top;
-    g.globalAlpha = 0.42 + (1 - (sky.moon || 0)) * 0.38;
-    g.fillRect(0, 0, VW, Math.max(28, Math.round(ground * 0.22)));
-    g.globalAlpha = 1;
   }
 
   function drawStreet(cam) {
@@ -252,7 +264,11 @@ export function createWorld(canvas, art) {
     g.fillStyle = "#3de0ff";
     g.fillRect(Math.round(x) - 6, y + 16, 12, 22);
     g.fillStyle = windowColor(sky, true);
-    g.fillRect(Math.round(x) + 8, y + 8, 8, 8);
+    g.fillRect(Math.round(x) + 7, y + 6, 12, 10);
+    if ((sky?.windows ?? 0) > 0.32) {
+      g.fillStyle = "rgba(255,230,120,0.35)";
+      g.fillRect(Math.round(x) + 5, y + 4, 16, 14);
+    }
     text("HOME", x, y - 14, "#3de0ff");
     text("STASH", x, y - 24, "#f0c430");
   }
@@ -353,6 +369,7 @@ export function createWorld(canvas, art) {
     g.imageSmoothingEnabled = false;
     drawSky(state.sky);
     drawBackdrop(camX);
+    coverPaintedSky(state.sky);
     washBackdrop(state.sky);
     drawSunMoon(state.sky);
     drawStreet(camX);

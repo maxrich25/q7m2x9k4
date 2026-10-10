@@ -1297,7 +1297,8 @@ export function createWorld(canvas, sprites) {
         scene.fog.density = skyInfo.star > 0.55 ? 0.0048 : 0.0034;
       }
       sky.material.color.setHex(skyInfo.top);
-      sky.material.opacity = 0.28 + skyInfo.star * 0.72;
+      sky.material.opacity = skyInfo.star;
+      sky.visible = skyInfo.star > 0.06;
       moon.visible = skyInfo.moon > 0.12;
       moon.material.opacity = Math.max(0.15, skyInfo.moon);
       moonGlow.visible = skyInfo.moon > 0.12;
@@ -1307,16 +1308,16 @@ export function createWorld(canvas, sprites) {
       sun.position.set(camX + 7.4, 6.2 + skyInfo.sun * 8.5, -16);
       sunGlow.position.copy(sun.position);
       sunGlow.material.opacity = 0.25 + skyInfo.sun * 0.6;
-      hemi.intensity = 0.4 + skyInfo.light * 0.55;
-      hemi.color.setHex(skyInfo.top);
+      hemi.intensity = 0.55 + skyInfo.light * 0.7;
+      hemi.color.setHex(skyInfo.sun > 0.35 ? 0xc8e0f8 : skyInfo.top);
       moonLight.intensity = skyInfo.moon * 0.62;
       moonLight.color.setHex(0xe8f0ff);
-      sunLight.intensity = skyInfo.sun * 1.15;
-      sunLight.color.setHex(skyInfo.sun > 0.7 ? 0xfff2d0 : 0xffa060);
+      sunLight.intensity = skyInfo.sun * 1.45;
+      sunLight.color.setHex(skyInfo.sun > 0.7 ? 0xfff4d8 : 0xffa060);
       sunLight.position.set(camX + 12, 8 + skyInfo.sun * 14, 8);
-      amb.intensity = 0.45 + skyInfo.light * 0.55;
-      amb.color.setHex(skyInfo.sun > 0.4 ? 0x88a8c8 : 0x4a3068);
-      neonFill.intensity = 0.12 + skyInfo.star * 0.18;
+      amb.intensity = 0.7 + skyInfo.light * 0.65;
+      amb.color.setHex(skyInfo.sun > 0.4 ? 0xb0c8e0 : 0x4a3068);
+      neonFill.intensity = 0.08 + skyInfo.star * 0.2;
       const litWin = skyInfo.windows > 0.32;
       winMat.map = litWin ? WIN_LIT : WIN_DIM;
       winMatFar.map = litWin ? WIN_LIT : WIN_DIM;
@@ -1324,7 +1325,8 @@ export function createWorld(canvas, sprites) {
       lampHeadMat.color.setHex(skyInfo.lamps > 0.35 ? 0xf0c430 : 0x2a2430);
       lampGlowMat.opacity = skyInfo.lamps > 0.35 ? 0.2 + skyInfo.lamps * 0.7 : 0;
       for (const pl of lampLights) pl.intensity = skyInfo.lamps > 0.35 ? 0.35 + skyInfo.lamps * 0.7 : 0;
-      skyline.material.color.setHex(skyInfo.star > 0.4 ? 0xffffff : 0xffe8d0);
+      skyline.material.color.setHex(skyInfo.windows > 0.4 ? 0xffffff : 0x8aa4bc);
+      skyline.material.opacity = skyInfo.windows > 0.4 ? 1 : 0.78;
     }
 
     buyerT += stepDt;
