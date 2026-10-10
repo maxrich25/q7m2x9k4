@@ -124,6 +124,13 @@ export function paintPerson(g, look) {
   g.fillRect(6, 17, 4, 8);
   g.fillRect(22, 17, 4, 8);
   g.fillRect(11, 6, 10, 10);
+  g.fillStyle = "#f4f0e8";
+  g.fillRect(13, 9, 2, 2);
+  g.fillRect(17, 9, 2, 2);
+  g.fillStyle = "#1a1210";
+  g.fillRect(14, 9, 1, 2);
+  g.fillRect(18, 9, 1, 2);
+  g.fillStyle = look.skin;
   g.fillRect(13, 16, 6, 2);
   if (look.chain) {
     g.fillStyle = "#f0c430";

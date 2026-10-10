@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=42";
-import { isUnlocked } from "./audio.js?v=42";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=43";
+import { isUnlocked } from "./audio.js?v=43";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -39,8 +39,9 @@ export function createHud(opts = {}) {
   const shiftHint = document.getElementById("shift-hint");
   const padUturn = document.querySelector('[data-role="uturn"]');
   const ctx = document.getElementById("pad-ctx") || document.getElementById("ctx");
-  const btnAccept = document.getElementById("btn-accept");
+  const btnAction = document.getElementById("btn-action");
   const btnStall = document.getElementById("btn-stall");
+  const btnAccept = document.getElementById("btn-accept");
   const btnServe = document.getElementById("btn-serve");
   const btnGate = document.getElementById("btn-gate");
   const btnHit = document.getElementById("btn-hitup");
@@ -102,6 +103,11 @@ export function createHud(opts = {}) {
   function invLine(state) {
     const g = state.inv || {};
     return `GRN ${fmtGrams(g.GREEN)}g  WHT ${fmtGrams(g.WHITE)}g`;
+  }
+
+  function invHtml(state) {
+    const g = state.inv || {};
+    return `<span class="g-grn">${fmtGrams(g.GREEN)} G</span> <span class="g-wht">${fmtGrams(g.WHITE)} G</span>`;
   }
 
   function renderPhone(state) {
@@ -196,14 +202,14 @@ export function createHud(opts = {}) {
 
   function sync(state, project) {
     cashEl.textContent = "$" + String(state.cash).padStart(4, "0");
-    if (invEl) invEl.textContent = invLine(state);
+    if (invEl) invEl.innerHTML = invHtml(state);
     pips(heatEl, 3, Math.min(3, Math.ceil(state.heat)), "heat");
     if (repEl) repEl.textContent = "REP " + Math.round(state.rep || 0);
-    if (hudTime) hudTime.textContent = state.timeLabel || "9 PM";
+    if (hudTime) hudTime.textContent = state.timeLabel || "9:00 PM";
     const muted = !!state.muted;
     btnMute?.classList.toggle("off", muted);
     if (btnMute) {
-      btnMute.textContent = muted ? "X" : "SP";
+      btnMute.textContent = muted ? "🔇" : "🔊";
       btnMute.setAttribute("aria-label", muted ? "sound off" : "sound on");
     }
     if (btnSound) {
@@ -232,18 +238,27 @@ export function createHud(opts = {}) {
     btnPhone?.classList.toggle("unread", !!state.unread);
 
     const playUi = state.mode === "play" && !state.ui;
-    const offer = state.order?.phase === "offer" || state.order?.phase === "stalling";
+    const offer = !!(state.offer || state.order?.phase === "offer" || state.order?.phase === "stalling");
     const padEl = document.getElementById("pad");
     const padOn = !!(padEl && window.getComputedStyle(padEl).display !== "none");
     const showAccept = !!(offer && state.mode === "play");
     const showServe = !!(playUi && !offer && state.showServe);
     const showGate = !!(playUi && !offer && state.showGate);
     const showHit = !!(playUi && !offer && state.showHitUp);
-    if (ctx) {
-      ctx.classList.toggle("hidden", !(showAccept || showServe || showGate || showHit));
+    if (ctx) ctx.classList.remove("hidden");
+    const label = state.actionLabel || "ACTION";
+    const actionOn = !!(state.actionOk && state.mode === "play");
+    if (btnAction) {
+      btnAction.textContent = label;
+      btnAction.classList.toggle("off", !actionOn);
+      btnAction.classList.toggle("go", actionOn);
+      btnAction.classList.toggle("pulse", showServe && label === "SERVE");
+    }
+    if (btnStall) {
+      btnStall.classList.remove("hidden");
+      btnStall.classList.toggle("off", !showAccept);
     }
     btnAccept?.classList.toggle("hidden", !showAccept);
-    btnStall?.classList.toggle("hidden", !showAccept);
     btnServe?.classList.toggle("hidden", !showServe);
     btnServe?.classList.toggle("pulse", showServe);
     btnGate?.classList.toggle("hidden", !showGate);
@@ -283,9 +298,7 @@ export function createHud(opts = {}) {
       if (on && dealHome) dealHome.style.left = `${Math.max(0, Math.min(100, (state.homeAt || 0) * 100))}%`;
     }
     if (actionPrompt) {
-      const show = !!(state.prompt && playUi && !state.showServe && !state.showGate && !state.showHitUp);
-      actionPrompt.classList.toggle("hidden", !show);
-      if (show) actionPrompt.textContent = state.prompt;
+      actionPrompt.classList.add("hidden");
     }
 
     if (saleEl) {

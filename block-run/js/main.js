@@ -1,10 +1,10 @@
-import { TICK } from "../../block-run-25d/js/config.js?v=42";
-import { bindAudioUnlock, unlockAudio, startMusic } from "../../block-run-25d/js/audio.js?v=42";
-import { createInput } from "../../block-run-25d/js/input.js?v=42";
-import { createGame } from "../../block-run-25d/js/game.js?v=42";
-import { createHud } from "../../block-run-25d/js/hud.js?v=42";
-import { loadArt } from "./art.js?v=42";
-import { createWorld } from "./draw.js?v=42";
+import { TICK } from "../../block-run-25d/js/config.js?v=43";
+import { bindAudioUnlock, unlockAudio, startMusic } from "../../block-run-25d/js/audio.js?v=43";
+import { createInput } from "../../block-run-25d/js/input.js?v=43";
+import { createGame } from "../../block-run-25d/js/game.js?v=43";
+import { createHud } from "../../block-run-25d/js/hud.js?v=43";
+import { loadArt } from "./art.js?v=43";
+import { createWorld } from "./draw.js?v=43";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -55,12 +55,12 @@ try {
 
 const PULSE_KEYS = [
   "shoot", "jump", "start", "mute", "pause", "exit", "gearTap", "shiftStep",
-  "accept", "decline", "serve", "gate", "hitup", "uturn", "phone", "phoneClose",
+  "accept", "decline", "action", "serve", "gate", "hitup", "uturn", "phone", "phoneClose",
   "textPlug", "pingContact", "pingContactId", "buyGreen", "buyWhite", "buyTier", "buyProduct", "buyTierId", "buyClose", "stashClose",
   "inventory", "invClose", "phoneTab",
   "stashInCash", "stashOutCash", "stashInGreen", "stashOutGreen",
   "stashInWhite", "stashOutWhite",
-  "cribClose", "cribClothes", "cribSleep", "cribWait", "cribStash",
+  "cribClose", "cribClothes", "cribSleep", "cribWait", "cribSave", "cribStash",
 ];
 
 function frame(now) {
@@ -131,6 +131,8 @@ window.__br = {
   cycleOutfit: () => game.cycleOutfit(),
   sleepCrib: () => game.sleepCrib(),
   waitCrib: () => game.waitCrib(),
+  saveCrib: () => game.saveCrib(),
+  doAction: () => game.doAction(),
   setTimeHours: (h) => game.setTimeHours(h),
   setOutfit: (i) => game.setOutfit(i),
   useGate: () => game.useGate(),

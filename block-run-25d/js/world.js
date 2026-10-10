@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat,
-} from "./config.js?v=42";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=42";
+} from "./config.js?v=43";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=43";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -362,6 +362,12 @@ function makeTrafficLight() {
   mk("bulbRed", 3.26, 0x3a1018);
   mk("bulbYellow", 3.05, 0x3a3010);
   mk("bulbGreen", 2.84, 0x103a18);
+  const stop = new THREE.Mesh(
+    new THREE.BoxGeometry(0.12, 0.04, 3.6),
+    new THREE.MeshBasicMaterial({ color: 0xf4f0e8 }),
+  );
+  stop.position.set(-1.15, 0.05, 6.4);
+  g.add(stop);
   return g;
 }
 
@@ -691,8 +697,8 @@ export function createWorld(canvas, sprites) {
     depthTest: false,
   });
   const skyline = new THREE.Sprite(skylineMat);
-  skyline.scale.set(72, 18, 1);
-  skyline.position.set(0, 13.2, -22);
+  skyline.scale.set(108, 26, 1);
+  skyline.position.set(0, 14.6, -28);
   skyline.renderOrder = -4;
   scene.add(skyline);
 
@@ -714,33 +720,33 @@ export function createWorld(canvas, sprites) {
     return g;
   }
   const dtla = new THREE.Group();
-  const usBank = litTower(1.35, 12.4, 1.2, 0x3a2c58);
+  const usBank = litTower(1.5, 16.2, 1.35, 0x3a2c58);
   const usCrown = new THREE.Mesh(
     new THREE.BoxGeometry(1.7, 0.55, 1.4),
     new THREE.MeshBasicMaterial({ color: 0x4a3c68, fog: false }),
   );
-  usCrown.position.y = 12.65;
+  usCrown.position.y = 16.5;
   usBank.add(usCrown);
   const usSpire = new THREE.Mesh(
     new THREE.BoxGeometry(0.12, 1.4, 0.12),
     new THREE.MeshBasicMaterial({ color: 0x3de0ff, fog: false }),
   );
-  usSpire.position.y = 13.5;
+  usSpire.position.y = 17.5;
   usBank.add(usSpire);
   usBank.userData.dx = -3.2;
-  const wilshire = litTower(1.7, 13.8, 1.35, 0x322850);
+  const wilshire = litTower(1.9, 18.4, 1.5, 0x322850);
   const sail = new THREE.Mesh(
     new THREE.BoxGeometry(2.1, 1.3, 0.8),
     new THREE.MeshBasicMaterial({ color: 0x4a3c70, fog: false }),
   );
-  sail.position.set(0.15, 14.3, 0);
+  sail.position.set(0.15, 18.9, 0);
   sail.rotation.z = -0.28;
   wilshire.add(sail);
   const wgSpire = new THREE.Mesh(
     new THREE.BoxGeometry(0.1, 2.8, 0.1),
     new THREE.MeshBasicMaterial({ color: 0xf0c430, fog: false }),
   );
-  wgSpire.position.y = 15.8;
+  wgSpire.position.y = 20.6;
   wilshire.add(wgSpire);
   wilshire.userData.dx = 1.6;
   const lib = litTower(1.15, 10.2, 1.1, 0x2e2448);
@@ -1141,6 +1147,7 @@ export function createWorld(canvas, sprites) {
   plugGlow.visible = false;
   scene.add(plugGlow);
   let buyerT = 0;
+  let lookFace = 1;
 
   const playerSprite = makeBillboard(sprites.idle[0], 2.65);
   scene.add(playerSprite);
@@ -1244,14 +1251,16 @@ export function createWorld(canvas, sprites) {
     const portrait = camera.aspect < 1;
     const camZ = portrait ? (state.inCar ? 20.4 : 18.8) : (state.inCar ? 16.8 : 15.2);
     const camY = portrait ? (state.inCar ? 3.35 : 2.86) : (state.inCar ? 3.1 : 2.7);
+    const wantFace = p.facing < 0 ? -1 : 1;
+    lookFace += (wantFace - lookFace) * (1 - Math.exp(-4.2 * Math.max(stepDt, 0.0001)));
     if (playing) {
       const leadGame = state.inCar ? (portrait ? 10 : 16) : (portrait ? 14 : 22);
-      const lookX = nearestWorldX(wrap(px + p.facing * leadGame, WORLD), camX);
+      const lookX = nearestWorldX(wrap(px + lookFace * leadGame, WORLD), camX);
       const dx = wrapDelta(camX, lookX, STREET_LEN);
-      const follow = state.inCar ? 10.5 : 7.2;
+      const follow = state.inCar ? 6.4 : 4.1;
       camX = wrap(camX + dx * (1 - Math.exp(-follow * Math.max(stepDt, 0.0001) * (paused ? 0 : 1))), STREET_LEN);
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.08, camZ);
-      tmp.set(camX + p.facing * (state.inCar ? 0.7 : 0.75), 1.48 + gameToWorldY(p.y) * 0.12, state.inCar ? 3.1 : 1.85);
+      tmp.set(camX + lookFace * (state.inCar ? 0.7 : 0.75), 1.48 + gameToWorldY(p.y) * 0.12, state.inCar ? 3.1 : 1.85);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
     } else {
@@ -1277,10 +1286,10 @@ export function createWorld(canvas, sprites) {
 
     moon.position.set(camX - 8.4, 14.6, -28);
     moonGlow.position.copy(moon.position);
-    skyline.position.set(camX + 1.6, 13.4, -22);
+    skyline.position.set(camX + 1.6, 14.8, -28);
     hazeBand.position.set(camX, 7.4, -18);
     sky.position.set(camX, 18, -36);
-    dtla.position.set(camX + 0.8, 0, -26);
+    dtla.position.set(camX + 0.8, 0, -32);
     for (const t of dtla.children) {
       t.position.x = t.userData.dx || 0;
       t.position.z = 0;
@@ -1294,7 +1303,7 @@ export function createWorld(canvas, sprites) {
       renderer.setClearColor(skyInfo.top, 1);
       if (scene.fog) {
         scene.fog.color.setHex(skyInfo.fog);
-        scene.fog.density = skyInfo.star > 0.55 ? 0.0048 : 0.0034;
+        scene.fog.density = skyInfo.star > 0.55 ? 0.0044 : 0.0022;
       }
       sky.material.color.setHex(skyInfo.top);
       sky.material.opacity = skyInfo.star;
@@ -1340,8 +1349,10 @@ export function createWorld(canvas, sprites) {
       : Math.abs(p.vx) > 8 ? fit.walk
       : fit.idle;
     const rate = state.muzzle > 0 ? 14 : airborne ? 8 : Math.abs(p.vx) > 8 ? 11 : 5;
-    setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate), p.facing);
-    place(playerSprite, px, p.y, camX, 1.15);
+    const sprFace = lookFace < 0 ? -1 : 1;
+    setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate), sprFace);
+    place(playerSprite, px, GROUND_Y, camX, 1.15);
+    playerSprite.position.y = 0;
     orientBillboard(playerSprite, camera);
     playerSprite.material.color.set(p.flash > 0 ? 0xffffff : 0xffffff);
     if (p.flash > 0) playerSprite.material.color.setHex(0xffc8e8);
@@ -1475,9 +1486,12 @@ export function createWorld(canvas, sprites) {
       plugGlow.visible = false;
     }
 
-    place(dumpSprite, DUMPSTER_X, 198, camX, -0.35);
-    dumpSprite.position.y = 0;
-    orientBillboard(dumpSprite, camera);
+    dumpSprite.visible = !!state.combat;
+    if (dumpSprite.visible) {
+      place(dumpSprite, DUMPSTER_X, 198, camX, -0.35);
+      dumpSprite.position.y = 0;
+      orientBillboard(dumpSprite, camera);
+    }
     place(sellLabel, DUMPSTER_X, 154, camX, 0.7);
     sellLabel.position.y = 1.55;
     place(fireLabel, DUMPSTER_X, 154, camX, 0.7);
@@ -1489,7 +1503,7 @@ export function createWorld(canvas, sprites) {
     let pedI = 0;
     for (const ped of state.peds || []) {
       const spr = take(pedPool, () => {
-        const s = makeBillboard(looks[0]?.walk?.[0] || sprites.idle[0], 2.2);
+        const s = makeBillboard(looks[0]?.walk?.[0] || sprites.idle[0], 2.5);
         scene.add(s);
         const sh = new THREE.Mesh(shadowGeo, shadowMat.clone());
         sh.rotation.x = -Math.PI / 2;
