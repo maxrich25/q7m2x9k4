@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=33";
-import { isUnlocked } from "./audio.js?v=33";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=35";
+import { isUnlocked } from "./audio.js?v=35";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -51,6 +51,8 @@ export function createHud(opts = {}) {
   const sheetStash = document.getElementById("sheet-stash");
   const sheetCrib = document.getElementById("sheet-crib");
   const cribClock = document.getElementById("crib-clock");
+  const cribTime = document.getElementById("crib-time");
+  const cribRep = document.getElementById("crib-rep");
   const cribFit = document.getElementById("crib-fit");
   const hudTime = document.getElementById("hud-time");
   const phoneInv = document.getElementById("phone-inv");
@@ -146,7 +148,7 @@ export function createHud(opts = {}) {
       if (!el) return;
       el.innerHTML = (tiers || []).map((t) => {
         const locked = rep < (t.minRep || 0);
-        return `<button type="button" class="sheet-buy ${cls || ""}" data-role="buy-tier" data-product="${product}" data-tier="${t.id}" ${locked ? "disabled" : ""}>${product === "WHITE" ? "WHT" : "GRN"} ${t.label} $${t.cost}${locked ? " R" + t.minRep : ""}</button>`;
+        return `<button type="button" class="sheet-buy ${cls || ""}${locked ? " locked" : ""}" data-role="buy-tier" data-product="${product}" data-tier="${t.id}" ${locked ? "disabled" : ""}>${product === "WHITE" ? "WHT" : "GRN"} ${t.label} $${t.cost}${locked ? ` <span class="need-rep">REP ${t.minRep}</span>` : ""}</button>`;
       }).join("");
     }
     fill(buyGreenList, state.greenTiers || [], "GREEN", "");
@@ -169,7 +171,11 @@ export function createHud(opts = {}) {
   }
 
   function renderCrib(state) {
-    if (cribClock) cribClock.textContent = (state.timeLabel || "9P") + "  R" + Math.round(state.rep || 0);
+    const clock = state.timeLabel || "9 PM";
+    const repLine = "REP " + Math.round(state.rep || 0);
+    if (cribTime) cribTime.textContent = clock;
+    if (cribRep) cribRep.textContent = repLine;
+    else if (cribClock) cribClock.textContent = clock + "   " + repLine;
     if (cribFit) {
       const cur = (state.outfits || [])[state.outfit | 0];
       cribFit.textContent = cur ? cur.label : "RED HOOD";
@@ -182,8 +188,8 @@ export function createHud(opts = {}) {
     cashEl.textContent = "$" + String(state.cash).padStart(4, "0");
     if (invEl) invEl.textContent = invLine(state);
     pips(heatEl, 3, Math.min(3, Math.ceil(state.heat)), "heat");
-    if (repEl) repEl.textContent = "R" + Math.round(state.rep || 0);
-    if (hudTime) hudTime.textContent = state.timeLabel || "";
+    if (repEl) repEl.textContent = "REP " + Math.round(state.rep || 0);
+    if (hudTime) hudTime.textContent = state.timeLabel || "9 PM";
     const muted = !!state.muted;
     btnMute?.classList.toggle("off", muted);
     if (btnMute) {
@@ -293,7 +299,13 @@ export function createHud(opts = {}) {
     if (state.ui === "inv" && invRows) {
       const g = state.inv || {};
       const s = state.stashInv || {};
-      invRows.innerHTML = `<div class="sheet-inv">CASH $${state.cash}  HOME $${state.stash || 0}</div>`
+      const nxt = state.nextUnlock;
+      const nextLine = nxt
+        ? `next unlock: ${nxt.label} at REP ${nxt.minRep}`
+        : "next unlock: MAX";
+      invRows.innerHTML = `<div class="sheet-inv inv-rep">REP ${Math.round(state.rep || 0)}/${state.repMax || 16}</div>`
+        + `<div class="sheet-inv inv-next">${nextLine}</div>`
+        + `<div class="sheet-inv">CASH $${state.cash}  HOME $${state.stash || 0}</div>`
         + `<div class="sheet-inv">GRN ${fmtGrams(g.GREEN)}g / HOME ${fmtGrams(s.GREEN)}g</div>`
         + `<div class="sheet-inv">WHT ${fmtGrams(g.WHITE)}g / HOME ${fmtGrams(s.WHITE)}g</div>`;
     }

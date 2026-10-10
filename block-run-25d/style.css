@@ -84,8 +84,8 @@ html, body {
   white-space: nowrap;
   font-size: 7px;
 }
-#hud-rep { color: var(--muted); flex: 0 0 auto; }
-#hud-time { color: var(--cream); flex: 0 0 auto; }
+#hud-rep { color: var(--muted); flex: 0 0 auto; white-space: nowrap; }
+#hud-time { color: var(--cream); flex: 0 0 auto; white-space: nowrap; }
 #hud-heat, #hud-hp {
   display: flex;
   gap: 3px;
@@ -658,6 +658,12 @@ html, body {
   margin-bottom: 10px;
   line-height: 1.6;
 }
+.crib-meta {
+  display: flex;
+  gap: 16px;
+  white-space: pre;
+}
+.crib-meta span { white-space: pre; }
 .contact {
   display: flex;
   align-items: center;
@@ -696,6 +702,21 @@ html, body {
   background: var(--cream);
   border-color: var(--cream);
 }
+.sheet-buy.locked {
+  background: #3a2438;
+  color: var(--cream);
+  border-color: var(--pink);
+}
+.need-rep {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  color: #07060c;
+  background: var(--pink);
+  white-space: pre;
+}
+.inv-rep { color: var(--cyan); text-shadow: 0 0 8px var(--cyan); }
+.inv-next { color: var(--gold); }
 .stash-row {
   display: grid;
   grid-template-columns: 1fr auto auto;

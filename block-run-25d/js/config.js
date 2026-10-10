@@ -87,6 +87,11 @@ export const GREEN_TIERS = [
   { id: "5p", label: "5P", grams: 2240, cost: 10000, minRep: 12 },
   { id: "10p", label: "10P", grams: 4480, cost: 19000, minRep: 14 },
 ];
+export function nextUnlock(rep, tiers = GREEN_TIERS) {
+  const n = Number(rep) || 0;
+  return tiers.find((t) => (t.minRep || 0) > n) || null;
+}
+
 export const WHITE_TIERS = [
   { id: "eighth", label: "8TH", grams: 3.5, cost: 140, minRep: 0 },
   { id: "quad", label: "7G", grams: 7, cost: 260, minRep: 2 },
@@ -131,8 +136,7 @@ export function hourOf(clock, extra = 0) {
 
 export function fmtHour(h) {
   const hr = Math.floor(wrapHour(h));
-  const suffix = hr < 12 ? "A" : "P";
-  return (hr % 12 || 12) + suffix;
+  return (hr % 12 || 12) + (hr < 12 ? " AM" : " PM");
 }
 
 export function hexCss(n) {
