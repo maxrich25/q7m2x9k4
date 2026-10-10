@@ -8,11 +8,11 @@
   <meta http-equiv="Cache-Control" content="no-cache" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="description" content="2.5D night-street prototype of BLOCK RUN. Buy packs, take deals, stash cash, watch the heat." />
+  <meta name="description" content="2.5D night-street prototype of BLOCK RUN. Text the plug, serve from the curb, stash at home." />
   <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <!-- Cache bust: GitHub Pages max-age=600. Bump ?v= here, on js/main.js, and every relative import in js/*.js (see README). -->
-  <link rel="stylesheet" href="style.css?v=23" />
+  <link rel="stylesheet" href="style.css?v=24" />
   <script type="importmap">
   {
     "imports": {
@@ -27,15 +27,16 @@
       <canvas id="scene" aria-label="BLOCK RUN 2.5D street"></canvas>
       <div id="hud" aria-live="polite">
         <div id="hud-top">
-          <span id="hud-cash">$0100</span>
-          <span id="hud-packs">0 PK</span>
+          <span id="hud-cash">$0130</span>
+          <span id="hud-inv">G 0g  W 0g</span>
           <span id="hud-heat" title="heat"></span>
           <span id="hud-rep">R1</span>
+          <button id="btn-phone" type="button" data-role="phone" aria-label="phone">PH</button>
           <button id="btn-pause" type="button" aria-label="pause">II</button>
         </div>
         <div id="phone" class="hidden">
           <div id="phone-from">TXT</div>
-          <div id="phone-msg">yo need 2 packs, by the liquor store</div>
+          <div id="phone-msg">yo need $40 green, by the liquor store</div>
           <div id="phone-timer">0:28</div>
           <div id="phone-actions" class="hidden">
             <button type="button" data-role="accept">ACCEPT</button>
@@ -44,30 +45,69 @@
         </div>
         <div id="deal-nav" class="hidden">
           <div id="deal-dist">DEAL 620 ft >></div>
-          <div id="deal-map"><i id="deal-me"></i><i id="deal-pin"></i></div>
+          <div id="deal-map">
+            <i id="deal-me"></i>
+            <i id="deal-home"></i>
+            <i id="deal-pin"></i>
+          </div>
         </div>
         <div id="prompt" class="hidden">ENTER</div>
+        <div id="sale-pop" class="hidden">
+          <div id="sale-what">SOLD GREEN</div>
+          <div id="sale-amt">$40</div>
+          <div id="sale-cash">CASH +$40</div>
+        </div>
         <div id="pops"></div>
         <div id="edge-left" class="edge-arrow hidden" aria-hidden="true">◀</div>
         <div id="edge-right" class="edge-arrow hidden" aria-hidden="true">▶</div>
         <div id="dest-left" class="dest-arrow hidden" aria-hidden="true">◀ DEAL</div>
         <div id="dest-right" class="dest-arrow hidden" aria-hidden="true">DEAL ▶</div>
+        <div id="ctx" class="hidden">
+          <button type="button" id="btn-serve" class="ctx-btn hidden" data-role="serve">SERVE</button>
+          <button type="button" id="btn-gate" class="ctx-btn hidden" data-role="gate">ENTER</button>
+          <button type="button" id="btn-hitup" class="ctx-btn hidden" data-role="hitup">HIT UP</button>
+        </div>
+        <div id="sheet-phone" class="sheet hidden">
+          <div class="sheet-card">
+            <div class="sheet-head">
+              <h2>PHONE</h2>
+              <button type="button" data-role="phone-close">X</button>
+            </div>
+            <div id="phone-inv" class="sheet-inv"></div>
+            <div id="phone-home-row" class="contact plug-row">
+              <span>HOME</span>
+              <span id="phone-home-dist">—</span>
+            </div>
+            <div id="phone-list"></div>
+          </div>
+        </div>
+        <div id="sheet-buy" class="sheet hidden">
+          <div class="sheet-card">
+            <div class="sheet-head">
+              <h2>PLUG</h2>
+              <button type="button" data-role="buy-close">X</button>
+            </div>
+            <p class="sheet-note">HALF OZ DROPS</p>
+            <div id="buy-cash" class="sheet-inv"></div>
+            <button type="button" class="sheet-buy" data-role="buy-green" id="buy-green">GREEN 1/2 $100</button>
+            <button type="button" class="sheet-buy white" data-role="buy-white" id="buy-white">WHITE 1/2 $500</button>
+          </div>
+        </div>
+        <div id="sheet-stash" class="sheet hidden">
+          <div class="sheet-card">
+            <div class="sheet-head">
+              <h2>STASH</h2>
+              <button type="button" data-role="stash-close">X</button>
+            </div>
+            <p class="sheet-note">HOME SAFE</p>
+            <div id="stash-rows"></div>
+          </div>
+        </div>
         <div id="overlay">
           <div id="overlay-card">
             <h1 id="overlay-title">BLOCK<br><span>RUN</span></h1>
             <p id="overlay-sub">2.5D NIGHT BLOCK</p>
-            <div id="overlay-body" class="tips">
-              <p>BUY PACKS AT PLUG</p>
-              <p>ACCEPT DEAL TEXTS</p>
-              <p>HIT UP PEDS</p>
-              <p>STASH CASH AT HOME</p>
-              <p>REDS ADD HEAT</p>
-              <p class="tip-dim">ON FOOT: L / JUMP / R</p>
-              <p class="tip-dim">NEAR A PED: HIT UP</p>
-              <p class="tip-dim">IN CAR: STEER  BRAKE  GAS  P-R-N-D</p>
-              <p class="tip-dim">HOLD BRAKE TO SHIFT</p>
-              <p class="tip-dim">EXIT IN PARK</p>
-            </div>
+            <div id="overlay-body"></div>
             <p id="overlay-hi"></p>
             <p id="overlay-prompt" class="blink">TAP TO START</p>
             <div id="pause-actions" class="hidden">
@@ -87,17 +127,9 @@
         </div>
       </div>
       <div id="pad-car" class="hidden">
-        <div id="car-col">
-          <div id="car-steer">
-            <button type="button" class="pad-btn" data-role="steer-left" aria-label="steer left">◀</button>
-            <button type="button" class="pad-btn" data-role="steer-right" aria-label="steer right">▶</button>
-          </div>
-          <div id="car-aux">
-            <button type="button" class="pad-btn pad-exit" data-role="exit">EXIT</button>
-          </div>
-        </div>
         <button type="button" class="pad-btn pad-pedal pad-brake" data-role="brake">BRAKE</button>
         <button type="button" class="pad-btn pad-pedal pad-gas" data-role="gas">GAS</button>
+        <button type="button" class="pad-btn pad-uturn" data-role="uturn" aria-label="u-turn">U-TURN</button>
         <div id="shifter" data-role="shifter">
           <div id="shift-track">
             <div id="shift-gears">
@@ -114,6 +146,6 @@
     </div>
   </div>
   <p id="status" class="sr-only">title</p>
-  <script type="module" src="js/main.js?v=23"></script>
+  <script type="module" src="js/main.js?v=24"></script>
 </body>
 </html>

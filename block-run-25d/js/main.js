@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=23";
-import { bindAudioUnlock, unlockAudio } from "./audio.js?v=23";
-import { createInput } from "./input.js?v=23";
-import { createGame } from "./game.js?v=23";
-import { loadSprites } from "./sprites.js?v=23";
-import { createWorld } from "./world.js?v=23";
-import { createHud } from "./hud.js?v=23";
+import { TICK } from "./config.js?v=24";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=24";
+import { createInput } from "./input.js?v=24";
+import { createGame } from "./game.js?v=24";
+import { loadSprites } from "./sprites.js?v=24";
+import { createWorld } from "./world.js?v=24";
+import { createHud } from "./hud.js?v=24";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -53,6 +53,14 @@ try {
   console.error(err);
 }
 
+const PULSE_KEYS = [
+  "shoot", "jump", "start", "mute", "pause", "exit", "gearTap", "shiftStep",
+  "accept", "decline", "serve", "gate", "hitup", "uturn", "phone", "phoneClose",
+  "textPlug", "buyGreen", "buyWhite", "buyClose", "stashClose",
+  "stashInCash", "stashOutCash", "stashInGreen", "stashOutGreen",
+  "stashInWhite", "stashOutWhite",
+];
+
 function frame(now) {
   if (!running) return;
   const dt = Math.min(0.1, (now - last) / 1000);
@@ -61,11 +69,10 @@ function frame(now) {
   const inp = input.poll();
   let first = true;
   while (acc >= TICK) {
-    const step = first ? inp : {
-      ...inp,
-      shoot: false, jump: false, start: false, mute: false, pause: false,
-      exit: false, gearTap: null, shiftStep: 0, accept: false, decline: false,
-    };
+    const step = first ? inp : Object.fromEntries(Object.entries(inp).map(([k, v]) => {
+      if (PULSE_KEYS.includes(k)) return [k, k === "gearTap" || k === "shiftStep" ? (k === "gearTap" ? null : 0) : false];
+      return [k, v];
+    }));
     game.tick(TICK, step, view);
     acc -= TICK;
     first = false;
@@ -86,6 +93,7 @@ requestAnimationFrame(frame);
 window.__br = {
   getState: () => game.getState(),
   start: () => game.start(),
+  finishIntro: () => game.finishIntro(),
   pause: () => game.pause(),
   resume: () => game.resume(),
   restart: () => game.restart(),
@@ -95,14 +103,27 @@ window.__br = {
   setCarrying: (on) => game.setCarrying(on),
   setHeat: (h) => game.setHeat(h),
   setPacks: (n) => game.setPacks(n),
+  setInv: (id, g) => game.setInv(id, g),
+  setStashInv: (id, g) => game.setStashInv(id, g),
   setRep: (n) => game.setRep(n),
   setStash: (n) => game.setStash(n),
   setClock: (t) => game.setClock(t),
   acceptOrder: () => game.acceptOrder(),
   declineOrder: () => game.declineOrder(),
   buyPack: () => game.buyPack(),
+  buyProduct: (id) => game.buyProduct(id),
   stashCash: () => game.stashCash(),
+  transfer: (k, d) => game.transfer(k, d),
   solicit: () => game.solicit(),
+  serve: () => game.serve(),
+  textPlug: () => game.textPlug(),
+  togglePhone: () => game.togglePhone(),
+  setUi: (name) => game.setUi(name),
+  openBuy: () => game.openBuy(),
+  openStash: () => game.openStash(),
+  useGate: () => game.useGate(),
+  doUTurn: () => game.doUTurn(),
+  addContact: (n, look) => game.addContact(n, look),
   startUTurn: (dir) => game.startUTurn(dir),
   setTurnMid: () => game.setTurnMid(),
   clearOrder: () => game.clearOrder(),
@@ -115,6 +136,7 @@ window.__br = {
   setFacing: (dir) => game.setFacing(dir),
   getView: () => world?.getView?.() || view,
   unlockAudio,
+  startMusic,
 };
 
 window.__controlsTest = {

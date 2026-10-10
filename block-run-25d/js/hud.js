@@ -1,25 +1,9 @@
-import { GEARS } from "./config.js?v=23";
-import { isUnlocked } from "./audio.js?v=23";
-
-const TITLE_TIPS = [
-  "BUY PACKS AT PLUG",
-  "ACCEPT DEAL TEXTS",
-  "HIT UP PEDS",
-  "STASH CASH AT HOME",
-  "REDS ADD HEAT",
-];
-
-const CONTROL_TIPS = [
-  "ON FOOT: L / JUMP / R",
-  "NEAR A PED: HIT UP",
-  "IN CAR: STEER  BRAKE  GAS  P-R-N-D",
-  "HOLD BRAKE TO SHIFT",
-  "EXIT IN PARK",
-];
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=24";
+import { isUnlocked } from "./audio.js?v=24";
 
 export function createHud() {
   const cashEl = document.getElementById("hud-cash");
-  const packsEl = document.getElementById("hud-packs");
+  const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
   const repEl = document.getElementById("hud-rep");
   const overlay = document.getElementById("overlay");
@@ -35,6 +19,7 @@ export function createHud() {
   const destL = document.getElementById("dest-left");
   const destR = document.getElementById("dest-right");
   const phone = document.getElementById("phone");
+  const phoneFrom = document.getElementById("phone-from");
   const phoneMsg = document.getElementById("phone-msg");
   const phoneTimer = document.getElementById("phone-timer");
   const phoneActions = document.getElementById("phone-actions");
@@ -43,13 +28,31 @@ export function createHud() {
   const dealDist = document.getElementById("deal-dist");
   const dealMe = document.getElementById("deal-me");
   const dealPin = document.getElementById("deal-pin");
+  const dealHome = document.getElementById("deal-home");
   const status = document.getElementById("status");
   const padFoot = document.getElementById("pad-foot");
   const padCar = document.getElementById("pad-car");
   const shiftKnob = document.getElementById("shift-knob");
   const shiftHint = document.getElementById("shift-hint");
-  const padExit = document.querySelector('[data-role="exit"]');
-  const padJump = document.querySelector('[data-role="jump"]');
+  const padUturn = document.querySelector('[data-role="uturn"]');
+  const ctx = document.getElementById("ctx");
+  const btnServe = document.getElementById("btn-serve");
+  const btnGate = document.getElementById("btn-gate");
+  const btnHit = document.getElementById("btn-hitup");
+  const saleEl = document.getElementById("sale-pop");
+  const saleWhat = document.getElementById("sale-what");
+  const saleAmt = document.getElementById("sale-amt");
+  const saleCash = document.getElementById("sale-cash");
+  const sheetPhone = document.getElementById("sheet-phone");
+  const sheetBuy = document.getElementById("sheet-buy");
+  const sheetStash = document.getElementById("sheet-stash");
+  const phoneInv = document.getElementById("phone-inv");
+  const phoneList = document.getElementById("phone-list");
+  const phoneHomeDist = document.getElementById("phone-home-dist");
+  const buyCash = document.getElementById("buy-cash");
+  const buyGreen = document.getElementById("buy-green");
+  const buyWhite = document.getElementById("buy-white");
+  const stashRows = document.getElementById("stash-rows");
 
   function pips(el, count, filled, cls) {
     if (!el) return;
@@ -61,13 +64,6 @@ export function createHud() {
     [...el.children].forEach((n, i) => {
       n.className = "pip" + (i < filled ? ` on ${cls}` : "");
     });
-  }
-
-  function tipsHtml(lines, extra = []) {
-    return [...lines, ...extra].map((line, i) => {
-      const dim = extra.includes(line) || i >= lines.length ? " class=\"tip-dim\"" : "";
-      return `<p${dim}>${line}</p>`;
-    }).join("");
   }
 
   function placeKnob(gear) {
@@ -84,17 +80,75 @@ export function createHud() {
     shiftKnob.style.top = `${4 + i * 28}px`;
   }
 
+  function invLine(state) {
+    const g = state.inv || {};
+    return `G ${fmtGrams(g.GREEN)}g  W ${fmtGrams(g.WHITE)}g`;
+  }
+
+  function renderPhone(state) {
+    if (phoneInv) phoneInv.textContent = `CASH $${state.cash}  ${invLine(state)}`;
+    if (phoneHomeDist) {
+      phoneHomeDist.textContent = formatDeal(state.player.x, HOME_X) + " HOME";
+    }
+    if (!phoneList) return;
+    phoneList.innerHTML = "";
+    for (const c of state.contacts || []) {
+      const row = document.createElement("div");
+      row.className = "contact" + (c.kind === "plug" ? " plug-row" : "");
+      const st = c.kind === "plug"
+        ? (c.status === "meet" ? "AT THE SPOT" : "RE-UP")
+        : c.status === "offering" ? "TEXTED"
+          : c.status === "waiting" ? "WAITING"
+            : c.status === "nudge" ? "WHERE U AT"
+              : (c.flakes ? `AROUND ${c.flakes}/3` : "AROUND");
+      row.innerHTML = `<div><div class="who">${c.name}</div><div class="st">${st}</div></div>`;
+      if (c.kind === "plug") {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.dataset.role = "text-plug";
+        b.textContent = c.status === "meet" ? "MEET" : "TEXT";
+        row.appendChild(b);
+      }
+      phoneList.appendChild(row);
+    }
+  }
+
+  function renderBuy(state) {
+    if (buyCash) buyCash.textContent = `CASH $${state.cash}  ${invLine(state)}`;
+    const g = PRODUCTS.GREEN;
+    const w = PRODUCTS.WHITE;
+    if (buyGreen) buyGreen.textContent = `GREEN 1/2 $${g.buyHalf}`;
+    if (buyWhite) buyWhite.textContent = `WHITE 1/2 $${w.buyHalf}`;
+  }
+
+  function renderStash(state) {
+    if (!stashRows) return;
+    const g = state.inv || {};
+    const s = state.stashInv || {};
+    stashRows.innerHTML = [
+      ["CASH", `YOU $${state.cash}`, `HOME $${state.stash || 0}`, "stash-in-cash", "stash-out-cash"],
+      ["GREEN", `YOU ${fmtGrams(g.GREEN)}g`, `HOME ${fmtGrams(s.GREEN)}g`, "stash-in-green", "stash-out-green"],
+      ["WHITE", `YOU ${fmtGrams(g.WHITE)}g`, `HOME ${fmtGrams(s.WHITE)}g`, "stash-in-white", "stash-out-white"],
+    ].map(([lab, you, home, inn, out]) => (
+      `<div class="stash-row"><div>${lab}<br>${you}<br>${home}</div>`
+      + `<button type="button" class="stash-btn" data-role="${inn}">IN</button>`
+      + `<button type="button" class="stash-btn" data-role="${out}">OUT</button></div>`
+    )).join("");
+  }
+
   let popNodes = [];
 
   function sync(state, project) {
     cashEl.textContent = "$" + String(state.cash).padStart(4, "0");
-    if (packsEl) packsEl.textContent = (state.packs || 0) + " PK";
+    if (invEl) invEl.textContent = invLine(state);
     pips(heatEl, 3, Math.min(3, Math.ceil(state.heat)), "heat");
     if (repEl) repEl.textContent = "R" + Math.round(state.rep || 0);
     edgeL?.classList.toggle("hidden", !state.edgeL);
     edgeR?.classList.toggle("hidden", !state.edgeR);
     destL?.classList.toggle("hidden", state.destSide !== -1);
     destR?.classList.toggle("hidden", state.destSide !== 1);
+    if (destL) destL.textContent = "◀ " + (state.navLabel || "DEAL");
+    if (destR) destR.textContent = (state.navLabel || "DEAL") + " ▶";
 
     const driving = !!(state.inCar && state.mode === "play");
     document.getElementById("pad")?.classList.toggle("driving", driving);
@@ -106,21 +160,25 @@ export function createHud() {
     });
     if (driving) placeKnob(gear);
     shiftHint?.classList.toggle("hidden", !(driving && (state.car?.shiftHint || 0) > 0));
-    padExit?.classList.toggle("off", driving && !state.exitOk);
-    if (padJump) {
-      padJump.textContent = state.hitUp ? "HIT UP" : (state.prompt === "BUY $20" || state.prompt === "NEED $"
-        ? "BUY"
-        : state.prompt === "STASH" || state.prompt === "HOME"
-          ? "HOME"
-          : "JUMP");
+    padUturn?.classList.toggle("off", driving && !state.turnOk);
+
+    const playUi = state.mode === "play" && !state.ui;
+    if (ctx) {
+      const any = playUi && (state.showServe || state.showGate || state.showHitUp);
+      ctx.classList.toggle("hidden", !any);
     }
+    btnServe?.classList.toggle("hidden", !(playUi && state.showServe));
+    btnGate?.classList.toggle("hidden", !(playUi && state.showGate));
+    if (btnGate && state.gate) btnGate.textContent = state.gate;
+    btnHit?.classList.toggle("hidden", !(playUi && state.showHitUp));
 
     const offer = state.order?.phase === "offer";
     const live = state.order && (state.order.phase === "active" || state.order.phase === "nudge");
     if (phone) {
-      const on = !!(state.order && (state.mode === "play" || state.mode === "paused"));
+      const on = !!(state.order && (state.mode === "play" || state.mode === "paused") && state.ui !== "phone");
       phone.classList.toggle("hidden", !on);
       if (on) {
+        if (phoneFrom) phoneFrom.textContent = (state.order.name || "TXT") + " TXT";
         phoneMsg.textContent = state.order.text;
         const timed = live;
         phoneTimer.classList.toggle("hidden", !timed);
@@ -132,42 +190,68 @@ export function createHud() {
         }
         phone.classList.toggle("urgent", state.order.phase === "nudge" || (live && state.order.t < 8));
       }
-      phoneActions?.classList.toggle("hidden", !offer || state.mode !== "play");
+      phoneActions?.classList.toggle("hidden", !offer || state.mode !== "play" || !!state.ui);
     }
     if (dealNav) {
-      const on = !!(live && (state.mode === "play" || state.mode === "paused"));
-      dealNav.classList.toggle("hidden", !on);
+      const on = state.mode === "play" || state.mode === "paused";
+      dealNav.classList.toggle("hidden", !on || !!state.ui);
       if (on && dealDist) {
         const arrow = state.dealDir < 0 ? "<<" : ">>";
-        dealDist.textContent = `DEAL ${state.dealLabel || (state.dealM + " ft")} ${arrow}`;
+        dealDist.textContent = `${state.navLabel || "HOME"} ${state.dealLabel || (state.dealM + " ft")} ${arrow}`;
       }
       if (on && dealMe) dealMe.style.left = `${Math.max(0, Math.min(100, state.dealMe * 100))}%`;
-      if (on && dealPin) dealPin.style.left = `${Math.max(0, Math.min(100, state.dealAt * 100))}%`;
+      if (on && dealPin) {
+        dealPin.style.left = `${Math.max(0, Math.min(100, state.dealAt * 100))}%`;
+        dealPin.style.display = state.liveDeal || state.plugMeet ? "block" : "none";
+      }
+      if (on && dealHome) dealHome.style.left = `${Math.max(0, Math.min(100, (state.homeAt || 0) * 100))}%`;
     }
     if (actionPrompt) {
-      const show = !!(state.prompt && state.mode === "play");
+      const show = !!(state.prompt && playUi && !state.showServe && !state.showGate && !state.showHitUp);
       actionPrompt.classList.toggle("hidden", !show);
       if (show) actionPrompt.textContent = state.prompt;
     }
+
+    if (saleEl) {
+      const pop = state.salePop;
+      saleEl.classList.toggle("hidden", !pop);
+      if (pop) {
+        if (saleWhat) saleWhat.textContent = "SOLD " + pop.product;
+        if (saleAmt) saleAmt.textContent = "$" + pop.dollars;
+        if (saleCash) saleCash.textContent = "CASH +$" + pop.dollars;
+      }
+    }
+
+    sheetPhone?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "phone"));
+    sheetBuy?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "buy"));
+    sheetStash?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "stash"));
+    if (state.ui === "phone") renderPhone(state);
+    if (state.ui === "buy") renderBuy(state);
+    if (state.ui === "stash") renderStash(state);
 
     const show = state.mode !== "play";
     overlay.classList.toggle("hidden", !show);
     overlay.classList.toggle("pause-mode", state.mode === "paused");
     pauseActions?.classList.toggle("hidden", state.mode !== "paused");
     titleEl.classList.remove("wasted", "clear");
-    bodyEl.classList.remove("tips");
+    bodyEl.classList.remove("tips", "intro-card");
     if (state.mode === "title") {
       titleEl.innerHTML = "BLOCK<br><span>RUN</span>";
       subEl.textContent = "2.5D NIGHT BLOCK";
-      bodyEl.classList.add("tips");
-      bodyEl.innerHTML = tipsHtml(TITLE_TIPS, CONTROL_TIPS);
-      hiEl.textContent = "HI $" + state.hi;
+      bodyEl.innerHTML = "";
+      hiEl.textContent = "";
       promptEl.textContent = isUnlocked() ? "TAP TO START" : "TAP TO START";
+    } else if (state.mode === "intro") {
+      titleEl.innerHTML = "";
+      subEl.textContent = "";
+      bodyEl.classList.add("intro-card");
+      bodyEl.textContent = state.introText || "";
+      hiEl.textContent = "";
+      promptEl.textContent = "TAP";
     } else if (state.mode === "paused") {
       titleEl.textContent = "PAUSED";
       subEl.textContent = "";
-      bodyEl.classList.add("tips");
-      bodyEl.innerHTML = tipsHtml(CONTROL_TIPS, ["ESC OR P TO PAUSE"]);
+      bodyEl.innerHTML = "";
       hiEl.textContent = "CASH $" + state.cash + "  STASH $" + (state.stash || 0);
       promptEl.textContent = "";
     } else if (state.mode === "dead") {
@@ -187,7 +271,7 @@ export function createHud() {
     }
 
     if (status) {
-      status.textContent = `${state.mode}  $${state.cash}  ${state.packs || 0} pk  r${state.rep || 0}`;
+      status.textContent = `${state.mode}  $${state.cash}  ${invLine(state)}  r${state.rep || 0}`;
     }
 
     while (popNodes.length < state.pops.length) {

@@ -122,5 +122,15 @@
     </div>
     <footer>TAP A MODE TO START</footer>
   </main>
+  <script type="module">
+    import { bindAudioUnlock, unlockAudio, startMusic } from "./block-run-25d/js/audio.js?v=24";
+    bindAudioUnlock();
+    const go = () => {
+      unlockAudio();
+      startMusic();
+    };
+    document.addEventListener("pointerdown", go, { capture: true, passive: true });
+    document.addEventListener("touchstart", go, { capture: true, passive: true });
+  </script>
 </body>
 </html>

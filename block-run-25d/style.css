@@ -75,13 +75,14 @@ html, body {
 }
 
 #hud-cash { color: var(--gold); flex: 0 0 auto; }
-#hud-packs {
+#hud-inv, #hud-packs {
   color: var(--cyan);
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 7px;
 }
 #hud-rep { color: var(--muted); flex: 0 0 auto; }
 #hud-heat, #hud-hp {
@@ -194,6 +195,24 @@ html, body {
 }
 #deal-me { background: var(--cyan); }
 #deal-pin { background: var(--gold); }
+#deal-home {
+  position: absolute;
+  top: -3px;
+  width: 8px;
+  height: 10px;
+  margin-left: -4px;
+  background: var(--cyan);
+  box-shadow: 0 0 6px var(--cyan);
+}
+#deal-home::after {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: -4px;
+  width: 6px;
+  height: 4px;
+  background: var(--cyan);
+}
 
 #prompt {
   position: absolute;
@@ -224,7 +243,7 @@ html, body {
 #dest-left { left: 8px; }
 #dest-right { right: 8px; }
 
-#btn-pause {
+#btn-phone, #btn-pause {
   pointer-events: auto;
   font-family: var(--font);
   font-size: 8px;
@@ -240,6 +259,7 @@ html, body {
   align-items: center;
   justify-content: center;
 }
+#btn-phone { color: var(--cyan); }
 
 #pops {
   position: absolute;
@@ -324,6 +344,12 @@ html, body {
 #overlay-body.tips .tip-dim:first-of-type {
   margin-top: 6px;
 }
+#overlay-body.intro-card {
+  max-width: 280px;
+  margin: 0 auto 16px;
+  line-height: 1.7;
+  color: var(--cream);
+}
 #overlay.pause-mode { pointer-events: auto; background: rgba(7, 6, 12, 0.78); }
 #pause-actions {
   display: flex;
@@ -395,31 +421,10 @@ html, body {
 }
 #pad-car {
   display: grid;
-  grid-template-columns: 88px 1fr 1fr 62px;
+  grid-template-columns: 1fr 1fr 1fr 64px;
   gap: 8px;
   width: 100%;
   min-height: 156px;
-}
-#car-col {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-#car-steer {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  flex: 1 1 auto;
-}
-#car-steer .pad-btn {
-  min-height: 64px;
-  font-size: 14px;
-  padding: 0;
-}
-#car-aux {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 .pad-pedal {
   min-height: 0;
@@ -427,6 +432,13 @@ html, body {
 }
 .pad-brake { color: var(--pink); }
 .pad-gas { color: var(--gold); }
+.pad-uturn {
+  color: var(--cyan);
+  font-size: 9px;
+  line-height: 1.25;
+  min-height: 0;
+}
+.pad-uturn.off { opacity: 0.38; }
 .pad-exit { font-size: 8px; min-height: 44px; color: var(--cream); width: 100%; }
 .pad-exit.off { opacity: 0.38; }
 #pad-car .pad-fire {
@@ -530,6 +542,161 @@ html, body {
   border-color: var(--cream);
 }
 
+#ctx {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 10px;
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+  z-index: 6;
+}
+#ctx.hidden { display: none; }
+.ctx-btn {
+  flex: 1 1 auto;
+  font-family: var(--font);
+  font-size: 11px;
+  min-height: 52px;
+  border: 2px solid #3a3644;
+  background: #1a1620;
+  color: var(--cream);
+  pointer-events: auto;
+}
+.ctx-btn.hidden { display: none; }
+#btn-serve {
+  background: var(--gold);
+  color: #07060c;
+  border-color: var(--gold);
+  font-size: 16px;
+  min-height: 58px;
+  letter-spacing: 2px;
+}
+#btn-gate { color: var(--cyan); }
+#btn-hitup { color: var(--pink); }
+
+#sale-pop {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  transform: translate(-50%, -50%);
+  width: min(86%, 260px);
+  background: #1a1624;
+  border: 3px solid var(--gold);
+  box-shadow: 0 0 22px rgba(240, 196, 48, 0.45);
+  padding: 16px 12px 14px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 7;
+}
+#sale-pop.hidden { display: none; }
+#sale-what { font-size: 10px; color: var(--cream); margin-bottom: 8px; }
+#sale-amt { font-size: 22px; color: var(--gold); margin-bottom: 10px; }
+#sale-cash { font-size: 9px; color: #3dff7a; }
+
+.sheet {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(7, 6, 12, 0.82);
+  pointer-events: auto;
+  z-index: 8;
+  padding: 12px;
+}
+.sheet.hidden { display: none; }
+.sheet-card {
+  width: min(94%, 320px);
+  max-height: 78%;
+  overflow: auto;
+  background: #1a1624;
+  border: 2px solid #3a3644;
+  padding: 12px 12px 14px;
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.sheet-head h2 {
+  margin: 0;
+  font-size: 12px;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+.sheet-head button {
+  font-family: var(--font);
+  font-size: 10px;
+  color: var(--cream);
+  background: #121018;
+  border: 2px solid #3a3644;
+  min-width: 36px;
+  min-height: 32px;
+}
+.sheet-note {
+  font-size: 7px;
+  color: var(--muted);
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+.sheet-inv {
+  font-size: 8px;
+  color: var(--cyan);
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+.contact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 2px solid #3a3644;
+  background: #121018;
+  padding: 8px;
+  margin-bottom: 6px;
+  font-size: 8px;
+}
+.contact .who { color: var(--cream); }
+.contact .st { color: var(--muted); font-size: 7px; }
+.contact.plug-row { border-color: var(--pink); }
+.contact button, .sheet-buy, .stash-btn {
+  font-family: var(--font);
+  font-size: 7px;
+  color: #07060c;
+  background: var(--gold);
+  border: 2px solid var(--gold);
+  min-height: 32px;
+  padding: 6px 8px;
+  pointer-events: auto;
+}
+.sheet-buy {
+  display: block;
+  width: 100%;
+  font-size: 9px;
+  min-height: 48px;
+  margin-bottom: 8px;
+  color: #07060c;
+  background: #3dff7a;
+  border-color: #3dff7a;
+}
+.sheet-buy.white {
+  background: var(--cream);
+  border-color: var(--cream);
+}
+.stash-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 7px;
+  color: var(--cream);
+  line-height: 1.45;
+}
+.stash-btn { min-width: 52px; }
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -571,18 +738,17 @@ html, body {
   #pad.driving { min-width: 200px; width: 200px; }
   #pad-car {
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto 1fr 1fr;
+    grid-template-rows: 1fr 1fr auto;
     min-height: 0;
     height: 100%;
   }
-  #car-col { grid-column: 1 / -1; flex-direction: row; }
-  #car-aux { flex: 1 1 auto; }
+  #pad-car .pad-uturn { grid-column: 1 / -1; min-height: 48px; }
   #shifter { grid-column: 1 / -1; min-height: 88px; }
 }
 
 @media (max-width: 400px) {
   #hud-top { gap: 5px; padding-left: calc(6px + var(--sal)); padding-right: 6px; }
-  #btn-pause { min-width: 30px; padding: 5px; }
+  #btn-pause, #btn-phone { min-width: 30px; padding: 5px; }
 }
 
 @media (orientation: landscape) and (max-height: 430px) {

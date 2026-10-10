@@ -155,48 +155,94 @@ function waveFrom(src) {
   ];
 }
 
-function hueShiftCanvas(src, deg) {
-  return pixelCanvas(src.width, src.height, (g) => {
-    g.drawImage(src, 0, 0);
-    const img = g.getImageData(0, 0, src.width, src.height);
-    const d = img.data;
-    const turn = ((deg % 360) + 360) % 360;
-    for (let i = 0; i < d.length; i += 4) {
-      if (d[i + 3] < 16) continue;
-      const r = d[i] / 255;
-      const gc = d[i + 1] / 255;
-      const b = d[i + 2] / 255;
-      const max = Math.max(r, gc, b);
-      const min = Math.min(r, gc, b);
-      const sat = max === 0 ? 0 : (max - min) / max;
-      if (sat < 0.22) continue;
-      let h = 0;
-      const del = max - min;
-      if (del > 0.001) {
-        if (max === r) h = ((gc - b) / del) % 6;
-        else if (max === gc) h = (b - r) / del + 2;
-        else h = (r - gc) / del + 4;
-        h *= 60;
-        if (h < 0) h += 360;
-      }
-      h = (h + turn) % 360;
-      const c = sat * max;
-      const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-      const m = max - c;
-      let nr = 0;
-      let ng = 0;
-      let nb = 0;
-      if (h < 60) { nr = c; ng = x; }
-      else if (h < 120) { nr = x; ng = c; }
-      else if (h < 180) { ng = c; nb = x; }
-      else if (h < 240) { ng = x; nb = c; }
-      else if (h < 300) { nr = x; nb = c; }
-      else { nr = c; nb = x; }
-      d[i] = Math.round((nr + m) * 255);
-      d[i + 1] = Math.round((ng + m) * 255);
-      d[i + 2] = Math.round((nb + m) * 255);
-    }
-    g.putImageData(img, 0, 0);
+const PED_LOOKS = [
+  { skin: "#f1c27d", shirt: "#c4283a", pants: "#2a2a38", hair: "#1a1210", accent: "#8a1020", hat: "beanie", shoes: "#1a1a22" },
+  { skin: "#e0ac69", shirt: "#2a8a8a", pants: "#3a3048", hair: "#2a1a10", accent: "#f0c430", hat: "none", shoes: "#f4f0e8" },
+  { skin: "#c68642", shirt: "#f4f0e8", pants: "#1a1a22", hair: "#1a1210", accent: "#f0c430", hat: "cap", shoes: "#2a2430", chain: true },
+  { skin: "#8d5524", shirt: "#5a2a8a", pants: "#3a3020", hair: "#1a1210", accent: "#c8a0e8", hat: "durag", shoes: "#1a1210" },
+  { skin: "#d4a574", shirt: "#f0c430", pants: "#2a2438", hair: "#1a1210", accent: "#e21b7a", hat: "afro", shoes: "#c4283a" },
+];
+
+function paintPerson(g, look) {
+  g.clearRect(0, 0, 32, 40);
+  g.fillStyle = look.pants;
+  g.fillRect(10, 26, 5, 10);
+  g.fillRect(17, 26, 5, 10);
+  g.fillStyle = look.shoes;
+  g.fillRect(9, 35, 6, 4);
+  g.fillRect(17, 35, 6, 4);
+  g.fillStyle = look.shirt;
+  g.fillRect(9, 16, 14, 11);
+  g.fillStyle = look.accent;
+  g.fillRect(9, 16, 14, 2);
+  g.fillStyle = look.skin;
+  g.fillRect(6, 17, 4, 8);
+  g.fillRect(22, 17, 4, 8);
+  g.fillRect(11, 6, 10, 10);
+  g.fillRect(13, 16, 6, 2);
+  if (look.chain) {
+    g.fillStyle = "#f0c430";
+    g.fillRect(13, 17, 6, 1);
+    g.fillRect(15, 18, 2, 2);
+  }
+  if (look.hat === "beanie") {
+    g.fillStyle = look.hair;
+    g.fillRect(11, 4, 10, 4);
+    g.fillStyle = look.accent;
+    g.fillRect(11, 7, 10, 2);
+  } else if (look.hat === "cap") {
+    g.fillStyle = "#2a4a8a";
+    g.fillRect(11, 4, 10, 4);
+    g.fillRect(20, 7, 6, 2);
+    g.fillStyle = look.hair;
+    g.fillRect(11, 8, 3, 3);
+  } else if (look.hat === "durag") {
+    g.fillStyle = "#2a1a28";
+    g.fillRect(10, 4, 12, 5);
+    g.fillRect(20, 8, 5, 2);
+    g.fillStyle = look.accent;
+    g.fillRect(12, 5, 8, 2);
+  } else if (look.hat === "afro") {
+    g.fillStyle = look.hair;
+    g.fillRect(8, 2, 16, 8);
+    g.fillRect(9, 9, 3, 4);
+    g.fillRect(20, 9, 3, 4);
+  } else {
+    g.fillStyle = look.hair;
+    g.fillRect(11, 4, 10, 4);
+    g.fillRect(10, 7, 3, 4);
+  }
+}
+
+function paintLook(i) {
+  const look = PED_LOOKS[i % PED_LOOKS.length];
+  return pixelCanvas(32, 40, (g) => paintPerson(g, look));
+}
+
+function paintCopFig() {
+  return pixelCanvas(32, 40, (g) => {
+    paintPerson(g, {
+      skin: "#c68642", shirt: "#1a2a58", pants: "#1a2438",
+      hair: "#1a1210", accent: "#f0c430", hat: "cap", shoes: "#111018",
+    });
+    g.fillStyle = "#2a4a8a";
+    g.fillRect(11, 4, 10, 4);
+    g.fillRect(20, 7, 6, 2);
+    g.fillStyle = "#f0c430";
+    g.fillRect(14, 20, 4, 3);
+  });
+}
+
+function paintPlugFig() {
+  return pixelCanvas(32, 40, (g) => {
+    paintPerson(g, {
+      skin: "#8d5524", shirt: "#1a1a22", pants: "#2a2430",
+      hair: "#1a1210", accent: "#f0c430", hat: "none", shoes: "#f0c430", chain: true,
+    });
+    g.fillStyle = "#e21b7a";
+    g.fillRect(9, 16, 14, 2);
+    g.fillStyle = "#f0c430";
+    g.fillRect(20, 18, 3, 4);
   });
 }
 
@@ -253,14 +299,9 @@ export async function loadSprites() {
   const thug = setFromOriginal(thugBase, { idle: thugOrig.length ? thugOrig : null, walk: thugOrig.length ? thugOrig : null });
   const runner = setFromOriginal(runnerBase, { idle: runnerOrig.length ? runnerOrig : null, walk: runnerOrig.length ? runnerOrig : null });
 
-  const copBase = hueShiftCanvas(thugBase, 200);
-  const cop = setFromOriginal(copBase);
-
-  const buyerHues = [40, 160, 20, -20, 100];
-  const buyers = buyerHues.map((deg, i) => {
-    const src = i % 2 === 0 ? hueShiftCanvas(thugBase, deg) : hueShiftCanvas(runnerBase, deg);
-    return setFromOriginal(src);
-  });
+  const cop = setFromOriginal(paintCopFig());
+  const buyers = PED_LOOKS.map((_, i) => setFromOriginal(paintLook(i)));
+  const plug = setFromOriginal(paintPlugFig());
 
   const bossFrames = bossImgs.filter(Boolean).map((img) => texturize(img, true));
   const boss = {
@@ -288,6 +329,7 @@ export async function loadSprites() {
     boss,
     buyers,
     peds: buyers,
+    plug,
     shot, boom, pack, cash, dumpster,
   };
 }
