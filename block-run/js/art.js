@@ -129,8 +129,9 @@ function cleanStreet(street) {
         const b = d[i + 2];
         const lum = r + gv + b;
         const sky = y < h * 0.58 && lum < 72 && b >= r && r < 42;
-        const moon = y < h * 0.4 && ((r > 150 && gv > 140 && lum > 380) || lum > 500);
-        if (sky || moon) d[i + 3] = 0;
+        // Moon + stars live above the skyline (y<50). Leave tower window dots intact.
+        const moonOrStar = y < 50 && lum > 200 && r > 80;
+        if (sky || moonOrStar) d[i + 3] = 0;
       }
     }
     g.putImageData(img, 0, 0);
