@@ -1,4 +1,8 @@
 import * as THREE from "three";
+import {
+  pixelCanvas, derivePose, paintLook, paintCopFig, paintPlugFig, PED_LOOKS,
+  WALK_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
+} from "./paint.js?v=29";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -22,16 +26,6 @@ function loadImage(url) {
     };
     img.src = url;
   });
-}
-
-function pixelCanvas(w, h, paint) {
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  const g = c.getContext("2d");
-  g.imageSmoothingEnabled = false;
-  paint(g, w, h);
-  return c;
 }
 
 function texturize(source, withFlip = false) {
@@ -98,152 +92,28 @@ function toCanvas(img) {
   return pixelCanvas(w, h, (g) => g.drawImage(img, 0, 0));
 }
 
-/** Offset legs/arms on the original pixels instead of redrawing the character. */
-function derivePose(src, { bob = 0, legDx = 0, legDy = 0, armDx = 0 } = {}) {
-  const w = src.width;
-  const h = src.height;
-  const arm0 = Math.round(h * 0.36);
-  const split = Math.round(h * 0.60);
-  return pixelCanvas(w, h, (g) => {
-    g.drawImage(src, 0, 0, w, arm0, 0, bob, w, arm0);
-    g.drawImage(src, 0, arm0, w, split - arm0, armDx, bob + arm0, w, split - arm0);
-    g.drawImage(src, 0, split, w, h - split, legDx, bob + split + legDy, w, h - split);
-  });
-}
-
 function texPose(src, pose) {
   return texturize(derivePose(src, pose), true);
 }
 
 function walkFrom(src) {
-  return [
-    { legDx: 3, armDx: -2, bob: 0, legDy: 0 },
-    { legDx: 2, armDx: -1, bob: 1, legDy: -1 },
-    { legDx: 0, armDx: 0, bob: 0, legDy: 0 },
-    { legDx: -3, armDx: 2, bob: 0, legDy: 0 },
-    { legDx: -2, armDx: 1, bob: 1, legDy: -1 },
-    { legDx: 1, armDx: -1, bob: 0, legDy: 0 },
-  ].map((p) => texPose(src, p));
+  return WALK_POSES.map((p) => texPose(src, p));
 }
 
 function idleFrom(src) {
-  return [
-    { bob: 0 },
-    { bob: 1 },
-    { bob: 1, armDx: 1 },
-    { bob: 0 },
-  ].map((p) => texPose(src, p));
+  return IDLE_POSES.map((p) => texPose(src, p));
 }
 
 function jumpFrom(src) {
-  return [texPose(src, { bob: -2, legDx: -1, legDy: -3, armDx: 2 })];
+  return JUMP_POSES.map((p) => texPose(src, p));
 }
 
 function shootFrom(src) {
-  return [
-    texPose(src, { armDx: 2, legDx: 1, bob: 0 }),
-    texPose(src, { armDx: 3, legDx: 1, bob: 0 }),
-  ];
+  return SHOOT_POSES.map((p) => texPose(src, p));
 }
 
 function waveFrom(src) {
-  return [
-    texPose(src, { armDx: 1, bob: 0 }),
-    texPose(src, { armDx: 3, bob: 1 }),
-    texPose(src, { armDx: 4, bob: 0 }),
-    texPose(src, { armDx: 2, bob: 1 }),
-  ];
-}
-
-const PED_LOOKS = [
-  { skin: "#f1c27d", shirt: "#c4283a", pants: "#2a2a38", hair: "#1a1210", accent: "#8a1020", hat: "beanie", shoes: "#1a1a22" },
-  { skin: "#e0ac69", shirt: "#2a8a8a", pants: "#3a3048", hair: "#2a1a10", accent: "#f0c430", hat: "none", shoes: "#f4f0e8" },
-  { skin: "#c68642", shirt: "#f4f0e8", pants: "#1a1a22", hair: "#1a1210", accent: "#f0c430", hat: "cap", shoes: "#2a2430", chain: true },
-  { skin: "#8d5524", shirt: "#5a2a8a", pants: "#3a3020", hair: "#1a1210", accent: "#c8a0e8", hat: "durag", shoes: "#1a1210" },
-  { skin: "#d4a574", shirt: "#f0c430", pants: "#2a2438", hair: "#1a1210", accent: "#e21b7a", hat: "afro", shoes: "#c4283a" },
-];
-
-function paintPerson(g, look) {
-  g.clearRect(0, 0, 32, 40);
-  g.fillStyle = look.pants;
-  g.fillRect(10, 26, 5, 10);
-  g.fillRect(17, 26, 5, 10);
-  g.fillStyle = look.shoes;
-  g.fillRect(9, 35, 6, 4);
-  g.fillRect(17, 35, 6, 4);
-  g.fillStyle = look.shirt;
-  g.fillRect(9, 16, 14, 11);
-  g.fillStyle = look.accent;
-  g.fillRect(9, 16, 14, 2);
-  g.fillStyle = look.skin;
-  g.fillRect(6, 17, 4, 8);
-  g.fillRect(22, 17, 4, 8);
-  g.fillRect(11, 6, 10, 10);
-  g.fillRect(13, 16, 6, 2);
-  if (look.chain) {
-    g.fillStyle = "#f0c430";
-    g.fillRect(13, 17, 6, 1);
-    g.fillRect(15, 18, 2, 2);
-  }
-  if (look.hat === "beanie") {
-    g.fillStyle = look.hair;
-    g.fillRect(11, 4, 10, 4);
-    g.fillStyle = look.accent;
-    g.fillRect(11, 7, 10, 2);
-  } else if (look.hat === "cap") {
-    g.fillStyle = "#2a4a8a";
-    g.fillRect(11, 4, 10, 4);
-    g.fillRect(20, 7, 6, 2);
-    g.fillStyle = look.hair;
-    g.fillRect(11, 8, 3, 3);
-  } else if (look.hat === "durag") {
-    g.fillStyle = "#2a1a28";
-    g.fillRect(10, 4, 12, 5);
-    g.fillRect(20, 8, 5, 2);
-    g.fillStyle = look.accent;
-    g.fillRect(12, 5, 8, 2);
-  } else if (look.hat === "afro") {
-    g.fillStyle = look.hair;
-    g.fillRect(8, 2, 16, 8);
-    g.fillRect(9, 9, 3, 4);
-    g.fillRect(20, 9, 3, 4);
-  } else {
-    g.fillStyle = look.hair;
-    g.fillRect(11, 4, 10, 4);
-    g.fillRect(10, 7, 3, 4);
-  }
-}
-
-function paintLook(i) {
-  const look = PED_LOOKS[i % PED_LOOKS.length];
-  return pixelCanvas(32, 40, (g) => paintPerson(g, look));
-}
-
-function paintCopFig() {
-  return pixelCanvas(32, 40, (g) => {
-    paintPerson(g, {
-      skin: "#c68642", shirt: "#1a2a58", pants: "#1a2438",
-      hair: "#1a1210", accent: "#f0c430", hat: "cap", shoes: "#111018",
-    });
-    g.fillStyle = "#2a4a8a";
-    g.fillRect(11, 4, 10, 4);
-    g.fillRect(20, 7, 6, 2);
-    g.fillStyle = "#f0c430";
-    g.fillRect(14, 20, 4, 3);
-  });
-}
-
-function paintPlugFig() {
-  return pixelCanvas(32, 40, (g) => {
-    paintPerson(g, {
-      skin: "#8d5524", shirt: "#1a1a22", pants: "#2a2430",
-      hair: "#1a1210", accent: "#f0c430", hat: "none", shoes: "#f0c430", chain: true,
-    });
-    g.fillStyle = "#e21b7a";
-    g.fillRect(9, 16, 14, 2);
-    g.fillStyle = "#f0c430";
-    g.fillRect(20, 18, 3, 4);
-  });
+  return WAVE_POSES.map((p) => texPose(src, p));
 }
 
 function setFromOriginal(base, extras = {}) {

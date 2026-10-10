@@ -4,18 +4,141 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>BLOCK RUN</title>
-  <meta http-equiv="Cache-Control" content="no-cache" />
   <meta name="theme-color" content="#07060c" />
+  <meta http-equiv="Cache-Control" content="no-cache" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="description" content="Tiny NES-style night-city arcade. Jump to dodge, sell packs, buy guns." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="description" content="Classic 2D BLOCK RUN. Same dealing loop as 2.5D, original pixel side-view." />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
-  <link rel="stylesheet" href="style.css?v=9" />
+  <!-- Cache bust: keep ?v= identical with js imports (see README). -->
+  <link rel="stylesheet" href="style.css?v=29" />
 </head>
 <body>
-  <a id="menu-home" href="../">MENU</a>
-  <canvas id="game" class="game-canvas" width="256" height="224" aria-label="BLOCK RUN game screen"></canvas>
+  <div id="app">
+    <div id="view">
+      <canvas id="scene" aria-label="BLOCK RUN classic street"></canvas>
+      <div id="hud" aria-live="polite">
+        <div id="hud-top">
+          <span id="hud-cash">$0130</span>
+          <span id="hud-inv">G 0g  W 0g</span>
+          <span id="hud-heat" title="heat"></span>
+          <span id="hud-rep">R1</span>
+          <button id="btn-phone" type="button" data-role="phone" aria-label="phone">PH</button>
+          <button id="btn-pause" type="button" aria-label="pause">II</button>
+        </div>
+        <div id="phone" class="hidden">
+          <div id="phone-from">TXT</div>
+          <div id="phone-msg">yo need $40 green, by the liquor store</div>
+          <div id="phone-timer">0:28</div>
+          <div id="phone-actions" class="hidden">
+            <button type="button" data-role="accept">ACCEPT</button>
+            <button type="button" data-role="decline">DECLINE</button>
+          </div>
+        </div>
+        <div id="deal-nav" class="hidden">
+          <div id="deal-dist">DEAL 620 ft >></div>
+          <div id="deal-map">
+            <i id="deal-me"></i>
+            <i id="deal-home"></i>
+            <i id="deal-pin"></i>
+          </div>
+        </div>
+        <div id="prompt" class="hidden">ENTER</div>
+        <div id="sale-pop" class="hidden">
+          <div id="sale-what">SOLD GREEN</div>
+          <div id="sale-amt">$40</div>
+          <div id="sale-cash">CASH +$40</div>
+        </div>
+        <div id="pops"></div>
+        <div id="edge-left" class="edge-arrow hidden" aria-hidden="true">◀</div>
+        <div id="edge-right" class="edge-arrow hidden" aria-hidden="true">▶</div>
+        <div id="dest-left" class="dest-arrow hidden" aria-hidden="true">◀ DEAL</div>
+        <div id="dest-right" class="dest-arrow hidden" aria-hidden="true">DEAL ▶</div>
+        <div id="ctx" class="hidden">
+          <button type="button" id="btn-serve" class="ctx-btn hidden" data-role="serve">SERVE</button>
+          <button type="button" id="btn-gate" class="ctx-btn hidden" data-role="gate">ENTER</button>
+          <button type="button" id="btn-hitup" class="ctx-btn hidden" data-role="hitup">HIT UP</button>
+        </div>
+        <div id="sheet-phone" class="sheet hidden">
+          <div class="sheet-card">
+            <div class="sheet-head">
+              <h2>PHONE</h2>
+              <button type="button" data-role="phone-close">X</button>
+            </div>
+            <div id="phone-inv" class="sheet-inv"></div>
+            <div id="phone-home-row" class="contact plug-row">
+              <span>HOME</span>
+              <span id="phone-home-dist">—</span>
+            </div>
+            <div id="phone-list"></div>
+          </div>
+        </div>
+        <div id="sheet-buy" class="sheet hidden">
+          <div class="sheet-card">
+            <div class="sheet-head">
+              <h2>PLUG</h2>
+              <button type="button" data-role="buy-close">X</button>
+            </div>
+            <p class="sheet-note">HALF OZ DROPS</p>
+            <div id="buy-cash" class="sheet-inv"></div>
+            <button type="button" class="sheet-buy" data-role="buy-green" id="buy-green">GREEN 1/2 $100</button>
+            <button type="button" class="sheet-buy white" data-role="buy-white" id="buy-white">WHITE 1/2 $500</button>
+          </div>
+        </div>
+        <div id="sheet-stash" class="sheet hidden">
+          <div class="sheet-card">
+            <div class="sheet-head">
+              <h2>STASH</h2>
+              <button type="button" data-role="stash-close">X</button>
+            </div>
+            <p class="sheet-note">HOME SAFE</p>
+            <div id="stash-rows"></div>
+          </div>
+        </div>
+        <div id="overlay">
+          <div id="overlay-card">
+            <h1 id="overlay-title">BLOCK<br><span>RUN</span></h1>
+            <p id="overlay-sub">CLASSIC NIGHT BLOCK</p>
+            <div id="overlay-body"></div>
+            <p id="overlay-hi"></p>
+            <p id="overlay-prompt" class="blink">TAP TO START</p>
+            <div id="pause-actions" class="hidden">
+              <button type="button" id="btn-resume">RESUME</button>
+              <a id="btn-mainmenu" href="../">MAIN MENU</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="pad">
+      <div id="pad-foot">
+        <div id="pad-move">
+          <button type="button" class="pad-btn" data-role="left">L</button>
+          <button type="button" class="pad-btn pad-jump" data-role="jump">JUMP</button>
+          <button type="button" class="pad-btn" data-role="right">R</button>
+        </div>
+      </div>
+      <div id="pad-car" class="hidden">
+        <button type="button" class="pad-btn pad-pedal pad-brake" data-role="brake">BRAKE</button>
+        <button type="button" class="pad-btn pad-pedal pad-gas" data-role="gas">GAS</button>
+        <button type="button" class="pad-btn pad-uturn" data-role="uturn" aria-label="u-turn">U-TURN</button>
+        <div id="shifter" data-role="shifter">
+          <div id="shift-track">
+            <div id="shift-gears">
+              <button type="button" class="gear" data-role="gear" data-gear="P">P</button>
+              <button type="button" class="gear" data-role="gear" data-gear="R">R</button>
+              <button type="button" class="gear" data-role="gear" data-gear="N">N</button>
+              <button type="button" class="gear" data-role="gear" data-gear="D">D</button>
+            </div>
+            <div id="shift-rail" aria-hidden="true"><i id="shift-knob"></i></div>
+          </div>
+          <div id="shift-hint" class="hidden">HOLD BRAKE</div>
+        </div>
+      </div>
+    </div>
+  </div>
   <p id="status" class="sr-only">title</p>
-  <script src="game.js?v=6"></script>
+  <script type="module" src="js/main.js?v=29"></script>
 </body>
 </html>
