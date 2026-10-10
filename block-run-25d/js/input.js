@@ -1,7 +1,8 @@
-import { unlockAudio } from "./audio.js?v=43";
+import { unlockAudio } from "./audio.js?v=44";
 
 const KEYS = new Set([
-  "KeyA", "KeyD", "KeyW", "KeyS", "KeyJ", "KeyK", "KeyZ", "KeyX",
+  "KeyA", "KeyD", "KeyW", "KeyS", "KeyB", "KeyJ", "KeyK", "KeyZ", "KeyX",
+  "ShiftLeft", "ShiftRight",
   "KeyF", "KeyQ", "KeyE", "KeyU", "KeyC", "KeyH", "KeyT",
   "Digit1", "Digit2", "Digit3", "Digit4",
   "Space", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
@@ -61,6 +62,18 @@ function gearFromY(clientY, root) {
   if (t < 0.5) return "R";
   if (t < 0.75) return "N";
   return "D";
+}
+
+function gasAmtFromY(clientY, root) {
+  const pedal = root.querySelector("[data-role='gas']");
+  if (!pedal) return 1;
+  const r = pedal.getBoundingClientRect();
+  if (r.height <= 0) return 1;
+  return Math.max(0.12, Math.min(1, (clientY - r.top) / r.height));
+}
+
+function allowScroll(target) {
+  return !!target?.closest?.(".sheet, .sheet-card, #phone-texts, #phone-list");
 }
 
 export function createInput(root = document) {
@@ -155,14 +168,17 @@ export function createInput(root = document) {
     if (role === "ping-contact") {
       taps.pingContactId = e.target.closest("[data-id]")?.dataset?.id || null;
     }
-    pointers.set(e.pointerId, { role: recRole, gear });
-    if (role !== "mute" && !TAP_ROLES[role] && role !== "phone") startPulse = true;
+    if (role !== "mute" && !TAP_ROLES[role] && role !== "phone" && role !== "pause" && role !== "run") startPulse = true;
     if (role === "fire") shootPulse = true;
     if (role === "jump") jumpPulse = true;
     if (role === "exit") exitPulse = true;
     if (role === "mute") mutePulse = true;
     if (role === "gear" && gear) gearPulse = gear;
+    if (role === "pause") pausePulse = true;
+    if (role === "gas") recRole = "gas";
     if (TAP_ROLES[role]) pulseTap(TAP_ROLES[role]);
+    const gasAmt = role === "gas" ? gasAmtFromY(e.clientY, root) : 1;
+    pointers.set(e.pointerId, { role: recRole, gear, gasAmt });
     try { e.target.setPointerCapture(e.pointerId); } catch {}
     const btn = e.target.closest("[data-role]");
     if (btn && recRole !== "shifter") btn.classList.add("held");
@@ -174,6 +190,9 @@ export function createInput(root = document) {
     if (rec.role === "shifter") {
       rec.gear = gearFromY(e.clientY, root) || rec.gear;
       return;
+    }
+    if (rec.role === "gas") {
+      rec.gasAmt = gasAmtFromY(e.clientY, root);
     }
   }
 
@@ -203,7 +222,10 @@ export function createInput(root = document) {
   root.addEventListener("contextmenu", prevent);
   document.addEventListener("gesturestart", prevent, { passive: false });
   document.addEventListener("gesturechange", prevent, { passive: false });
-  document.addEventListener("touchmove", prevent, { passive: false });
+  document.addEventListener("touchmove", (e) => {
+    if (allowScroll(e.target)) return;
+    prevent(e);
+  }, { passive: false });
   let lastTouchEnd = 0;
   document.addEventListener("touchend", (e) => {
     const now = Date.now();
@@ -231,6 +253,8 @@ export function createInput(root = document) {
     let jump = false;
     let brake = held("KeyS") || held("ArrowDown");
     let gas = held("KeyW") || held("ArrowUp");
+    let gasAmt = gas ? 1 : 0;
+    let run = held("KeyB") || held("ShiftLeft") || held("ShiftRight");
     let exitHeld = held("KeyX");
     let shiftGear = null;
     let uturnHeld = held("KeyU");
@@ -241,7 +265,11 @@ export function createInput(root = document) {
       if (rec.role === "fire") shoot = true;
       if (rec.role === "jump") jump = true;
       if (rec.role === "brake") brake = true;
-      if (rec.role === "gas") gas = true;
+      if (rec.role === "gas") {
+        gas = true;
+        gasAmt = rec.gasAmt ?? 1;
+      }
+      if (rec.role === "run") run = true;
       if (rec.role === "exit" || rec.role === "gate") exitHeld = true;
       if (rec.role === "uturn") uturnHeld = true;
       if (rec.role === "shifter" && rec.gear) shiftGear = rec.gear;
@@ -320,6 +348,7 @@ export function createInput(root = document) {
         (role === "fire" && shoot) ||
         (role === "brake" && brake) ||
         (role === "gas" && gas) ||
+        (role === "run" && run) ||
         (role === "uturn" && uturnHeld) ||
         ((role === "exit" || role === "gate") && exitHeld);
       if (role) btn.classList.toggle("held", on);
@@ -330,6 +359,8 @@ export function createInput(root = document) {
       steer: 0,
       brake,
       gas,
+      gasAmt,
+      run,
       shoot: shootEdge,
       shootHeld: shoot,
       jump: jumpEdge,

@@ -30,7 +30,8 @@ export function remapHoodie(src, hex) {
       const b = d[i + 2];
       const a = d[i + 3];
       if (a < 8) continue;
-      if (r > 70 && r > gv * 1.22 && r > b * 1.22 && (r - gv) > 16) {
+      const skin = gv > 78 && b > 36 && (r - gv) < 90;
+      if (!skin && r > 90 && r > gv * 1.45 && r > b * 1.4 && gv < 110) {
         const lum = (r * 0.52 + gv * 0.22 + b * 0.1) / 255;
         const k = 0.42 + lum * 0.95;
         d[i] = Math.min(255, Math.round(tr * k));
@@ -106,6 +107,9 @@ export const PED_LOOKS = [
   { skin: "#c68642", shirt: "#f4f0e8", pants: "#1a1a22", hair: "#1a1210", accent: "#f0c430", hat: "cap", shoes: "#2a2430", chain: true },
   { skin: "#8d5524", shirt: "#5a2a8a", pants: "#3a3020", hair: "#1a1210", accent: "#c8a0e8", hat: "durag", shoes: "#1a1210" },
   { skin: "#d4a574", shirt: "#f0c430", pants: "#2a2438", hair: "#1a1210", accent: "#e21b7a", hat: "afro", shoes: "#c4283a" },
+  { skin: "#ffdbac", shirt: "#1a3a68", pants: "#f4f0e8", hair: "#6a4430", accent: "#3de0ff", hat: "none", shoes: "#1a1a22" },
+  { skin: "#a36c41", shirt: "#2a2438", pants: "#1a1a22", hair: "#1a1210", accent: "#f4f0e8", hat: "beanie", shoes: "#c4283a" },
+  { skin: "#e8be8a", shirt: "#e21b7a", pants: "#3a3048", hair: "#2a1a10", accent: "#f0c430", hat: "cap", shoes: "#f4f0e8" },
 ];
 
 export function paintPerson(g, look) {

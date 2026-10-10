@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=43";
-import { isUnlocked } from "./audio.js?v=43";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=44";
+import { isUnlocked } from "./audio.js?v=44";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -73,6 +73,9 @@ export function createHud(opts = {}) {
   const tabTexts = document.getElementById("tab-texts");
   const tabContacts = document.getElementById("tab-contacts");
   const phoneHomeRow = document.getElementById("phone-home-row");
+  const phoneDeal = document.getElementById("phone-deal");
+  const actionLabelEl = document.getElementById("btn-action-label");
+  const bLabelEl = document.getElementById("btn-b-label");
 
   function pips(el, count, filled, cls) {
     if (!el) return;
@@ -107,7 +110,7 @@ export function createHud(opts = {}) {
 
   function invHtml(state) {
     const g = state.inv || {};
-    return `<span class="g-grn">${fmtGrams(g.GREEN)} G</span> <span class="g-wht">${fmtGrams(g.WHITE)} G</span>`;
+    return `<span class="g-grn">GRN ${fmtGrams(g.GREEN)}</span> <span class="g-wht">WHT ${fmtGrams(g.WHITE)}</span>`;
   }
 
   function renderPhone(state) {
@@ -245,19 +248,20 @@ export function createHud(opts = {}) {
     const showServe = !!(playUi && !offer && state.showServe);
     const showGate = !!(playUi && !offer && state.showGate);
     const showHit = !!(playUi && !offer && state.showHitUp);
-    if (ctx) ctx.classList.remove("hidden");
+    if (ctx) ctx.classList.add("hidden");
     const label = state.actionLabel || "ACTION";
     const actionOn = !!(state.actionOk && state.mode === "play");
+    if (actionLabelEl) actionLabelEl.textContent = label;
+    else if (btnAction) btnAction.textContent = label;
     if (btnAction) {
-      btnAction.textContent = label;
       btnAction.classList.toggle("off", !actionOn);
       btnAction.classList.toggle("go", actionOn);
       btnAction.classList.toggle("pulse", showServe && label === "SERVE");
     }
-    if (btnStall) {
-      btnStall.classList.remove("hidden");
-      btnStall.classList.toggle("off", !showAccept);
-    }
+    if (bLabelEl) bLabelEl.textContent = driving ? "—" : "RUN";
+    document.getElementById("btn-b")?.classList.toggle("off", driving);
+    if (btnStall) btnStall.classList.add("hidden");
+    phoneDeal?.classList.toggle("hidden", !showAccept);
     btnAccept?.classList.toggle("hidden", !showAccept);
     btnServe?.classList.toggle("hidden", !showServe);
     btnServe?.classList.toggle("pulse", showServe);
@@ -267,7 +271,7 @@ export function createHud(opts = {}) {
     const live = state.order && (state.order.phase === "active" || state.order.phase === "nudge");
     if (phone) {
       const on = !!(state.order && (state.mode === "play" || state.mode === "paused") && state.ui !== "phone");
-      phone.classList.toggle("hidden", !on);
+      phone.classList.toggle("hidden", !on || state.ui === "phone");
       if (on) {
         if (phoneFrom) phoneFrom.textContent = (state.order.name || "TXT") + " TXT";
         phoneMsg.textContent = state.order.text;
@@ -281,11 +285,11 @@ export function createHud(opts = {}) {
         }
         phone.classList.toggle("urgent", state.order.phase === "nudge" || (live && state.order.t < 8));
       }
-      phoneActions?.classList.toggle("hidden", !showAccept || padOn);
+      phoneActions?.classList.add("hidden");
     }
     if (dealNav) {
-      const on = (state.mode === "play" || state.mode === "paused") && !offer;
-      dealNav.classList.toggle("hidden", !on || !!state.ui);
+      const on = (state.mode === "play" || state.mode === "paused") && !state.ui;
+      dealNav.classList.toggle("hidden", !on);
       if (on && dealDist) {
         const arrow = state.dealDir < 0 ? "<<" : ">>";
         dealDist.textContent = `${state.navLabel || "HOME"} ${state.dealLabel || (state.dealM + " ft")} ${arrow}`;
