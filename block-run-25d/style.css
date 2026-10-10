@@ -16,6 +16,8 @@
 }
 
 * { box-sizing: border-box; }
+* { -webkit-user-select: none !important; user-select: none !important; -webkit-touch-callout: none !important; }
+::selection { background: transparent; }
 
 html, body {
   margin: 0;
@@ -33,6 +35,7 @@ html, body {
 }
 
 #app {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -179,7 +182,7 @@ html, body {
   border: 1px solid #3a3644;
   padding: 4px 8px 3px;
 }
-#deal-nav.hidden { display: none; }
+#deal-nav, #deal-nav.hidden { display: none !important; }
 #deal-dist {
   font-size: 8px;
   color: var(--gold);
@@ -240,12 +243,15 @@ html, body {
   position: absolute;
   top: 44%;
   transform: translateY(-50%);
-  font-size: 8px;
+  font-size: 7px;
   color: var(--gold);
   text-shadow: 0 0 10px #f0c430, 0 0 4px #07060c;
   animation: nudge 0.6s steps(2) infinite;
   pointer-events: none;
   white-space: nowrap;
+  line-height: 1.35;
+  background: rgba(7, 6, 12, 0.55);
+  padding: 4px 6px;
 }
 .dest-arrow.hidden { display: none; }
 #dest-left { left: 8px; }
@@ -664,27 +670,36 @@ html, body {
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   background: rgba(7, 6, 12, 0.82);
   pointer-events: auto;
-  z-index: 8;
-  padding: 12px;
+  z-index: 20;
+  padding: calc(10px + var(--sat)) 10px calc(16px + var(--sab));
+  overflow-y: auto;
+  touch-action: pan-y;
 }
 .sheet.hidden { display: none; }
 .sheet-card {
   width: min(94%, 320px);
-  max-height: 78%;
+  max-height: min(calc(100% - 8px), calc(100dvh - 88px));
   overflow: auto;
   background: #1a1624;
   border: 2px solid #3a3644;
   padding: 12px 12px 14px;
+  margin: 0 auto;
 }
 .sheet-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
+  position: sticky;
+  top: -12px;
+  z-index: 3;
+  background: #1a1624;
+  padding-top: 4px;
+  padding-bottom: 8px;
 }
 .sheet-head h2 {
   margin: 0;
@@ -694,12 +709,12 @@ html, body {
 }
 .sheet-head button {
   font-family: var(--font);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--cream);
   background: #121018;
   border: 2px solid #3a3644;
-  min-width: 36px;
-  min-height: 32px;
+  min-width: 44px;
+  min-height: 44px;
 }
 .sheet-note {
   font-size: 7px;
@@ -905,7 +920,7 @@ html, body {
   -webkit-touch-callout: none;
 }
 .sheet-card {
-  max-height: min(72vh, 420px);
+  max-height: min(calc(100% - 8px), calc(100dvh - 88px));
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -1037,4 +1052,103 @@ html, body {
   #gb-face { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
   #gb-btns { grid-column: 1; grid-row: 2; width: 100%; flex-direction: row; }
   #pad-car { grid-template-columns: 1fr 1fr; }
+}
+
+/* Portrait: San Andreas-style see-through overlay. View stays full-bleed. */
+@media (orientation: portrait) {
+  #pad.gb.sa, #pad.gb.sa.driving {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    pointer-events: none;
+    z-index: 6;
+  }
+  #pad.gb.sa #gb-grill { display: none; }
+  #pad.gb.sa #gb-face {
+    display: block;
+    position: absolute;
+    inset: 0;
+  }
+  #pad.gb.sa #pad-foot {
+    position: absolute;
+    left: 8px;
+    bottom: calc(12px + var(--sab));
+    width: min(58vw, 248px);
+    height: 156px;
+    pointer-events: auto;
+  }
+  #pad.gb.sa #gb-dpad {
+    gap: 12px;
+    height: 156px;
+  }
+  #pad.gb.sa .gb-dir {
+    min-width: 110px;
+    min-height: 156px;
+    height: 156px;
+    font-size: 32px;
+    opacity: 0.9;
+    background: rgba(244, 240, 232, 0.18);
+    border: 3px solid rgba(244, 240, 232, 0.62);
+    border-radius: 18px;
+    color: #f4f0e8;
+  }
+  #pad.gb.sa #gb-btns {
+    position: absolute;
+    right: 10px;
+    bottom: calc(16px + var(--sab));
+    width: auto;
+    pointer-events: auto;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+  }
+  #pad.gb.sa #gb-sys {
+    position: absolute;
+    top: auto;
+    bottom: calc(156px + var(--sab));
+    right: 0;
+    width: 132px;
+  }
+  #pad.gb.sa .gb-sys {
+    min-height: 34px;
+    opacity: 0.7;
+    background: rgba(18, 16, 24, 0.5);
+  }
+  #pad.gb.sa .gb-ab {
+    width: 70px;
+    height: 70px;
+    min-height: 70px;
+    opacity: 0.88;
+  }
+  #pad.gb.sa.driving #pad-car {
+    position: absolute;
+    left: 10px;
+    bottom: calc(16px + var(--sab));
+    right: 150px;
+    width: auto;
+    height: 148px;
+    grid-template-columns: 1fr 1fr 64px 52px;
+    pointer-events: auto;
+    background: transparent;
+  }
+  #pad.gb.sa.driving .pad-pedal,
+  #pad.gb.sa.driving .pad-uturn,
+  #pad.gb.sa.driving #shifter {
+    opacity: 0.72;
+    background: rgba(18, 16, 24, 0.5);
+  }
+  #pad.gb.sa.driving #gb-btns {
+    bottom: calc(16px + var(--sab));
+  }
+  #pad.gb.sa.driving #gb-sys {
+    bottom: calc(168px + var(--sab));
+  }
 }

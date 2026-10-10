@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat,
-} from "./config.js?v=44";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=44";
+} from "./config.js?v=47";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=47";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -1176,6 +1176,19 @@ export function createWorld(canvas, sprites) {
   );
   youLight.position.set(0.05, 1.12, 0);
   playerCar.add(youLight);
+  const headBeam = new THREE.Mesh(
+    new THREE.PlaneGeometry(4.8, 1.6),
+    new THREE.MeshBasicMaterial({
+      color: 0xfff2b0,
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+    }),
+  );
+  headBeam.rotation.x = -Math.PI / 2;
+  headBeam.position.set(3.4, 0.04, 0);
+  headBeam.name = "headBeam";
+  playerCar.add(headBeam);
   scene.add(playerCar);
   const lightMeshes = [];
   for (let i = 0; i < LIGHT_COUNT; i++) {
@@ -1436,11 +1449,18 @@ export function createWorld(canvas, sprites) {
       : airborne ? fit.jump
       : Math.abs(p.vx) > 8 ? fit.walk
       : fit.idle;
-    const rate = state.muzzle > 0 ? 14 : airborne ? 8 : Math.abs(p.vx) > 8 ? 11 : 5;
+    const running = Math.abs(p.vx) > 55;
+    const rate = state.muzzle > 0 ? 14 : airborne ? 8 : running ? 16 : Math.abs(p.vx) > 8 ? 12 : 5;
     const sprFace = lookFace < 0 ? -1 : 1;
-    setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate), sprFace);
+    const turning = Math.abs(Math.abs(lookFace) - 1) > 0.18;
+    const turnSet = turning ? (fit.shoot || animSet) : animSet;
+    setBillboardFrame(playerSprite, frameAt(turnSet, p.anim, rate), sprFace);
     place(playerSprite, px, GROUND_Y, camX, 1.15);
     playerSprite.position.y = boarding ? (state.inCar ? -boardU * 0.35 : (1 - boardU) * 0.28) : 0;
+    if (boarding) {
+      const door = state.inCar ? boardU : (1 - boardU);
+      playerSprite.position.x += (state.car?.facing || 1) * door * 0.35;
+    }
     orientBillboard(playerSprite, camera);
     const spinW = Math.max(0.16, Math.abs(lookFace));
     playerSprite.scale.x = (playerSprite.userData.baseW || 1) * spinW;
@@ -1467,6 +1487,11 @@ export function createWorld(canvas, sprites) {
         body.material.color.setHex(state.car.hp > 0 ? rust : 0x2a2438);
       }
       setCarLights(playerCar, !!(skyInfo && skyInfo.headlights));
+      const beam = playerCar.getObjectByName("headBeam");
+      if (beam) {
+        beam.visible = !!(skyInfo && skyInfo.headlights);
+        beam.material.opacity = skyInfo && skyInfo.headlights ? 0.28 : 0;
+      }
       youLabel.visible = true;
       youLabel.position.set(playerCar.position.x, 1.85, playerCar.position.z);
       const speed = Math.min(1, Math.abs(state.car.vx) / 180);

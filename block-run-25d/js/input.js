@@ -1,4 +1,4 @@
-import { unlockAudio } from "./audio.js?v=44";
+import { unlockAudio } from "./audio.js?v=47";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyS", "KeyB", "KeyJ", "KeyK", "KeyZ", "KeyX",
@@ -50,6 +50,8 @@ const TAP_ROLES = {
   "tab-texts": "tabTexts",
   "tab-contacts": "tabContacts",
   "ping-contact": "pingContact",
+  "pick-close": "pickClose",
+  pick: "pick",
 };
 
 function gearFromY(clientY, root) {
@@ -64,12 +66,20 @@ function gearFromY(clientY, root) {
   return "D";
 }
 
-function gasAmtFromY(clientY, root) {
-  const pedal = root.querySelector("[data-role='gas']");
+function pedalAmtFromY(clientY, role, root) {
+  const pedal = root.querySelector(`[data-role='${role}']`);
   if (!pedal) return 1;
   const r = pedal.getBoundingClientRect();
   if (r.height <= 0) return 1;
   return Math.max(0.12, Math.min(1, (clientY - r.top) / r.height));
+}
+
+function gasAmtFromY(clientY, root) {
+  return pedalAmtFromY(clientY, "gas", root);
+}
+
+function brakeAmtFromY(clientY, root) {
+  return pedalAmtFromY(clientY, "brake", root);
 }
 
 function allowScroll(target) {
@@ -168,6 +178,9 @@ export function createInput(root = document) {
     if (role === "ping-contact") {
       taps.pingContactId = e.target.closest("[data-id]")?.dataset?.id || null;
     }
+    if (role === "pick") {
+      taps.pickId = e.target.closest("[data-pick]")?.dataset?.pick || null;
+    }
     if (role !== "mute" && !TAP_ROLES[role] && role !== "phone" && role !== "pause" && role !== "run") startPulse = true;
     if (role === "fire") shootPulse = true;
     if (role === "jump") jumpPulse = true;
@@ -178,7 +191,8 @@ export function createInput(root = document) {
     if (role === "gas") recRole = "gas";
     if (TAP_ROLES[role]) pulseTap(TAP_ROLES[role]);
     const gasAmt = role === "gas" ? gasAmtFromY(e.clientY, root) : 1;
-    pointers.set(e.pointerId, { role: recRole, gear, gasAmt });
+    const brakeAmt = role === "brake" ? brakeAmtFromY(e.clientY, root) : 1;
+    pointers.set(e.pointerId, { role: recRole, gear, gasAmt, brakeAmt });
     try { e.target.setPointerCapture(e.pointerId); } catch {}
     const btn = e.target.closest("[data-role]");
     if (btn && recRole !== "shifter") btn.classList.add("held");
@@ -193,6 +207,9 @@ export function createInput(root = document) {
     }
     if (rec.role === "gas") {
       rec.gasAmt = gasAmtFromY(e.clientY, root);
+    }
+    if (rec.role === "brake") {
+      rec.brakeAmt = brakeAmtFromY(e.clientY, root);
     }
   }
 
@@ -233,6 +250,7 @@ export function createInput(root = document) {
     lastTouchEnd = now;
   }, { passive: false });
   document.addEventListener("dblclick", prevent, { passive: false });
+  document.addEventListener("selectstart", prevent, { passive: false });
 
   function held(code) {
     return (forced ?? down).has(code);
@@ -254,6 +272,7 @@ export function createInput(root = document) {
     let brake = held("KeyS") || held("ArrowDown");
     let gas = held("KeyW") || held("ArrowUp");
     let gasAmt = gas ? 1 : 0;
+    let brakeAmt = brake ? 1 : 0;
     let run = held("KeyB") || held("ShiftLeft") || held("ShiftRight");
     let exitHeld = held("KeyX");
     let shiftGear = null;
@@ -264,7 +283,10 @@ export function createInput(root = document) {
       if (rec.role === "right") moveX += 1;
       if (rec.role === "fire") shoot = true;
       if (rec.role === "jump") jump = true;
-      if (rec.role === "brake") brake = true;
+      if (rec.role === "brake") {
+        brake = true;
+        brakeAmt = rec.brakeAmt ?? 1;
+      }
       if (rec.role === "gas") {
         gas = true;
         gasAmt = rec.gasAmt ?? 1;
@@ -335,9 +357,11 @@ export function createInput(root = document) {
     const buyProduct = taps.buyProduct || null;
     const buyTierId = taps.buyTierId || null;
     const pingContactId = taps.pingContactId || null;
+    const pickId = taps.pickId || null;
     taps.buyProduct = null;
     taps.buyTierId = null;
     taps.pingContactId = null;
+    taps.pickId = null;
 
     root.querySelectorAll(".pad-btn, .ctx-btn").forEach((btn) => {
       const role = btn.dataset.role;
@@ -358,6 +382,7 @@ export function createInput(root = document) {
       moveX,
       steer: 0,
       brake,
+      brakeAmt,
       gas,
       gasAmt,
       run,
@@ -392,6 +417,8 @@ export function createInput(root = document) {
       inventory: take("inventory"),
       invClose: take("invClose"),
       phoneTab: take("tabTexts") ? "texts" : take("tabContacts") ? "contacts" : null,
+      pickClose: take("pickClose"),
+      pickId,
       stashClose: take("stashClose"),
       cribClose: take("cribClose"),
       cribClothes: take("cribClothes"),

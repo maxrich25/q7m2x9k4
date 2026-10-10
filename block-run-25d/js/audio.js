@@ -81,7 +81,10 @@ export function unlockAudio() {
 export function bindAudioUnlock() {
   if (hookBound) return;
   hookBound = true;
-  const go = () => unlockAudio();
+  const go = () => {
+    unlockAudio();
+    startMusic();
+  };
   const opts = { capture: true, passive: true };
   document.addEventListener("pointerdown", go, opts);
   document.addEventListener("touchstart", go, opts);
