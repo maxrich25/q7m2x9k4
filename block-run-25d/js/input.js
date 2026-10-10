@@ -1,4 +1,4 @@
-import { unlockAudio } from "./audio.js?v=29";
+import { unlockAudio } from "./audio.js?v=30";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyS", "KeyJ", "KeyK", "KeyZ", "KeyX",
@@ -36,9 +36,25 @@ const TAP_ROLES = {
   "stash-out-white": "stashOutWhite",
   accept: "accept",
   decline: "decline",
+  stall: "decline",
+  inventory: "inventory",
+  "inv-close": "invClose",
+  "tab-texts": "tabTexts",
+  "tab-contacts": "tabContacts",
 };
 
 function gearFromY(clientY, root) {
+  const brake = root.querySelector("#brake-shift");
+  if (brake && !brake.classList.contains("hidden")) {
+    const r = brake.getBoundingClientRect();
+    if (r.height > 0) {
+      const t = (clientY - r.top) / r.height;
+      if (t < 0.25) return "P";
+      if (t < 0.5) return "R";
+      if (t < 0.75) return "N";
+      return "D";
+    }
+  }
   const track = root.querySelector("#shift-track");
   if (!track) return null;
   const r = track.getBoundingClientRect();
@@ -134,6 +150,20 @@ export function createInput(root = document) {
       recRole = "shifter";
       gear = gearFromY(e.clientY, root) || gear;
     }
+    if (role === "brake") {
+      recRole = "brake";
+      pointers.set(e.pointerId, { role: recRole, gear: null, startY: e.clientY, shifting: false });
+      if (role !== "mute" && !TAP_ROLES[role] && role !== "phone") startPulse = true;
+      try { e.target.setPointerCapture(e.pointerId); } catch {}
+      const btn = e.target.closest("[data-role]");
+      if (btn) btn.classList.add("held");
+      return;
+    }
+    if (role === "buy-tier") {
+      pulseTap("buyTier");
+      taps.buyProduct = e.target.closest("[data-product]")?.dataset?.product || null;
+      taps.buyTierId = e.target.closest("[data-tier]")?.dataset?.tier || null;
+    }
     pointers.set(e.pointerId, { role: recRole, gear });
     if (role !== "mute" && !TAP_ROLES[role] && role !== "phone") startPulse = true;
     if (role === "fire") shootPulse = true;
@@ -149,8 +179,15 @@ export function createInput(root = document) {
 
   function onPointerMove(e) {
     const rec = pointers.get(e.pointerId);
-    if (!rec || rec.role !== "shifter") return;
-    rec.gear = gearFromY(e.clientY, root) || rec.gear;
+    if (!rec) return;
+    if (rec.role === "shifter") {
+      rec.gear = gearFromY(e.clientY, root) || rec.gear;
+      return;
+    }
+    if (rec.role === "brake") {
+      if (Math.abs(e.clientY - (rec.startY || e.clientY)) > 12) rec.shifting = true;
+      if (rec.shifting) rec.gear = gearFromY(e.clientY, root) || rec.gear;
+    }
   }
 
   function onPointerUp(e) {
@@ -208,7 +245,10 @@ export function createInput(root = document) {
       if (rec.role === "right") moveX += 1;
       if (rec.role === "fire") shoot = true;
       if (rec.role === "jump") jump = true;
-      if (rec.role === "brake") brake = true;
+      if (rec.role === "brake") {
+        brake = true;
+        if (rec.gear) shiftGear = rec.gear;
+      }
       if (rec.role === "gas") gas = true;
       if (rec.role === "exit" || rec.role === "gate") exitHeld = true;
       if (rec.role === "uturn") uturnHeld = true;
@@ -272,6 +312,10 @@ export function createInput(root = document) {
     const start = startEdge;
     const mute = muteEdge;
     const pause = pauseEdge;
+    const buyProduct = taps.buyProduct || null;
+    const buyTierId = taps.buyTierId || null;
+    taps.buyProduct = null;
+    taps.buyTierId = null;
 
     root.querySelectorAll(".pad-btn, .ctx-btn").forEach((btn) => {
       const role = btn.dataset.role;
@@ -313,7 +357,13 @@ export function createInput(root = document) {
       textPlug: take("textPlug"),
       buyGreen: take("buyGreen"),
       buyWhite: take("buyWhite"),
+      buyTier: take("buyTier"),
+      buyProduct,
+      buyTierId,
       buyClose: take("buyClose"),
+      inventory: take("inventory"),
+      invClose: take("invClose"),
+      phoneTab: take("tabTexts") ? "texts" : take("tabContacts") ? "contacts" : null,
       stashClose: take("stashClose"),
       stashInCash: take("stashInCash"),
       stashOutCash: take("stashOutCash"),

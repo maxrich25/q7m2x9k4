@@ -141,6 +141,51 @@ function tone(opts) {
   play();
 }
 
+let engine = null;
+
+function ensureEngine() {
+  ensure();
+  if (engine || !ctx) return engine;
+  const osc = ctx.createOscillator();
+  const filt = ctx.createBiquadFilter();
+  const g = ctx.createGain();
+  osc.type = "sawtooth";
+  osc.frequency.value = 70;
+  filt.type = "lowpass";
+  filt.frequency.value = 420;
+  g.gain.value = 0.0001;
+  osc.connect(filt);
+  filt.connect(g);
+  g.connect(sfxGain);
+  osc.start();
+  engine = { osc, filt, g, kind: "off" };
+  return engine;
+}
+
+export function setEngine(kind, speed = 0) {
+  try {
+    const e = ensureEngine();
+    if (!e || !ctx || ctx.state !== "running") return;
+    const t = ctx.currentTime;
+    if (!kind || kind === "off") {
+      e.g.gain.setTargetAtTime(0.0001, t, 0.05);
+      e.kind = "off";
+      return;
+    }
+    if (kind === "rev") {
+      e.osc.frequency.setTargetAtTime(78, t, 0.04);
+      e.filt.frequency.setTargetAtTime(280, t, 0.05);
+      e.g.gain.setTargetAtTime(0.09, t, 0.04);
+    } else {
+      const u = Math.max(0, Math.min(1, speed));
+      e.osc.frequency.setTargetAtTime(110 + u * 160, t, 0.06);
+      e.filt.frequency.setTargetAtTime(360 + u * 420, t, 0.06);
+      e.g.gain.setTargetAtTime(0.08 + u * 0.07, t, 0.05);
+    }
+    e.kind = kind;
+  } catch {}
+}
+
 export const sfx = {
   shoot() { tone({ freq: 880 + Math.random() * 40, dur: 0.08, vol: 0.22, slide: -420, type: "square" }); },
   hit() { tone({ freq: 220, dur: 0.09, vol: 0.26, noise: true }); tone({ freq: 140, dur: 0.12, vol: 0.16, slide: -80 }); },

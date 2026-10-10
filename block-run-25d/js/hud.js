@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=29";
-import { isUnlocked } from "./audio.js?v=29";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=30";
+import { isUnlocked } from "./audio.js?v=30";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -51,9 +51,17 @@ export function createHud(opts = {}) {
   const phoneList = document.getElementById("phone-list");
   const phoneHomeDist = document.getElementById("phone-home-dist");
   const buyCash = document.getElementById("buy-cash");
-  const buyGreen = document.getElementById("buy-green");
-  const buyWhite = document.getElementById("buy-white");
+  const buyGreenList = document.getElementById("buy-green-list");
+  const buyWhiteList = document.getElementById("buy-white-list");
   const stashRows = document.getElementById("stash-rows");
+  const invRows = document.getElementById("inv-rows");
+  const sheetInv = document.getElementById("sheet-inv");
+  const btnPhone = document.getElementById("btn-phone");
+  const phoneTexts = document.getElementById("phone-texts");
+  const tabTexts = document.getElementById("tab-texts");
+  const tabContacts = document.getElementById("tab-contacts");
+  const phoneHomeRow = document.getElementById("phone-home-row");
+  const brakeShift = document.getElementById("brake-shift");
 
   function pips(el, count, filled, cls) {
     if (!el) return;
@@ -83,13 +91,24 @@ export function createHud(opts = {}) {
 
   function invLine(state) {
     const g = state.inv || {};
-    return `G ${fmtGrams(g.GREEN)}g  W ${fmtGrams(g.WHITE)}g`;
+    return `GRN ${fmtGrams(g.GREEN)}g  WHT ${fmtGrams(g.WHITE)}g`;
   }
 
   function renderPhone(state) {
     if (phoneInv) phoneInv.textContent = `CASH $${state.cash}  ${invLine(state)}`;
     if (phoneHomeDist) {
       phoneHomeDist.textContent = formatDeal(state.player.x, HOME_X) + " HOME";
+    }
+    const textsOn = state.phoneTab !== "contacts";
+    tabTexts?.classList.toggle("on", textsOn);
+    tabContacts?.classList.toggle("on", !textsOn);
+    phoneTexts?.classList.toggle("on", textsOn);
+    phoneList?.classList.toggle("hidden", textsOn);
+    phoneHomeRow?.classList.toggle("hidden", textsOn);
+    if (phoneTexts) {
+      phoneTexts.innerHTML = (state.inbox || []).map((m) => (
+        `<div class="txt-row"><div class="who">${m.from || "TXT"}</div>${m.text || ""}</div>`
+      )).join("") || `<div class="txt-row">NO TEXTS YET</div>`;
     }
     if (!phoneList) return;
     phoneList.innerHTML = "";
@@ -116,10 +135,16 @@ export function createHud(opts = {}) {
 
   function renderBuy(state) {
     if (buyCash) buyCash.textContent = `CASH $${state.cash}  ${invLine(state)}`;
-    const g = PRODUCTS.GREEN;
-    const w = PRODUCTS.WHITE;
-    if (buyGreen) buyGreen.textContent = `GREEN 1/2 $${g.buyHalf}`;
-    if (buyWhite) buyWhite.textContent = `WHITE 1/2 $${w.buyHalf}`;
+    const rep = state.rep || 0;
+    function fill(el, tiers, product, cls) {
+      if (!el) return;
+      el.innerHTML = (tiers || []).map((t) => {
+        const locked = rep < (t.minRep || 0);
+        return `<button type="button" class="sheet-buy ${cls || ""}" data-role="buy-tier" data-product="${product}" data-tier="${t.id}" ${locked ? "disabled" : ""}>${product === "WHITE" ? "WHT" : "GRN"} ${t.label} $${t.cost}${locked ? " R" + t.minRep : ""}</button>`;
+      }).join("");
+    }
+    fill(buyGreenList, state.greenTiers || [], "GREEN", "");
+    fill(buyWhiteList, state.whiteTiers || [], "WHITE", "white");
   }
 
   function renderStash(state) {
@@ -162,6 +187,14 @@ export function createHud(opts = {}) {
     if (driving) placeKnob(gear);
     shiftHint?.classList.toggle("hidden", !(driving && (state.car?.shiftHint || 0) > 0));
     padUturn?.classList.toggle("off", driving && !state.turnOk);
+    padUturn?.classList.toggle("hidden", !state.turnOk);
+    brakeShift?.classList.toggle("hidden", !(driving && state.stopped));
+    if (brakeShift && driving && state.stopped) {
+      brakeShift.querySelectorAll("[data-gear]").forEach((el) => {
+        el.classList.toggle("on", el.dataset.gear === gear);
+      });
+    }
+    btnPhone?.classList.toggle("unread", !!state.unread);
 
     const playUi = state.mode === "play" && !state.ui;
     if (ctx) {
@@ -173,7 +206,7 @@ export function createHud(opts = {}) {
     if (btnGate && state.gate) btnGate.textContent = state.gate;
     btnHit?.classList.toggle("hidden", !(playUi && state.showHitUp));
 
-    const offer = state.order?.phase === "offer";
+    const offer = state.order?.phase === "offer" || state.order?.phase === "stalling";
     const live = state.order && (state.order.phase === "active" || state.order.phase === "nudge");
     if (phone) {
       const on = !!(state.order && (state.mode === "play" || state.mode === "paused") && state.ui !== "phone");
@@ -226,9 +259,17 @@ export function createHud(opts = {}) {
     sheetPhone?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "phone"));
     sheetBuy?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "buy"));
     sheetStash?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "stash"));
+    sheetInv?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "inv"));
     if (state.ui === "phone") renderPhone(state);
     if (state.ui === "buy") renderBuy(state);
     if (state.ui === "stash") renderStash(state);
+    if (state.ui === "inv" && invRows) {
+      const g = state.inv || {};
+      const s = state.stashInv || {};
+      invRows.innerHTML = `<div class="sheet-inv">CASH $${state.cash}  HOME $${state.stash || 0}</div>`
+        + `<div class="sheet-inv">GRN ${fmtGrams(g.GREEN)}g / HOME ${fmtGrams(s.GREEN)}g</div>`
+        + `<div class="sheet-inv">WHT ${fmtGrams(g.WHITE)}g / HOME ${fmtGrams(s.WHITE)}g</div>`;
+    }
 
     const show = state.mode !== "play";
     overlay.classList.toggle("hidden", !show);

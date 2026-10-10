@@ -8,8 +8,9 @@ import {
   PLUG_X, HOME_X, PED_COUNT, LIGHT_COUNT, lightGameX, lightPhaseAt,
   PRODUCTS, HALF_OZ, SALE_AMOUNTS, FLAKE_LIMIT, CONTACT_NAMES, MORE_NAMES,
   INTRO_TEXT, SALE_POP_T, SERVE_SLOW, fmtGrams, streetGrams,
-} from "./config.js?v=29";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=29";
+  restLat, CAR_KINDS, GREEN_TIERS, WHITE_TIERS, STALL_LINES,
+} from "./config.js?v=30";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=30";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -38,8 +39,12 @@ export function createGame() {
   const car = {
     x: CAR_X, px: CAR_X, vx: 0, facing: 1, hp: CAR_HP,
     gear: "P", yaw: 0, turnT: 0, turnFrom: 0, turnTo: 0, shiftHint: 0, lat: 0,
+    kind: "beater",
   };
   let inCar = false;
+  let boughtOnce = false;
+  let inbox = [];
+  let phoneTab = "texts";
   let wreckT = 0;
   let order = null;
   let orderCd = 6;
@@ -157,7 +162,14 @@ export function createGame() {
       showServe: canServe,
       showGate: !!(gate && mode === "play" && !ui),
       showHitUp: prompt === "HIT UP",
-      turnOk: inCar && Math.abs(car.vx) <= CAR_TURN_MAX && car.turnT <= 0,
+      turnOk: inCar && car.gear === "D" && Math.abs(car.vx) > 18 && car.turnT <= 0,
+      stopped: inCar && Math.abs(car.vx) < CAR_STOP,
+      boughtOnce,
+      unread: inbox.some((m) => m.unread) || !!(order && (order.phase === "offer" || order.phase === "stalling")),
+      inbox: inbox.map((m) => ({ ...m })),
+      phoneTab,
+      greenTiers: GREEN_TIERS,
+      whiteTiers: WHITE_TIERS,
       dealM: Math.round(dealFeet(player.x, navTarget)),
       dealLabel: formatDeal(player.x, navTarget),
       dealDir: navD >= 0 ? 1 : -1,
@@ -216,6 +228,7 @@ export function createGame() {
     car.turnFrom = 0;
     car.turnTo = 0;
     car.shiftHint = 0;
+    car.kind = "beater";
     car.lat = restLat(1);
     car.turnLatFrom = 0;
     car.turnLatTo = 0;
@@ -271,10 +284,6 @@ export function createGame() {
     return true;
   }
 
-  function restLat(facing) {
-    return facing < 0 ? CAR_TURN_ARC : 0;
-  }
-
   function requestTurn(dir) {
     if (!dir || car.turnT > 0) return false;
     if (dir === car.facing) return false;
@@ -290,6 +299,7 @@ export function createGame() {
 
   function doUTurn() {
     if (!inCar || car.turnT > 0) return false;
+    if (car.gear !== "D" || Math.abs(car.vx) <= 18) return false;
     if (Math.abs(car.vx) > CAR_TURN_MAX) {
       pop(car.x, 150, "SLOW");
       return false;
@@ -395,7 +405,15 @@ export function createGame() {
 
   function togglePhone() {
     ui = ui === "phone" ? null : "phone";
+    if (ui === "phone") {
+      inbox.forEach((m) => { m.unread = false; });
+    }
     return ui === "phone";
+  }
+
+  function setPhoneTab(tab) {
+    phoneTab = tab === "contacts" ? "contacts" : "texts";
+    if (phoneTab === "texts") inbox.forEach((m) => { m.unread = false; });
   }
 
   function textPlug() {
@@ -409,22 +427,30 @@ export function createGame() {
     return true;
   }
 
-  function buyProduct(id) {
+  function buyProduct(id, tierId) {
     const p = PRODUCTS[id];
     if (!p) return false;
     if (!plugMeet) {
       pop(player.x, 150, "TEXT PLUG");
       return false;
     }
-    if (cash < p.buyHalf) {
+    const tiers = id === "WHITE" ? WHITE_TIERS : GREEN_TIERS;
+    const tier = tiers.find((t) => t.id === tierId) || tiers[0];
+    if (!tier) return false;
+    if ((rep || 0) < (tier.minRep || 0)) {
+      pop(plugMeet.x, 154, "NEED R" + tier.minRep);
+      return false;
+    }
+    if (cash < tier.cost) {
       pop(plugMeet.x, 154, "NEED $");
       return false;
     }
-    cash -= p.buyHalf;
-    inv[id] = gramsOf(id) + HALF_OZ;
+    cash -= tier.cost;
+    inv[id] = gramsOf(id) + tier.grams;
     packs = Math.round((gramsOf("GREEN") + gramsOf("WHITE")) / HALF_OZ);
+    boughtOnce = true;
     sfx.buy();
-    pop(plugMeet.x, 150, "+" + HALF_OZ + "g " + id);
+    pop(plugMeet.x, 150, "+" + tier.grams + "g " + id);
     maybeHi();
     return true;
   }
@@ -470,9 +496,10 @@ export function createGame() {
   }
 
   function acceptOrder() {
-    if (!order || order.phase !== "offer") return false;
+    if (!order || (order.phase !== "offer" && order.phase !== "stalling")) return false;
+    const stallCut = order.stalls ? 0.62 : 1;
     order.phase = "active";
-    order.t = order.maxT;
+    order.t = (order.maxT || 16) * stallCut;
     const c = findContact(order.contactId);
     if (c) c.status = "waiting";
     sfx.ping();
@@ -480,13 +507,27 @@ export function createGame() {
   }
 
   function declineOrder() {
-    if (!order || order.phase !== "offer") return false;
-    pop(player.x, 150, "DECLINED");
+    return stallOrder();
+  }
+
+  function stallOrder() {
+    if (!order || (order.phase !== "offer" && order.phase !== "stalling")) return false;
+    order.stalls = (order.stalls || 0) + 1;
+    if (order.stalls >= 3) {
+      pop(player.x, 150, "IM OUT");
+      failOrder();
+      return true;
+    }
+    order.phase = "stalling";
+    order.t = 5 + order.stalls * 2;
+    order.text = STALL_LINES[order.stalls - 1] || STALL_LINES[STALL_LINES.length - 1];
+    inbox.unshift({
+      from: order.name, text: order.text, t: clock, unread: true,
+    });
     const c = findContact(order.contactId);
-    markFlake(c);
-    order = null;
-    rep = Math.max(0, rep - 1);
-    orderCd = nextOrderWait() + 4;
+    if (c) c.status = "nudge";
+    sfx.ping();
+    pop(player.x, 150, "STALL");
     return true;
   }
 
@@ -625,6 +666,9 @@ export function createGame() {
       plugMeet = null;
       ui = null;
       salePop = null;
+      boughtOnce = false;
+      inbox = [];
+      phoneTab = "texts";
       seedContacts();
     }
     stash = keepWave ? stash : 0;
@@ -695,6 +739,10 @@ export function createGame() {
 
   function spawnOrder(spotId, opts = {}) {
     if (mode !== "play") return null;
+    if (!boughtOnce && !opts.force) {
+      orderCd = 8;
+      return null;
+    }
     let spot = ORDER_SPOTS.find((s) => s.id === spotId);
     if (!spot) {
       const minFar = WORLD * 0.28;
@@ -737,6 +785,9 @@ export function createGame() {
       text: opts.text || line(dollars, product, spot.label),
     };
     orderCd = nextOrderWait();
+    inbox.unshift({
+      from: order.name, text: order.text, t: clock, unread: order.phase === "offer",
+    });
     sfx.ping();
     return order;
   }
@@ -888,13 +939,22 @@ export function createGame() {
       return snapshot();
     }
 
-    if (input.mute) setMuted(!isMuted());
+    if (input.phoneTab) setPhoneTab(input.phoneTab);
+    if (input.inventory) {
+      mode = "play";
+      ui = "inv";
+    }
+    if (input.invClose) ui = null;
+    if (input.buyTier && input.buyProduct) buyProduct(input.buyProduct, input.buyTierId);
     if (input.pause) {
       if (mode === "play") mode = "paused";
       else if (mode === "paused") mode = "play";
     }
 
-    if (mode === "paused") return snapshot();
+    if (mode === "paused") {
+      setEngine("off");
+      return snapshot();
+    }
 
     if (mode === "title") {
       if (input.start || input.shoot || input.jump) beginPlay(false);
@@ -989,11 +1049,15 @@ export function createGame() {
 
       const brake = !!input.brake;
       const gas = !!input.gas;
+      const spec = CAR_KINDS[car.kind] || CAR_KINDS.beater;
+      const accel = spec.accel || CAR_ACCEL;
+      const vmax = spec.max || CAR_MAX;
+      const creep = spec.creep || CAR_CREEP;
       if (car.gear === "P") {
         car.vx = 0;
       } else if (brake) {
         if (Math.abs(car.vx) > 6) {
-          car.vx -= Math.sign(car.vx) * CAR_ACCEL * 1.7 * dt;
+          car.vx -= Math.sign(car.vx) * accel * 1.7 * dt;
           if (Math.abs(car.vx) < 6) car.vx = 0;
         } else {
           car.vx = 0;
@@ -1003,15 +1067,18 @@ export function createGame() {
       } else {
         const driveDir = car.gear === "D" ? car.facing : -car.facing;
         if (gas) {
-          car.vx += driveDir * CAR_ACCEL * dt;
+          car.vx += driveDir * accel * dt;
         } else {
-          const target = driveDir * CAR_CREEP;
+          const target = driveDir * creep;
           const diff = target - car.vx;
-          car.vx += Math.sign(diff) * Math.min(Math.abs(diff), CAR_ACCEL * 0.55 * dt);
+          car.vx += Math.sign(diff) * Math.min(Math.abs(diff), accel * 0.55 * dt);
         }
         car.vx -= car.vx * Math.min(1, CAR_FRICTION * 0.22 * dt);
       }
-      if (Math.abs(car.vx) > CAR_MAX) car.vx = Math.sign(car.vx) * CAR_MAX;
+      if (Math.abs(car.vx) > vmax) car.vx = Math.sign(car.vx) * vmax;
+      if (gas && car.gear === "P") setEngine("rev");
+      else if (gas && (car.gear === "D" || car.gear === "R")) setEngine("accel", Math.abs(car.vx) / vmax);
+      else setEngine("off");
       car.x = wrap(car.x + car.vx * dt, WORLD);
       player.x = car.x;
       player.vx = car.vx;
@@ -1019,7 +1086,9 @@ export function createGame() {
       player.y = GROUND_Y;
       player.vy = 0;
       player.anim += dt;
+      setEngine("off");
     } else {
+      setEngine("off");
       if (input.moveX < 0) player.facing = -1;
       if (input.moveX > 0) player.facing = 1;
       player.vx = input.moveX * MOVE_SPEED;
@@ -1136,7 +1205,19 @@ export function createGame() {
     if (!order && orderCd <= 0) spawnOrder();
     if (order) {
       if (order.phase === "offer") {
-        // wait for ACCEPT / DECLINE
+        // wait for ACCEPT / STALL
+      } else if (order.phase === "stalling") {
+        order.t -= dt;
+        if (order.t <= 0) {
+          if (order.stalls >= 2) {
+            failOrder();
+          } else {
+            order.phase = "offer";
+            order.text = "so we good or nah?";
+            inbox.unshift({ from: order.name, text: order.text, t: clock, unread: true });
+            sfx.ping();
+          }
+        }
       } else {
         order.t -= dt;
         if (order.t <= 0) {
@@ -1145,12 +1226,11 @@ export function createGame() {
             order.text = "u still comin thru?";
             order.t = Math.max(5, order.maxT * 0.38);
             order.maxT = order.t;
+            inbox.unshift({ from: order.name, text: order.text, t: clock, unread: true });
             sfx.ping();
           } else {
             failOrder();
           }
-        } else {
-          // sales require the SERVE button — do not auto-complete
         }
       }
     }
@@ -1445,6 +1525,9 @@ export function createGame() {
     setClock(t) { clock = Math.max(0, Number(t) || 0); },
     acceptOrder,
     declineOrder,
+    stallOrder,
+    setPhoneTab,
+    setBoughtOnce(on) { boughtOnce = !!on; },
     buyPack,
     buyProduct,
     stashCash,
@@ -1509,6 +1592,7 @@ export function createGame() {
         car.facing = d;
         car.yaw = d < 0 ? Math.PI : 0;
         car.turnT = 0;
+        car.lat = restLat(d);
       }
     },
     setAnim(t) { player.anim = t; },

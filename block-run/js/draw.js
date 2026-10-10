@@ -1,7 +1,7 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
-} from "../../block-run-25d/js/config.js?v=29";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=29";
+} from "../../block-run-25d/js/config.js?v=30";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=30";
 
 const STREET_CROP = 168;
 const STREET_W = 398;
@@ -173,6 +173,7 @@ export function createWorld(canvas, art) {
     g.fillStyle = "#f0c430";
     g.fillRect(Math.round(x) + 8, y + 8, 8, 8);
     text("HOME", x, y - 14, "#3de0ff");
+    text("STASH", x, y - 24, "#f0c430");
   }
 
   function drawLight(x, phase) {
@@ -307,19 +308,22 @@ export function createWorld(canvas, art) {
         const u = 1 - state.car.turnT / 1;
         if (Math.cos(Math.max(0, Math.min(1, u)) * Math.PI) < 0) facing *= -1;
       }
+      const carY = facing > 0 ? ground + 24 : ground + 8;
       drawWrapped((off) => {
         const x = sx(cx + off);
         if (x < -50 || x > VW + 50) return;
-        drawImg(art.car, x, ground + 18, facing, 104, 32);
+        drawImg(art.car, x, carY, facing, 100, 30);
       });
     }
 
     if (state.copCar && art.copCar) {
       const cx = renderGameX(state.copCar, alpha);
+      const facing = state.copCar.facing < 0 ? -1 : 1;
+      const carY = facing > 0 ? ground + 24 : ground + 8;
       drawWrapped((off) => {
         const x = sx(cx + off);
         if (x < -50 || x > VW + 50) return;
-        drawImg(art.copCar, x, ground + 18, state.copCar.facing, 104, 32);
+        drawImg(art.copCar, x, carY, facing, 100, 30);
       });
     }
 
