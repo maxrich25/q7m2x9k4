@@ -73,12 +73,19 @@ export const ORDER_SPOTS = [
   { id: "liquor", label: "the uptown liquor", x: 1760 },
 ];
 
+export const MAX_REP = 16;
+export const START_HOUR = 21;
+export const SEC_PER_HOUR = 20;
+
 export const GREEN_TIERS = [
   { id: "half", label: "1/2 OZ", grams: 14, cost: 100, minRep: 0 },
   { id: "oz", label: "OZ", grams: 28, cost: 180, minRep: 2 },
   { id: "qp", label: "QP", grams: 112, cost: 650, minRep: 4 },
   { id: "hp", label: "1/2 P", grams: 224, cost: 1200, minRep: 6 },
   { id: "p", label: "P", grams: 448, cost: 2200, minRep: 8 },
+  { id: "2p", label: "2P", grams: 896, cost: 4200, minRep: 10 },
+  { id: "5p", label: "5P", grams: 2240, cost: 10000, minRep: 12 },
+  { id: "10p", label: "10P", grams: 4480, cost: 19000, minRep: 14 },
 ];
 export const WHITE_TIERS = [
   { id: "eighth", label: "8TH", grams: 3.5, cost: 140, minRep: 0 },
@@ -86,6 +93,13 @@ export const WHITE_TIERS = [
   { id: "half", label: "1/2 OZ", grams: 14, cost: 500, minRep: 3 },
   { id: "oz", label: "OZ", grams: 28, cost: 950, minRep: 5 },
 ];
+export const OUTFITS = [
+  { id: "red", label: "RED HOOD", hex: null, hex25: null },
+  { id: "black", label: "BLK HOOD", hex: "#2a2438", hex25: "#3a3048" },
+  { id: "teal", label: "TEAL HOOD", hex: "#1f6a68", hex25: "#3de0ff" },
+  { id: "gold", label: "GOLD HOOD", hex: "#c8a040", hex25: "#f0c430" },
+];
+
 export const STALL_LINES = [
   "aite but don't have me waitin",
   "yo u comin or what, clock is tickin",
@@ -106,6 +120,69 @@ export const COLORS = {
   cream: 0xf4f0e8,
   night: 0x140c22,
 };
+
+export function wrapHour(h) {
+  return ((Number(h) || 0) % 24 + 24) % 24;
+}
+
+export function hourOf(clock, extra = 0) {
+  return wrapHour(START_HOUR + (Number(clock) || 0) / SEC_PER_HOUR + extra);
+}
+
+export function fmtHour(h) {
+  const hr = Math.floor(wrapHour(h));
+  const suffix = hr < 12 ? "A" : "P";
+  return (hr % 12 || 12) + suffix;
+}
+
+export function hexCss(n) {
+  return "#" + (n >>> 0).toString(16).padStart(6, "0");
+}
+
+function lerpChan(a, b, t) {
+  return Math.round(a + (b - a) * t);
+}
+
+function lerpHex(a, b, t) {
+  return (lerpChan((a >> 16) & 255, (b >> 16) & 255, t) << 16)
+    | (lerpChan((a >> 8) & 255, (b >> 8) & 255, t) << 8)
+    | lerpChan(a & 255, b & 255, t);
+}
+
+const SKY_KEYS = [
+  { h: 0, top: 0x0a0118, bot: 0x12081e, fog: 0x10061a, star: 1, moon: 1, light: 0.55 },
+  { h: 5, top: 0x1a1030, bot: 0x3a1840, fog: 0x241028, star: 0.45, moon: 0.55, light: 0.7 },
+  { h: 6.5, top: 0xc86a48, bot: 0xe8a060, fog: 0x8a4a40, star: 0.08, moon: 0.15, light: 1.05 },
+  { h: 9, top: 0x4a90d0, bot: 0x7ab8e8, fog: 0x6aa0c8, star: 0, moon: 0, light: 1.2 },
+  { h: 16, top: 0x3a78b8, bot: 0x6aa8d8, fog: 0x5a90c0, star: 0, moon: 0, light: 1.1 },
+  { h: 18, top: 0xc84a38, bot: 0xe87840, fog: 0x8a3028, star: 0.12, moon: 0.22, light: 0.9 },
+  { h: 20, top: 0x2a1040, bot: 0x1a0828, fog: 0x180820, star: 0.72, moon: 0.82, light: 0.65 },
+  { h: 21, top: 0x0c0120, bot: 0x140a28, fog: 0x120820, star: 1, moon: 1, light: 0.6 },
+  { h: 24, top: 0x0a0118, bot: 0x12081e, fog: 0x10061a, star: 1, moon: 1, light: 0.55 },
+];
+
+export function skyTint(hour) {
+  const h = wrapHour(hour);
+  let i = 0;
+  while (i < SKY_KEYS.length - 1 && SKY_KEYS[i + 1].h <= h) i += 1;
+  const a = SKY_KEYS[i];
+  const b = SKY_KEYS[Math.min(i + 1, SKY_KEYS.length - 1)];
+  const span = Math.max(0.001, b.h - a.h);
+  const t = Math.max(0, Math.min(1, (h - a.h) / span));
+  const top = lerpHex(a.top, b.top, t);
+  const bot = lerpHex(a.bot, b.bot, t);
+  const fog = lerpHex(a.fog, b.fog, t);
+  const star = a.star + (b.star - a.star) * t;
+  const moon = a.moon + (b.moon - a.moon) * t;
+  const light = a.light + (b.light - a.light) * t;
+  return {
+    top, bot, fog, star, moon, light,
+    cssTop: hexCss(top),
+    cssBot: hexCss(bot),
+    cssFog: hexCss(fog),
+    wash: `rgba(${(bot >> 16) & 255},${(bot >> 8) & 255},${bot & 255},${(0.18 + (1 - star) * 0.28).toFixed(3)})`,
+  };
+}
 
 export function restLat(facing) {
   return facing > 0 ? CAR_LANE_NEAR : CAR_LANE_FAR;

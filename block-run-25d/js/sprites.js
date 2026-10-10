@@ -2,7 +2,9 @@ import * as THREE from "three";
 import {
   pixelCanvas, derivePose, paintLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
-} from "./paint.js?v=30";
+  remapHoodie,
+} from "./paint.js?v=31";
+import { OUTFITS } from "./config.js?v=31";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -138,29 +140,41 @@ export async function loadSprites() {
 
   const idleBase = toCanvas(idleImgs[0] || fallbackFrame("idle", 0));
   const walkBase = toCanvas(walkImgs[0] || idleBase);
-  const playerIdle = idleImgs.every(Boolean)
-    ? idleImgs.map((img) => texturize(img, true))
-    : idleFrom(idleBase);
-  const playerWalkOrig = walkImgs.filter(Boolean).map((img) => texturize(img, true));
-  const playerWalk = playerWalkOrig.length
-    ? [
-      playerWalkOrig[0],
-      texPose(walkBase, { legDx: 2, armDx: -1, bob: 1, legDy: -1 }),
-      playerWalkOrig[1] || texPose(walkBase, { legDx: 0 }),
-      playerWalkOrig[2] || texPose(walkBase, { legDx: -2, armDx: 2 }),
-      playerWalkOrig[3] || texPose(walkBase, { legDx: -1, bob: 1 }),
-      texPose(walkBase, { legDx: 1, armDx: 1, bob: 0 }),
-    ]
-    : walkFrom(walkBase);
-  const playerShoot = shootImgs.every(Boolean)
-    ? shootImgs.map((img) => texturize(img, true))
-    : shootFrom(idleBase);
-  const player = {
-    idle: playerIdle,
-    walk: playerWalk,
-    jump: jumpFrom(idleBase),
-    shoot: playerShoot,
-  };
+
+  function makePlayer(hex) {
+    const rec = (img) => {
+      const c = img instanceof HTMLCanvasElement ? img : toCanvas(img);
+      return hex ? remapHoodie(c, hex) : c;
+    };
+    const tintIdle = rec(idleBase);
+    const tintWalk = rec(walkBase);
+    const playerIdle = idleImgs.every(Boolean)
+      ? idleImgs.map((img) => texturize(rec(img), true))
+      : idleFrom(tintIdle);
+    const walkOrig = walkImgs.filter(Boolean).map((img) => texturize(rec(img), true));
+    const playerWalk = walkOrig.length
+      ? [
+        walkOrig[0],
+        texPose(tintWalk, { legDx: 2, armDx: -1, bob: 1, legDy: -1 }),
+        walkOrig[1] || texPose(tintWalk, { legDx: 0 }),
+        walkOrig[2] || texPose(tintWalk, { legDx: -2, armDx: 2 }),
+        walkOrig[3] || texPose(tintWalk, { legDx: -1, bob: 1 }),
+        texPose(tintWalk, { legDx: 1, armDx: 1, bob: 0 }),
+      ]
+      : walkFrom(tintWalk);
+    const playerShoot = shootImgs.every(Boolean)
+      ? shootImgs.map((img) => texturize(rec(img), true))
+      : shootFrom(tintIdle);
+    return {
+      idle: playerIdle,
+      walk: playerWalk,
+      jump: jumpFrom(tintIdle),
+      shoot: playerShoot,
+    };
+  }
+
+  const player = makePlayer(null);
+  const outfits = OUTFITS.map((o) => (o.hex25 ? makePlayer(o.hex25) : player));
 
   const thugBase = toCanvas(thugImgs[0] || fallbackFrame("thug", 0));
   const runnerBase = toCanvas(runnerImgs[0] || fallbackFrame("runner", 0));
@@ -193,6 +207,7 @@ export async function loadSprites() {
     jump: player.jump,
     shoot: player.shoot,
     player,
+    outfits,
     thug,
     runner,
     cop,

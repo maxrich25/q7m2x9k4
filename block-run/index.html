@@ -12,7 +12,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <!-- Cache bust: keep ?v= identical with js imports (see README). -->
-  <link rel="stylesheet" href="style.css?v=30" />
+  <link rel="stylesheet" href="style.css?v=31" />
 </head>
 <body>
   <div id="app">
@@ -24,6 +24,7 @@
           <span id="hud-inv">GRN 0g  WHT 0g</span>
           <span id="hud-heat" title="heat"></span>
           <span id="hud-rep">R1</span>
+          <span id="hud-time">9P</span>
           <button id="btn-phone" type="button" data-role="phone" aria-label="phone">PH</button>
           <button id="btn-pause" type="button" aria-label="pause">II</button>
         </div>
@@ -111,6 +112,21 @@
             <div id="stash-rows"></div>
           </div>
         </div>
+        <div id="sheet-crib" class="sheet hidden">
+          <div class="sheet-card">
+            <div class="sheet-head">
+              <h2>CRIB</h2>
+              <button type="button" data-role="crib-close">X</button>
+            </div>
+            <p class="sheet-note">HOME</p>
+            <div id="crib-clock" class="sheet-inv"></div>
+            <div id="crib-fit" class="sheet-inv"></div>
+            <button type="button" class="sheet-buy" data-role="crib-clothes">CHANGE CLOTHES</button>
+            <button type="button" class="sheet-buy" data-role="crib-sleep">SLEEP</button>
+            <button type="button" class="sheet-buy" data-role="crib-wait">WAIT</button>
+            <button type="button" class="sheet-buy white" data-role="crib-stash">STASH</button>
+          </div>
+        </div>
         <div id="overlay">
           <div id="overlay-card">
             <h1 id="overlay-title">BLOCK<br><span>RUN</span></h1>
@@ -160,6 +176,6 @@
     </div>
   </div>
   <p id="status" class="sr-only">title</p>
-  <script type="module" src="js/main.js?v=30"></script>
+  <script type="module" src="js/main.js?v=31"></script>
 </body>
 </html>

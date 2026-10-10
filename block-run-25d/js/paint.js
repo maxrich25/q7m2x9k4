@@ -10,6 +10,38 @@ export function pixelCanvas(w, h, paint) {
   return c;
 }
 
+/** Recolor reddish hoodie/hat pixels on original player sheets. */
+export function remapHoodie(src, hex) {
+  if (!src || !hex) return src;
+  const w = src.width || src.naturalWidth || 32;
+  const h = src.height || src.naturalHeight || 40;
+  const to = parseInt(String(hex).replace("#", ""), 16);
+  if (!Number.isFinite(to)) return src;
+  const tr = (to >> 16) & 255;
+  const tg = (to >> 8) & 255;
+  const tb = to & 255;
+  return pixelCanvas(w, h, (g) => {
+    g.drawImage(src, 0, 0);
+    const img = g.getImageData(0, 0, w, h);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i];
+      const gv = d[i + 1];
+      const b = d[i + 2];
+      const a = d[i + 3];
+      if (a < 8) continue;
+      if (r > 70 && r > gv * 1.22 && r > b * 1.22 && (r - gv) > 16) {
+        const lum = (r * 0.52 + gv * 0.22 + b * 0.1) / 255;
+        const k = 0.42 + lum * 0.95;
+        d[i] = Math.min(255, Math.round(tr * k));
+        d[i + 1] = Math.min(255, Math.round(tg * k));
+        d[i + 2] = Math.min(255, Math.round(tb * k));
+      }
+    }
+    g.putImageData(img, 0, 0);
+  });
+}
+
 export function derivePose(src, { bob = 0, legDx = 0, legDy = 0, armDx = 0 } = {}) {
   const w = src.width;
   const h = src.height;

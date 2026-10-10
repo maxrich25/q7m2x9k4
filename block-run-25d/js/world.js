@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX,
-} from "./config.js?v=30";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=30";
+} from "./config.js?v=31";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=31";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -461,37 +461,101 @@ function makeLamp() {
 }
 
 function skylineTex() {
-  return canvasTex(640, 160, (g, w, h) => {
+  return canvasTex(960, 280, (g, w, h) => {
     g.clearRect(0, 0, w, h);
-    const towers = [
-      { w: 18, h: 52 }, { w: 14, h: 70 }, { w: 22, h: 44 },
-      { w: 16, h: 96, crown: true }, { w: 12, h: 60 }, { w: 28, h: 118, spire: true },
-      { w: 15, h: 80 }, { w: 20, h: 54 }, { w: 13, h: 88 }, { w: 24, h: 72 },
-      { w: 11, h: 48 }, { w: 19, h: 104, crown: true }, { w: 16, h: 66 },
-      { w: 14, h: 90 }, { w: 21, h: 58 }, { w: 12, h: 76 },
-    ];
-    let x = 8;
-    for (const t of towers) {
-      g.fillStyle = "#0a0614";
-      g.fillRect(x, h - t.h, t.w, t.h);
-      if (t.spire) {
-        g.fillRect(x + t.w / 2 - 2, h - t.h - 22, 4, 22);
-        g.fillStyle = "#3de0ff";
-        g.fillRect(x + t.w / 2 - 1, h - t.h - 26, 2, 4);
-      }
-      if (t.crown) {
-        g.fillStyle = "#1a1028";
-        g.fillRect(x - 2, h - t.h, t.w + 4, 6);
-      }
-      g.fillStyle = "#f0c430";
-      for (let wy = h - t.h + 8; wy < h - 8; wy += 7) {
-        for (let wx = x + 3; wx < x + t.w - 3; wx += 5) {
-          if (((wx + wy) % 11) > 4) g.fillRect(wx, wy, 2, 2);
+    const haze = g.createLinearGradient(0, h * 0.28, 0, h);
+    haze.addColorStop(0, "rgba(200,170,230,0)");
+    haze.addColorStop(0.55, "rgba(120,80,160,0.22)");
+    haze.addColorStop(1, "rgba(70,48,96,0.42)");
+    g.fillStyle = haze;
+    g.fillRect(0, 0, w, h);
+
+    function windows(x, y, bw, bh, gold = true) {
+      g.fillStyle = gold ? "#f0c430" : "#7ad8ff";
+      for (let wy = y + 8; wy < y + bh - 8; wy += 6) {
+        for (let wx = x + 3; wx < x + bw - 3; wx += 5) {
+          if (((wx + wy) % 9) > 3) g.fillRect(wx, wy, 2, 2);
         }
       }
-      g.fillStyle = "#3de0ff";
-      if (t.h > 80) g.fillRect(x + 3, h - t.h + 4, 3, 3);
-      x += t.w + 6;
+    }
+
+    function block(x, bw, bh, fill = "#2a2240") {
+      const y = h - bh;
+      g.fillStyle = fill;
+      g.fillRect(x, y, bw, bh);
+      g.fillStyle = "#3a3058";
+      g.fillRect(x, y, bw, 3);
+      windows(x, y, bw, bh, (x + bw) % 5 !== 0);
+      return y;
+    }
+
+    function palmSil(x, s) {
+      g.fillStyle = "#161022";
+      g.fillRect(Math.round(x) - 1, h - 34 * s, 3, 34 * s);
+      g.beginPath();
+      g.ellipse(x, h - 36 * s, 16 * s, 8 * s, 0, 0, Math.PI * 2);
+      g.fill();
+      g.beginPath();
+      g.ellipse(x - 10 * s, h - 32 * s, 10 * s, 5 * s, -0.5, 0, Math.PI * 2);
+      g.fill();
+      g.beginPath();
+      g.ellipse(x + 10 * s, h - 32 * s, 10 * s, 5 * s, 0.5, 0, Math.PI * 2);
+      g.fill();
+    }
+
+    // mid-rise row
+    const mid = [
+      [18, 22, 78], [48, 16, 96], [72, 28, 64], [108, 18, 110],
+      [136, 24, 72], [168, 14, 88], [190, 20, 60], [218, 26, 102],
+      [252, 15, 70], [276, 22, 84], [640, 20, 68], [668, 16, 92],
+      [692, 28, 58], [728, 18, 80], [754, 24, 74], [786, 14, 98],
+      [808, 22, 66], [838, 18, 88], [864, 26, 54], [898, 16, 76],
+    ];
+    for (const [x, bw, bh] of mid) block(x, bw, bh);
+
+    // US Bank Tower — tall shaft + glass crown
+    const usbX = 360;
+    const usbW = 30;
+    const usbH = 188;
+    const usbY = block(usbX, usbW, usbH, "#322848");
+    g.fillStyle = "#4a3a68";
+    g.fillRect(usbX - 4, usbY - 14, usbW + 8, 16);
+    g.fillStyle = "#5a4a78";
+    g.fillRect(usbX + 2, usbY - 24, usbW - 4, 12);
+    g.fillStyle = "#3de0ff";
+    g.fillRect(usbX + usbW / 2 - 1, usbY - 38, 2, 16);
+    g.fillRect(usbX + 6, usbY - 10, 4, 4);
+    windows(usbX, usbY, usbW, usbH, true);
+
+    // Wilshire Grand — sail prow + tall thin spire
+    const wgX = 500;
+    const wgW = 38;
+    const wgH = 210;
+    const wgY = h - wgH;
+    g.fillStyle = "#2e2644";
+    g.fillRect(wgX, wgY + 28, wgW, wgH - 28);
+    g.beginPath();
+    g.moveTo(wgX - 6, wgY + 36);
+    g.lineTo(wgX + wgW * 0.42, wgY - 8);
+    g.lineTo(wgX + wgW + 8, wgY + 40);
+    g.lineTo(wgX + wgW, wgY + 56);
+    g.lineTo(wgX, wgY + 56);
+    g.closePath();
+    g.fill();
+    g.fillStyle = "#3a3058";
+    g.fillRect(wgX + wgW / 2 - 2, wgY - 62, 4, 56);
+    g.fillStyle = "#f0c430";
+    g.fillRect(wgX + wgW / 2 - 1, wgY - 70, 2, 10);
+    windows(wgX, wgY + 28, wgW, wgH - 28, false);
+    g.fillStyle = "#7ad8ff";
+    g.fillRect(wgX + 8, wgY + 10, 3, 3);
+
+    // library / extra tower
+    block(430, 22, 150, "#2a2038");
+    block(560, 18, 132, "#342848");
+
+    for (let i = 0; i < 18; i++) {
+      palmSil(12 + i * 54 + ((i * 17) % 11), 0.7 + (i % 3) * 0.18);
     }
   });
 }
@@ -510,10 +574,10 @@ export function createWorld(canvas, sprites) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x120820, 0.011);
+  scene.fog = new THREE.FogExp2(0x1a1030, 0.0046);
   scene.background = new THREE.Color(0x140a28);
 
-  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 220);
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 280);
   camera.position.set(0, 4.6, 11.5);
 
   scene.add(new THREE.AmbientLight(0x4a3068, 1.05));
@@ -536,14 +600,14 @@ export function createWorld(canvas, sprites) {
   });
   const sky = new THREE.Mesh(
     new THREE.PlaneGeometry(220, 80),
-    new THREE.MeshBasicMaterial({ map: stars }),
+    new THREE.MeshBasicMaterial({ map: stars, transparent: true, depthWrite: false }),
   );
   sky.position.set(0, 22, -70);
   scene.add(sky);
 
   const moon = new THREE.Mesh(
     new THREE.SphereGeometry(1.8, 16, 16),
-    new THREE.MeshBasicMaterial({ color: 0xf4f0e8 }),
+    new THREE.MeshBasicMaterial({ color: 0xf4f0e8, transparent: true }),
   );
   moon.position.set(-10, 12, -28);
   scene.add(moon);
@@ -552,11 +616,34 @@ export function createWorld(canvas, sprites) {
   scene.add(moonGlow);
 
   const skyline = new THREE.Mesh(
-    new THREE.PlaneGeometry(140, 28),
-    new THREE.MeshBasicMaterial({ map: skylineTex(), transparent: true }),
+    new THREE.PlaneGeometry(190, 24),
+    new THREE.MeshBasicMaterial({ map: skylineTex(), transparent: true, depthWrite: false }),
   );
-  skyline.position.set(0, 11.2, -36);
+  skyline.position.set(0, 13.4, -22);
   scene.add(skyline);
+  const hazeTex = canvasTex(64, 32, (g, w, h) => {
+    const grd = g.createLinearGradient(0, 0, 0, h);
+    grd.addColorStop(0, "rgba(180,140,220,0)");
+    grd.addColorStop(0.55, "rgba(90,60,130,0.28)");
+    grd.addColorStop(1, "rgba(50,32,80,0.4)");
+    g.fillStyle = grd;
+    g.fillRect(0, 0, w, h);
+  });
+  hazeTex.wrapS = THREE.ClampToEdgeWrapping;
+  hazeTex.wrapT = THREE.ClampToEdgeWrapping;
+  const hazeBand = new THREE.Mesh(
+    new THREE.PlaneGeometry(210, 12),
+    new THREE.MeshBasicMaterial({ map: hazeTex, transparent: true, depthWrite: false }),
+  );
+  hazeBand.position.set(0, 7.2, -18);
+  scene.add(hazeBand);
+  const farPalms = [];
+  for (let i = 0; i < 14; i++) {
+    const palm = makePalm();
+    palm.scale.setScalar(1.35 + (i % 3) * 0.22);
+    scene.add(palm);
+    farPalms.push({ mesh: palm, dx: (i - 6.5) * 10.2 + (i % 2) * 2.4, z: -15.5 - (i % 3) * 0.8 });
+  }
 
   const city = new THREE.Group();
   const asphalt = new THREE.Mesh(
@@ -620,16 +707,16 @@ export function createWorld(canvas, sprites) {
     { id: "park", neon: ["PARK", "#3de0ff"], cols: ["#2a4a38", "#3a3a30", "#2a3840"], park: true },
   ];
   const facadeLayout = [
-    { x: 4, w: 4.2, h: 7.4, d: 2.4 },
-    { x: 9, w: 3.6, h: 6.4, d: 2.2 },
-    { x: 13.2, w: 4.6, h: 8.6, d: 2.6 },
-    { x: 18.4, w: 5.4, h: 5.6, d: 2.0 },
-    { x: 24.2, w: 3.8, h: 8.0, d: 2.3 },
-    { x: 28.6, w: 4.0, h: 6.8, d: 2.2 },
-    { x: 33.4, w: 4.4, h: 8.4, d: 2.5 },
-    { x: 38.6, w: 3.6, h: 6.2, d: 2.1 },
-    { x: 43.2, w: 4.8, h: 7.8, d: 2.4 },
-    { x: 48.4, w: 3.4, h: 6.6, d: 2.2 },
+    { x: 4, w: 4.2, h: 4.2, d: 2.4 },
+    { x: 9, w: 3.6, h: 3.6, d: 2.2 },
+    { x: 13.2, w: 4.6, h: 4.8, d: 2.6 },
+    { x: 18.4, w: 5.4, h: 3.3, d: 2.0 },
+    { x: 24.2, w: 3.8, h: 4.4, d: 2.3 },
+    { x: 28.6, w: 4.0, h: 3.7, d: 2.2 },
+    { x: 33.4, w: 4.4, h: 4.6, d: 2.5 },
+    { x: 38.6, w: 3.6, h: 3.5, d: 2.1 },
+    { x: 43.2, w: 4.8, h: 4.3, d: 2.4 },
+    { x: 48.4, w: 3.4, h: 3.6, d: 2.2 },
   ];
 
   function addNeon(text, color, x, y, z, lit = false) {
@@ -721,13 +808,13 @@ export function createWorld(canvas, sprites) {
     for (let i = 0; i < layout.length; i++) {
       const b = layout[i];
       const col = theme.cols[i % theme.cols.length];
-      const h = theme.park ? Math.min(b.h, 5.2) : theme.id === "motel" ? Math.min(b.h, 5.4) : b.h;
+      const h = theme.park ? Math.min(b.h, 3.4) : theme.id === "motel" ? Math.min(b.h, 3.6) : b.h;
       const mesh = makeBuilding(b.w, h, b.d, brick(col));
       mesh.position.set(b.x + xOff, 0, -3.4);
       city.add(mesh);
     }
     stampLandmark(theme, xOff);
-    addNeon(theme.neon[0], theme.neon[1], 24.4 + xOff, theme.park ? 5.4 : 7.4, -2.15, lit);
+    addNeon(theme.neon[0], theme.neon[1], 24.4 + xOff, theme.park ? 3.8 : 5.05, -2.15, lit);
     if (theme.graf) {
       const grafWall = new THREE.Mesh(
         new THREE.BoxGeometry(7.2, 3.2, 0.45),
@@ -814,7 +901,6 @@ export function createWorld(canvas, sprites) {
   homeHouse.position.set(gameToWorldX(HOME_X), 0, -1.05);
   city.add(homeHouse);
   addNeon("HOME", "#3de0ff", gameToWorldX(HOME_X), 3.55, 0.35, true);
-  addNeon("HOME", "#3de0ff", gameToWorldX(HOME_X), 2.05, 1.35, true);
   addNeon("PLUG", "#e21b7a", gameToWorldX(PLUG_X), 2.55, 0.15, true);
 
   const shop = makeKiosk();
@@ -903,11 +989,8 @@ export function createWorld(canvas, sprites) {
   scene.add(destPin);
   const plugLabel = makeLabel("PLUG", "#e21b7a");
   scene.add(plugLabel);
-  const homeLabel = makeLabel("HOME", "#3de0ff");
-  homeLabel.scale.set(3.4, 0.85, 1);
-  scene.add(homeLabel);
   const stashLabel = makeLabel("STASH", "#f0c430");
-  stashLabel.scale.set(2.6, 0.7, 1);
+  stashLabel.scale.set(1.7, 0.4, 1);
   scene.add(stashLabel);
   const buyerSprite = makeBillboard(sprites.buyers[0].idle[0], 2.2);
   buyerSprite.visible = false;
@@ -1040,18 +1123,42 @@ export function createWorld(canvas, sprites) {
 
     moon.position.set(camX - 4.5, 9.2, -11);
     moonGlow.position.copy(moon.position);
-    skyline.position.set(camX + 2, 12.4, -28);
+    skyline.position.set(camX + 2, 13.4, -22);
+    hazeBand.position.set(camX, 7.2, -18);
     sky.position.set(camX, 18, -32);
+    for (const fp of farPalms) {
+      fp.mesh.position.set(camX + fp.dx, 0, fp.z);
+    }
+    const skyInfo = state.sky;
+    if (skyInfo) {
+      scene.background.setHex(skyInfo.top);
+      renderer.setClearColor(skyInfo.top, 1);
+      if (scene.fog) {
+        scene.fog.color.setHex(skyInfo.fog);
+        scene.fog.density = skyInfo.star > 0.55 ? 0.0048 : 0.0034;
+      }
+      sky.material.color.setHex(skyInfo.top);
+      sky.material.opacity = 0.28 + skyInfo.star * 0.72;
+      moon.visible = skyInfo.moon > 0.12;
+      moon.material.opacity = Math.max(0.15, skyInfo.moon);
+      moonGlow.visible = skyInfo.moon > 0.12;
+      moonGlow.material.opacity = 0.2 + skyInfo.moon * 0.65;
+      hemi.intensity = 0.45 + skyInfo.light * 0.5;
+      hemi.color.setHex(skyInfo.top);
+      moonLight.intensity = 0.15 + skyInfo.moon * 0.55;
+      skyline.material.color.setHex(skyInfo.star > 0.4 ? 0xffffff : 0xffe8d0);
+    }
 
     buyerT += stepDt;
     const blink = state.invuln > 0 && Math.floor(state.invuln * 20) % 2 === 0;
     playerSprite.visible = !state.inCar;
     playerSprite.material.opacity = blink ? 0.4 : 1;
     const airborne = p.y < 197.2;
-    const animSet = state.muzzle > 0 ? sprites.shoot
-      : airborne ? sprites.jump
-      : Math.abs(p.vx) > 8 ? sprites.walk
-      : sprites.idle;
+    const fit = (sprites.outfits && sprites.outfits[state.outfit | 0]) || sprites;
+    const animSet = state.muzzle > 0 ? fit.shoot
+      : airborne ? fit.jump
+      : Math.abs(p.vx) > 8 ? fit.walk
+      : fit.idle;
     const rate = state.muzzle > 0 ? 14 : airborne ? 8 : Math.abs(p.vx) > 8 ? 11 : 5;
     setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate), p.facing);
     place(playerSprite, px, p.y, camX, 1.15);
@@ -1150,10 +1257,8 @@ export function createWorld(canvas, sprites) {
     const plugX = state.plugMeet?.x ?? PLUG_X;
     place(plugLabel, plugX, 154, camX, 1.15);
     plugLabel.position.y = 2.85;
-    place(homeLabel, HOME_X, 154, camX, 1.15);
-    homeLabel.position.y = 3.15;
     place(stashLabel, HOME_X, 154, camX, 1.15);
-    stashLabel.position.y = 2.35;
+    stashLabel.position.y = 2.42;
     if (state.plugMeet) {
       plugSprite.visible = true;
       const pset = sprites.plug || sprites.buyers[0];

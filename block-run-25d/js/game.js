@@ -9,8 +9,9 @@ import {
   PRODUCTS, HALF_OZ, SALE_AMOUNTS, FLAKE_LIMIT, CONTACT_NAMES, MORE_NAMES,
   INTRO_TEXT, SALE_POP_T, SERVE_SLOW, fmtGrams, streetGrams,
   restLat, CAR_KINDS, GREEN_TIERS, WHITE_TIERS, STALL_LINES,
-} from "./config.js?v=30";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=30";
+  OUTFITS, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
+} from "./config.js?v=31";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=31";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -64,6 +65,9 @@ export function createGame() {
   let salePop = null;
   let usedNames = new Set();
   let rep = 1;
+  let outfit = 0;
+  let timeHours = START_HOUR;
+  let fromCrib = false;
   let hi = loadHi();
   let wave = 1;
   let gun = "pistol";
@@ -134,6 +138,7 @@ export function createGame() {
       else if (nearPlug && !plugMeet) prompt = "TEXT PLUG";
       else if (nearPed && !nearCar && !nearHome) prompt = "HIT UP";
     }
+    const hour = wrapHour(timeHours);
     const dealD = liveDeal ? wrapDelta(player.x, order.x, WORLD) : 0;
     const navTarget = liveDeal ? order.x : (plugMeet ? plugMeet.x : HOME_X);
     const navLabel = liveDeal ? "DEAL" : (plugMeet ? "PLUG" : "HOME");
@@ -178,6 +183,11 @@ export function createGame() {
       homeAt: HOME_X / WORLD,
       navLabel,
       liveDeal: !!liveDeal,
+      hour,
+      timeLabel: fmtHour(hour),
+      outfit,
+      outfits: OUTFITS.map((o) => ({ id: o.id, label: o.label })),
+      sky: skyTint(hour),
       foes: foes.map((f) => ({ ...f })),
       shots: shots.map((s) => ({ ...s })),
       loot: loot.map((l) => ({ ...l })),
@@ -565,7 +575,7 @@ export function createGame() {
     const pay = order.dollars;
     cash += pay;
     heat = Math.min(3, heat + 0.18);
-    rep = Math.min(10, rep + 2);
+    rep = Math.min(MAX_REP, rep + 2);
     salePop = {
       product: order.product,
       grams,
@@ -618,6 +628,35 @@ export function createGame() {
     return true;
   }
 
+  function openCrib() {
+    ui = "crib";
+    fromCrib = false;
+    return true;
+  }
+
+  function cycleOutfit() {
+    outfit = (outfit + 1) % OUTFITS.length;
+    pop(HOME_X, 150, OUTFITS[outfit].label);
+    sfx.pickup();
+    return true;
+  }
+
+  function sleepCrib() {
+    timeHours = wrapHour(timeHours + 7);
+    player.hp = MAX_HP;
+    invuln = 0.35;
+    pop(HOME_X, 150, "ZZZ " + fmtHour(timeHours));
+    sfx.drop();
+    return true;
+  }
+
+  function waitCrib() {
+    timeHours = wrapHour(timeHours + 1);
+    pop(HOME_X, 150, "WAIT " + fmtHour(timeHours));
+    sfx.ping();
+    return true;
+  }
+
   function useGate() {
     const nearCarNow = !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && onGround();
     const nearHomeNow = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && onGround();
@@ -635,7 +674,7 @@ export function createGame() {
       return true;
     }
     if (nearHomeNow) {
-      openStash();
+      openCrib();
       return true;
     }
     if (nearPlugNow && plugMeet) {
@@ -669,6 +708,9 @@ export function createGame() {
       boughtOnce = false;
       inbox = [];
       phoneTab = "texts";
+      outfit = 0;
+      timeHours = START_HOUR;
+      fromCrib = false;
       seedContacts();
     }
     stash = keepWave ? stash : 0;
@@ -955,6 +997,7 @@ export function createGame() {
       setEngine("off");
       return snapshot();
     }
+    timeHours += dt / SEC_PER_HOUR;
 
     if (mode === "title") {
       if (input.start || input.shoot || input.jump) beginPlay(false);
@@ -988,7 +1031,16 @@ export function createGame() {
     if (input.textPlug) textPlug();
     if (input.buyGreen) buyProduct("GREEN");
     if (input.buyWhite) buyProduct("WHITE");
-    if (input.buyClose || input.stashClose) ui = null;
+    if (input.buyClose) ui = null;
+    if (input.cribClose) { ui = null; fromCrib = false; }
+    if (input.cribClothes) cycleOutfit();
+    if (input.cribSleep) sleepCrib();
+    if (input.cribWait) waitCrib();
+    if (input.cribStash) { fromCrib = true; openStash(); }
+    if (input.stashClose) {
+      ui = fromCrib ? "crib" : null;
+      fromCrib = false;
+    }
     if (input.stashInCash) transfer("cash", 1);
     if (input.stashOutCash) transfer("cash", -1);
     if (input.stashInGreen) transfer("GREEN", 1);
@@ -1520,9 +1572,14 @@ export function createGame() {
       if (!PRODUCTS[id]) return;
       stashInv[id] = Math.max(0, Number(grams) || 0);
     },
-    setRep(n) { rep = Math.max(0, Math.min(10, n)); },
+    setRep(n) { rep = Math.max(0, Math.min(MAX_REP, n)); },
     setStash(n) { stash = Math.max(0, n | 0); maybeHi(); },
     setClock(t) { clock = Math.max(0, Number(t) || 0); },
+    setTimeHours(h) { timeHours = wrapHour(h); },
+    setOutfit(i) {
+      const n = OUTFITS.length;
+      outfit = ((Number(i) || 0) % n + n) % n;
+    },
     acceptOrder,
     declineOrder,
     stallOrder,
@@ -1539,6 +1596,10 @@ export function createGame() {
     setUi,
     openBuy,
     openStash,
+    openCrib,
+    cycleOutfit,
+    sleepCrib,
+    waitCrib,
     useGate,
     doUTurn,
     addContact,
