@@ -36,6 +36,7 @@ export const PACK_PAY = 46;
 export const PLUG_X = 1480;
 export const HOME_X = 240;
 export const PED_COUNT = 10;
+export const TRAFFIC_MAX = 7;
 export const CONTACT_NAMES = ["DEZ", "MARI", "KILO", "NIA", "JUNO"];
 export const MORE_NAMES = ["ACE", "BREE", "CAM", "DRE", "EZ", "FAY", "GIO", "HANA", "IZZY", "JAY"];
 export const INTRO_TEXT = "You just quit your garbage job. You saved enough for a first re-up, and you know people.";
@@ -75,7 +76,8 @@ export const ORDER_SPOTS = [
 
 export const MAX_REP = 16;
 export const START_HOUR = 21;
-export const SEC_PER_HOUR = 20;
+/** ~14 real minutes per in-game day (24 * 35s). */
+export const SEC_PER_HOUR = 35;
 
 export const GREEN_TIERS = [
   { id: "half", label: "1/2 OZ", grams: 14, cost: 100, minRep: 0 },
@@ -139,6 +141,83 @@ export function fmtHour(h) {
   return (hr % 12 || 12) + (hr < 12 ? " AM" : " PM");
 }
 
+/** dawn 5-7A, day 7A-5P, dusk 5-8P, night 8P-5A */
+export function dayPhase(hour) {
+  const h = wrapHour(hour);
+  if (h >= 5 && h < 7) return "dawn";
+  if (h >= 7 && h < 17) return "day";
+  if (h >= 17 && h < 20) return "dusk";
+  return "night";
+}
+
+function lerpKeys(keys, hour, pick) {
+  const h = wrapHour(hour);
+  let i = 0;
+  while (i < keys.length - 1 && keys[i + 1].h <= h) i += 1;
+  const a = keys[i];
+  const b = keys[Math.min(i + 1, keys.length - 1)];
+  const span = Math.max(0.001, b.h - a.h);
+  const t = Math.max(0, Math.min(1, (h - a.h) / span));
+  return pick(a, b, t);
+}
+
+const BUSY_KEYS = [
+  { h: 0, v: 0.42 },
+  { h: 2, v: 0.26 },
+  { h: 3, v: 0.1 },
+  { h: 5, v: 0.07 },
+  { h: 6.5, v: 0.36 },
+  { h: 8, v: 0.88 },
+  { h: 12, v: 0.96 },
+  { h: 17, v: 1 },
+  { h: 20, v: 0.9 },
+  { h: 22, v: 0.52 },
+  { h: 24, v: 0.42 },
+];
+
+/** 1 = packed sidewalks, ~0.08 = near-empty 3-5A. */
+export function streetBusy(hour) {
+  return lerpKeys(BUSY_KEYS, hour, (a, b, t) => a.v + (b.v - a.v) * t);
+}
+
+const ORDER_WAIT_KEYS = [
+  { h: 0, v: 0.62 },
+  { h: 2, v: 0.88 },
+  { h: 5, v: 1.42 },
+  { h: 8, v: 1.55 },
+  { h: 11, v: 1.18 },
+  { h: 17, v: 0.88 },
+  { h: 20, v: 0.54 },
+  { h: 23, v: 0.5 },
+  { h: 24, v: 0.62 },
+];
+
+/** Multiplier on customer text delay. Lower = more texts (peaks 8P-2A). */
+export function orderWaitMul(hour) {
+  return lerpKeys(ORDER_WAIT_KEYS, hour, (a, b, t) => a.v + (b.v - a.v) * t);
+}
+
+const HEAT_KEYS = [
+  { h: 0, v: 1.3 },
+  { h: 5, v: 1.12 },
+  { h: 8, v: 0.86 },
+  { h: 17, v: 0.94 },
+  { h: 20, v: 1.1 },
+  { h: 22, v: 1.26 },
+  { h: 24, v: 1.3 },
+];
+
+/** Late-night heat gain / cop pressure. Stays near 1 so it stays gentle. */
+export function heatMul(hour) {
+  return lerpKeys(HEAT_KEYS, hour, (a, b, t) => a.v + (b.v - a.v) * t);
+}
+
+/** Plug answers 10A-4A only. */
+export function plugOpen(hour) {
+  const h = wrapHour(hour);
+  return h >= 10 || h < 4;
+}
+
 export function hexCss(n) {
   return "#" + (n >>> 0).toString(16).padStart(6, "0");
 }
@@ -154,15 +233,18 @@ function lerpHex(a, b, t) {
 }
 
 const SKY_KEYS = [
-  { h: 0, top: 0x0a0118, bot: 0x12081e, fog: 0x10061a, star: 1, moon: 1, light: 0.55 },
-  { h: 5, top: 0x1a1030, bot: 0x3a1840, fog: 0x241028, star: 0.45, moon: 0.55, light: 0.7 },
-  { h: 6.5, top: 0xc86a48, bot: 0xe8a060, fog: 0x8a4a40, star: 0.08, moon: 0.15, light: 1.05 },
-  { h: 9, top: 0x4a90d0, bot: 0x7ab8e8, fog: 0x6aa0c8, star: 0, moon: 0, light: 1.2 },
-  { h: 16, top: 0x3a78b8, bot: 0x6aa8d8, fog: 0x5a90c0, star: 0, moon: 0, light: 1.1 },
-  { h: 18, top: 0xc84a38, bot: 0xe87840, fog: 0x8a3028, star: 0.12, moon: 0.22, light: 0.9 },
-  { h: 20, top: 0x2a1040, bot: 0x1a0828, fog: 0x180820, star: 0.72, moon: 0.82, light: 0.65 },
-  { h: 21, top: 0x0c0120, bot: 0x140a28, fog: 0x120820, star: 1, moon: 1, light: 0.6 },
-  { h: 24, top: 0x0a0118, bot: 0x12081e, fog: 0x10061a, star: 1, moon: 1, light: 0.55 },
+  { h: 0, top: 0x0a0118, bot: 0x12081e, fog: 0x10061a, star: 1, moon: 1, sun: 0, light: 0.5, windows: 0.95, lamps: 1 },
+  { h: 3, top: 0x080114, bot: 0x10061a, fog: 0x0c0416, star: 1, moon: 1, sun: 0, light: 0.46, windows: 0.82, lamps: 1 },
+  { h: 5, top: 0x1a1030, bot: 0x3a1840, fog: 0x241028, star: 0.5, moon: 0.55, sun: 0.12, light: 0.68, windows: 0.5, lamps: 0.35 },
+  { h: 6, top: 0xc86a48, bot: 0xe8a060, fog: 0x8a4a40, star: 0.1, moon: 0.18, sun: 0.55, light: 1.02, windows: 0.22, lamps: 0.08 },
+  { h: 7, top: 0x4a90d0, bot: 0x7ab8e8, fog: 0x6aa0c8, star: 0, moon: 0, sun: 0.92, light: 1.18, windows: 0.08, lamps: 0 },
+  { h: 12, top: 0x5aa8e8, bot: 0x9ad0f0, fog: 0x7ab8d8, star: 0, moon: 0, sun: 1, light: 1.32, windows: 0.05, lamps: 0 },
+  { h: 16, top: 0x3a78b8, bot: 0x6aa8d8, fog: 0x5a90c0, star: 0, moon: 0, sun: 0.88, light: 1.12, windows: 0.1, lamps: 0 },
+  { h: 17, top: 0xc86a40, bot: 0xe89050, fog: 0x8a4030, star: 0.06, moon: 0.08, sun: 0.62, light: 0.98, windows: 0.48, lamps: 0.18 },
+  { h: 18.5, top: 0xc84a38, bot: 0xe87840, fog: 0x8a3028, star: 0.16, moon: 0.24, sun: 0.28, light: 0.86, windows: 0.78, lamps: 0.62 },
+  { h: 20, top: 0x2a1040, bot: 0x1a0828, fog: 0x180820, star: 0.75, moon: 0.85, sun: 0, light: 0.62, windows: 0.95, lamps: 1 },
+  { h: 21, top: 0x0c0120, bot: 0x140a28, fog: 0x120820, star: 1, moon: 1, sun: 0, light: 0.55, windows: 0.96, lamps: 1 },
+  { h: 24, top: 0x0a0118, bot: 0x12081e, fog: 0x10061a, star: 1, moon: 1, sun: 0, light: 0.5, windows: 0.95, lamps: 1 },
 ];
 
 export function skyTint(hour) {
@@ -178,13 +260,18 @@ export function skyTint(hour) {
   const fog = lerpHex(a.fog, b.fog, t);
   const star = a.star + (b.star - a.star) * t;
   const moon = a.moon + (b.moon - a.moon) * t;
+  const sun = a.sun + (b.sun - a.sun) * t;
   const light = a.light + (b.light - a.light) * t;
+  const windows = a.windows + (b.windows - a.windows) * t;
+  const lamps = a.lamps + (b.lamps - a.lamps) * t;
   return {
-    top, bot, fog, star, moon, light,
+    top, bot, fog, star, moon, sun, light, windows, lamps,
+    headlights: lamps > 0.42,
+    phase: dayPhase(h),
     cssTop: hexCss(top),
     cssBot: hexCss(bot),
     cssFog: hexCss(fog),
-    wash: `rgba(${(bot >> 16) & 255},${(bot >> 8) & 255},${bot & 255},${(0.18 + (1 - star) * 0.28).toFixed(3)})`,
+    wash: `rgba(${(bot >> 16) & 255},${(bot >> 8) & 255},${bot & 255},${(0.16 + (1 - star) * 0.3).toFixed(3)})`,
   };
 }
 

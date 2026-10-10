@@ -1,7 +1,7 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
-} from "../../block-run-25d/js/config.js?v=35";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=35";
+} from "../../block-run-25d/js/config.js?v=36";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=36";
 
 const STREET_CROP = 168;
 const STREET_W = 398;
@@ -82,7 +82,12 @@ export function createWorld(canvas, art) {
   }
 
   function drawSky(sky) {
-    g.fillStyle = sky?.cssTop || "#0c0120";
+    const top = sky?.cssTop || "#0c0120";
+    const bot = sky?.cssBot || "#140a28";
+    const grd = g.createLinearGradient(0, 0, 0, Math.max(80, ground - 8));
+    grd.addColorStop(0, top);
+    grd.addColorStop(1, bot);
+    g.fillStyle = grd;
     g.fillRect(0, 0, VW, VH);
     const starA = sky?.star ?? 1;
     if (starA > 0.08) {
@@ -92,6 +97,32 @@ export function createWorld(canvas, art) {
         const y = 8 + ((i * 17) % 40);
         g.fillRect(x, y, 1, 1);
       }
+    }
+  }
+
+  function drawSunMoon(sky) {
+    const sun = sky?.sun ?? 0;
+    if (sun > 0.12) {
+      const x = Math.round(VW * 0.74);
+      const y = Math.round(14 + (1 - sun) * 28);
+      const r = 7;
+      g.fillStyle = `rgba(255,210,70,${Math.min(1, 0.35 + sun * 0.55).toFixed(2)})`;
+      g.fillRect(x - r - 2, y - 1, r * 2 + 4, 3);
+      g.fillRect(x - 1, y - r - 2, 3, r * 2 + 4);
+      g.fillStyle = "#ffe46a";
+      g.fillRect(x - r + 1, y - r + 1, r * 2 - 2, r * 2 - 2);
+      g.fillStyle = "#fff6b0";
+      g.fillRect(x - 3, y - 3, 6, 6);
+    }
+    const moon = sky?.moon ?? 0;
+    if (moon > 0.12) {
+      const x = Math.round(VW * 0.22);
+      const y = 16;
+      g.fillStyle = `rgba(244,240,232,${Math.min(1, moon).toFixed(2)})`;
+      g.fillRect(x - 5, y - 4, 10, 9);
+      g.fillStyle = `rgba(200,196,216,${Math.min(1, moon).toFixed(2)})`;
+      g.fillRect(x - 1, y - 2, 3, 3);
+      g.fillRect(x + 2, y + 1, 2, 2);
     }
   }
 
@@ -113,6 +144,12 @@ export function createWorld(canvas, art) {
     if (!sky?.wash) return;
     g.fillStyle = sky.wash;
     g.fillRect(0, 0, VW, ground);
+    // Hide the painted moon on street.png so the clock-driven sun/moon owns the sky.
+    const top = sky.cssTop || "#0c0120";
+    g.fillStyle = top;
+    g.globalAlpha = 0.42 + (1 - (sky.moon || 0)) * 0.38;
+    g.fillRect(0, 0, VW, Math.max(28, Math.round(ground * 0.22)));
+    g.globalAlpha = 1;
   }
 
   function drawStreet(cam) {
@@ -163,7 +200,50 @@ export function createWorld(canvas, art) {
     g.fillText("LA NIGHTS", Math.round(x), y + 26);
   }
 
-  function drawHouse(x) {
+  function windowColor(sky, lit) {
+    const on = lit && (sky?.windows ?? 1) > 0.32;
+    return on ? "#f0c430" : "#1a1424";
+  }
+
+  function drawFacade(x, sky, seed) {
+    const h = 36 + (seed % 3) * 10;
+    const w = 28 + (seed % 2) * 8;
+    const y = ground - 22 - h;
+    const cols = ["#3a3048", "#2a2438", "#403050", "#243044"];
+    g.fillStyle = cols[seed % cols.length];
+    g.fillRect(Math.round(x) - w / 2, y, w, h);
+    g.fillStyle = "#1a1424";
+    g.fillRect(Math.round(x) - w / 2, y, w, 3);
+    const rows = 3 + (seed % 2);
+    const ccount = 2 + (seed % 2);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < ccount; c++) {
+        const lit = ((r + c + seed) % 3) !== 0;
+        g.fillStyle = windowColor(sky, lit);
+        g.fillRect(Math.round(x) - w / 2 + 4 + c * 10, y + 6 + r * 9, 6, 6);
+      }
+    }
+  }
+
+  function drawLamp(x, sky) {
+    const y = ground - 22;
+    g.fillStyle = "#2a2430";
+    g.fillRect(Math.round(x) - 1, y - 40, 2, 40);
+    const on = (sky?.lamps ?? 0) > 0.35;
+    g.fillStyle = on ? "#f0c430" : "#2a2430";
+    g.fillRect(Math.round(x) - 5, y - 46, 12, 7);
+    if (on) {
+      g.fillStyle = `rgba(240,196,48,${Math.min(0.55, 0.22 + sky.lamps * 0.35).toFixed(2)})`;
+      g.beginPath();
+      g.moveTo(Math.round(x) - 4, y - 39);
+      g.lineTo(Math.round(x) - 16, y);
+      g.lineTo(Math.round(x) + 16, y);
+      g.lineTo(Math.round(x) + 4, y - 39);
+      g.fill();
+    }
+  }
+
+  function drawHouse(x, sky) {
     const y = ground - 50;
     g.fillStyle = "#3a3048";
     g.fillRect(Math.round(x) - 22, y, 44, 38);
@@ -171,10 +251,37 @@ export function createWorld(canvas, art) {
     g.fillRect(Math.round(x) - 24, y - 8, 48, 10);
     g.fillStyle = "#3de0ff";
     g.fillRect(Math.round(x) - 6, y + 16, 12, 22);
-    g.fillStyle = "#f0c430";
+    g.fillStyle = windowColor(sky, true);
     g.fillRect(Math.round(x) + 8, y + 8, 8, 8);
     text("HOME", x, y - 14, "#3de0ff");
     text("STASH", x, y - 24, "#f0c430");
+  }
+
+  function drawHeadlights(x, facing, carY, on) {
+    if (!on) return;
+    const dir = facing < 0 ? -1 : 1;
+    const nose = x + dir * 22;
+    g.fillStyle = "rgba(255,236,170,0.55)";
+    g.beginPath();
+    g.moveTo(nose, carY - 10);
+    g.lineTo(nose + dir * 38, carY - 4);
+    g.lineTo(nose + dir * 38, carY + 6);
+    g.lineTo(nose, carY - 4);
+    g.fill();
+    g.fillStyle = "#fff6c0";
+    g.fillRect(Math.round(nose - 2), Math.round(carY - 11), 4, 3);
+  }
+
+  function drawPixelCar(x, carY, facing, color, lights) {
+    const dir = facing < 0 ? -1 : 1;
+    g.fillStyle = color || "#2a3048";
+    g.fillRect(Math.round(x) - 20, carY - 12, 40, 11);
+    g.fillStyle = "#152028";
+    g.fillRect(Math.round(x) - 8, carY - 18, 16, 7);
+    g.fillStyle = "#111018";
+    g.fillRect(Math.round(x) - 16, carY - 3, 7, 4);
+    g.fillRect(Math.round(x) + 9, carY - 3, 7, 4);
+    drawHeadlights(x, dir, carY, lights);
   }
 
   function drawLight(x, phase) {
@@ -247,18 +354,30 @@ export function createWorld(canvas, art) {
     drawSky(state.sky);
     drawBackdrop(camX);
     washBackdrop(state.sky);
+    drawSunMoon(state.sky);
     drawStreet(camX);
 
     drawWrapped((off) => {
       const cali = sx(HOME_X + 180 + off);
       if (cali > -50 && cali < VW + 50) drawCali(cali);
+      for (let i = 0; i < 12; i++) {
+        const gx = i * (WORLD / 12) + 70;
+        if (Math.abs(wrapDelta(gx, HOME_X, WORLD)) < 70) continue;
+        const x = sx(gx + off);
+        if (x > -30 && x < VW + 30) drawFacade(x, state.sky, i);
+      }
       for (let i = 0; i < 8; i++) {
         const gx = i * (WORLD / 8) + 40;
         const x = sx(gx + off);
         if (x > -20 && x < VW + 20) drawPalm(x);
       }
+      for (let i = 0; i < 10; i++) {
+        const gx = i * (WORLD / 10) + 18;
+        const x = sx(gx + off);
+        if (x > -16 && x < VW + 16) drawLamp(x, state.sky);
+      }
       const hx = sx(HOME_X + off);
-      if (hx > -30 && hx < VW + 30) drawHouse(hx);
+      if (hx > -30 && hx < VW + 30) drawHouse(hx, state.sky);
       const plugX = sx((state.plugMeet?.x ?? PLUG_X) + off);
       if (plugX > -30 && plugX < VW + 30) text("PLUG", plugX, sy(GROUND_Y) - 64, "#e21b7a");
       (state.lights || []).forEach((L) => {
@@ -303,6 +422,19 @@ export function createWorld(canvas, art) {
       });
     }
 
+    const nightLights = !!(state.sky?.headlights);
+
+    for (const t of state.traffic || []) {
+      const cx = renderGameX(t, alpha);
+      const facing = t.facing < 0 ? -1 : 1;
+      const carY = facing > 0 ? ground + 24 : ground + 8;
+      drawWrapped((off) => {
+        const x = sx(cx + off);
+        if (x < -50 || x > VW + 50) return;
+        drawPixelCar(x, carY, facing, t.color, nightLights);
+      });
+    }
+
     if (state.car && art.car) {
       const cx = renderGameX(state.car, alpha);
       let facing = state.car.facing < 0 ? -1 : 1;
@@ -315,6 +447,7 @@ export function createWorld(canvas, art) {
         const x = sx(cx + off);
         if (x < -50 || x > VW + 50) return;
         drawImg(art.car, x, carY, facing, 100, 30);
+        drawHeadlights(x, facing, carY - 8, nightLights);
       });
     }
 
@@ -326,6 +459,7 @@ export function createWorld(canvas, art) {
         const x = sx(cx + off);
         if (x < -50 || x > VW + 50) return;
         drawImg(art.copCar, x, carY, facing, 100, 30);
+        drawHeadlights(x, facing, carY - 8, nightLights);
       });
     }
 
@@ -352,6 +486,11 @@ export function createWorld(canvas, art) {
         const x = sx(493 + off);
         if (x > -20 && x < VW + 20) drawImg(art.dumpster, x, feet, 1, 36, 36);
       });
+    }
+
+    if ((state.sky?.star || 0) > 0.25) {
+      g.fillStyle = `rgba(12,4,28,${(state.sky.star * 0.2).toFixed(3)})`;
+      g.fillRect(0, 0, VW, VH);
     }
 
     out.imageSmoothingEnabled = false;

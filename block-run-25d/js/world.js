@@ -2,9 +2,9 @@ import * as THREE from "three";
 import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
-  BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX,
-} from "./config.js?v=35";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=35";
+  BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat,
+} from "./config.js?v=36";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=36";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -63,7 +63,7 @@ function sidewalkTex() {
   });
 }
 
-function windowTex(lit) {
+function windowTex(lit, seed = 11) {
   return canvasTex(32, 48, (g, w, h) => {
     g.fillStyle = "#141018";
     g.fillRect(0, 0, w, h);
@@ -71,8 +71,9 @@ function windowTex(lit) {
     const rows = 6;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        const on = lit && Math.random() > 0.35;
-        g.fillStyle = on ? (Math.random() > 0.5 ? "#ffe06a" : "#7af0ff") : "#1a1424";
+        const n = (r * 5 + c * 3 + seed) % 7;
+        const on = lit && n > 1;
+        g.fillStyle = on ? (n % 2 ? "#ffe06a" : "#7af0ff") : "#1a1424";
         g.fillRect(3 + c * 10, 2 + r * 7.5, 7, 6);
         if (on) {
           g.fillStyle = "rgba(255,255,255,0.25)";
@@ -82,6 +83,31 @@ function windowTex(lit) {
     }
   });
 }
+
+const WIN_LIT = windowTex(true, 11);
+const WIN_DIM = windowTex(false, 11);
+const winMat = new THREE.MeshBasicMaterial({ map: WIN_LIT });
+const winMatFar = new THREE.MeshBasicMaterial({ map: WIN_LIT, fog: false });
+const lampHeadMat = new THREE.MeshBasicMaterial({ color: 0xf0c430 });
+const lampGlowMat = new THREE.SpriteMaterial({
+  map: (() => {
+    const tex = canvasTex(64, 64, (g, w, h) => {
+      const grd = g.createRadialGradient(32, 32, 2, 32, 32, 30);
+      grd.addColorStop(0, "#f0c430");
+      grd.addColorStop(0.4, "#f0c43099");
+      grd.addColorStop(1, "#f0c43000");
+      g.fillStyle = grd;
+      g.fillRect(0, 0, w, h);
+    });
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    return tex;
+  })(),
+  transparent: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  opacity: 0.85,
+});
 
 function graffitiTex() {
   return canvasTex(256, 128, (g, w, h) => {
@@ -193,7 +219,7 @@ function makeBuilding(w, h, d, facade) {
   g.add(body);
   const windows = new THREE.Mesh(
     new THREE.PlaneGeometry(w * 0.86, h * 0.72),
-    new THREE.MeshBasicMaterial({ map: windowTex(true), transparent: false }),
+    winMat,
   );
   windows.position.set(0, h * 0.52, d / 2 + 0.02);
   g.add(windows);
@@ -280,7 +306,22 @@ function makeLuxuryCar() {
     new THREE.MeshBasicMaterial({ color: 0xc8e8ff }),
   );
   ledF.position.set(2.14, 0.5, 0);
+  ledF.name = "headBar";
   g.add(ledF);
+  for (const [name, z] of [["headL", -0.42], ["headR", 0.42]]) {
+    const lamp = new THREE.Mesh(
+      new THREE.BoxGeometry(0.1, 0.08, 0.16),
+      new THREE.MeshBasicMaterial({ color: 0xfff2b0 }),
+    );
+    lamp.name = name;
+    lamp.position.set(2.16, 0.46, z);
+    g.add(lamp);
+  }
+  const headGlow = glowSprite("#fff2b0", 1.15);
+  headGlow.name = "headGlow";
+  headGlow.position.set(2.3, 0.48, 0);
+  headGlow.visible = false;
+  g.add(headGlow);
   const ledR = new THREE.Mesh(
     new THREE.BoxGeometry(0.08, 0.05, 1.16),
     new THREE.MeshBasicMaterial({ color: 0xe21b7a }),
@@ -375,11 +416,19 @@ function makeCopCar() {
   bumper.position.set(1.56, 0.3, 0);
   g.add(bumper);
   const lightMat = new THREE.MeshBasicMaterial({ color: 0xf4f0e8 });
+  let hi = 0;
   for (const z of [-0.36, 0.36]) {
     const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.18), lightMat);
     lamp.position.set(1.52, 0.44, z);
+    lamp.name = hi === 0 ? "headL" : "headR";
     g.add(lamp);
+    hi += 1;
   }
+  const headGlow = glowSprite("#fff2b0", 1.05);
+  headGlow.name = "headGlow";
+  headGlow.position.set(1.7, 0.46, 0);
+  headGlow.visible = false;
+  g.add(headGlow);
   for (const [x, z] of [[-0.95, 0.52], [-0.95, -0.52], [0.95, 0.52], [0.95, -0.52]]) {
     g.add(chromeRim(x, z, 0.2));
   }
@@ -451,12 +500,16 @@ function makeLamp() {
   g.add(pole);
   const head = new THREE.Mesh(
     new THREE.BoxGeometry(0.35, 0.12, 0.18),
-    new THREE.MeshBasicMaterial({ color: 0xf0c430 }),
+    lampHeadMat,
   );
+  head.name = "lampHead";
   head.position.set(0.12, 3.15, 0);
   g.add(head);
-  g.add(glowSprite("#f0c430", 1.8));
-  g.children[g.children.length - 1].position.set(0.12, 3.15, 0.1);
+  const glow = new THREE.Sprite(lampGlowMat);
+  glow.name = "lampGlow";
+  glow.scale.set(1.8, 1.8, 1);
+  glow.position.set(0.12, 3.15, 0.1);
+  g.add(glow);
   return g;
 }
 
@@ -580,12 +633,16 @@ export function createWorld(canvas, sprites) {
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 280);
   camera.position.set(0, 4.6, 11.5);
 
-  scene.add(new THREE.AmbientLight(0x4a3068, 1.05));
+  const amb = new THREE.AmbientLight(0x4a3068, 1.05);
+  scene.add(amb);
   const hemi = new THREE.HemisphereLight(0x7aa0d8, 0x2a1828, 0.85);
   scene.add(hemi);
   const moonLight = new THREE.DirectionalLight(0xe8f0ff, 0.7);
   moonLight.position.set(-8, 18, 8);
   scene.add(moonLight);
+  const sunLight = new THREE.DirectionalLight(0xfff2d0, 0);
+  sunLight.position.set(12, 20, 8);
+  scene.add(sunLight);
   const neonFill = new THREE.DirectionalLight(0xe21b7a, 0.25);
   neonFill.position.set(6, 4, 10);
   scene.add(neonFill);
@@ -614,6 +671,17 @@ export function createWorld(canvas, sprites) {
   const moonGlow = glowSprite("#f4e8c0", 6);
   moonGlow.position.copy(moon.position);
   scene.add(moonGlow);
+  const sun = new THREE.Mesh(
+    new THREE.SphereGeometry(1.45, 16, 16),
+    new THREE.MeshBasicMaterial({ color: 0xffe46a, fog: false }),
+  );
+  sun.position.set(10, 16, -28);
+  sun.visible = false;
+  scene.add(sun);
+  const sunGlow = glowSprite("#ffd24a", 7.5);
+  sunGlow.position.copy(sun.position);
+  sunGlow.visible = false;
+  scene.add(sunGlow);
 
   const skylineMat = new THREE.SpriteMaterial({
     map: skylineTex(),
@@ -638,7 +706,7 @@ export function createWorld(canvas, sprites) {
     g.add(body);
     const glass = new THREE.Mesh(
       new THREE.PlaneGeometry(w * 0.82, h * 0.78),
-      new THREE.MeshBasicMaterial({ map: windowTex(true), fog: false }),
+      winMatFar,
     );
     glass.position.set(0, h * 0.52, d / 2 + 0.03);
     g.add(glass);
@@ -904,9 +972,10 @@ export function createWorld(canvas, sprites) {
     const lamp = makeLamp();
     lamp.position.set(16 + xOff, 0, -0.2);
     city.add(lamp);
-    if (lit) {
-      const pl = new THREE.PointLight(0xf0c430, 1.0, 7, 2);
+    if (lit || (Math.round(xOff / BLOCK_LEN) % 3 === 0)) {
+      const pl = new THREE.PointLight(0xf0c430, 0.85, 7, 2);
       pl.position.set(16 + xOff + 0.12, 3.1, 0.4);
+      pl.userData.streetLamp = true;
       city.add(pl);
     }
   }
@@ -950,6 +1019,7 @@ export function createWorld(canvas, sprites) {
       new THREE.PlaneGeometry(0.7, 0.7),
       new THREE.MeshBasicMaterial({ color: 0xf0c430 }),
     );
+    pane.name = "homePane";
     pane.position.set(1.15, 1.55, 1.22);
     g.add(pane);
     const stoop = new THREE.Mesh(
@@ -992,6 +1062,11 @@ export function createWorld(canvas, sprites) {
   strip.add(left);
   strip.add(right);
   scene.add(strip);
+  const lampLights = [];
+  city.traverse((o) => {
+    if (o.isPointLight && o.userData.streetLamp) lampLights.push(o);
+  });
+  const homePane = homeHouse.getObjectByName("homePane");
 
   const dumpSprite = makeBillboard(sprites.dumpster, 1.15);
   scene.add(dumpSprite);
@@ -1047,6 +1122,7 @@ export function createWorld(canvas, sprites) {
   const copCarMesh = makeCopCar();
   copCarMesh.visible = false;
   scene.add(copCarMesh);
+  const trafficPool = [];
   const destPin = makePin();
   destPin.visible = false;
   scene.add(destPin);
@@ -1184,6 +1260,21 @@ export function createWorld(canvas, sprites) {
       camera.lookAt(camX, 1.32, 1.4);
     }
 
+    function setCarLights(mesh, on) {
+      if (!mesh) return;
+      const l = mesh.getObjectByName("headL");
+      const r = mesh.getObjectByName("headR");
+      const glow = mesh.getObjectByName("headGlow");
+      const bar = mesh.getObjectByName("headBar");
+      if (l) l.visible = on;
+      if (r) r.visible = on;
+      if (glow) {
+        glow.visible = on;
+        glow.material.opacity = on ? 0.7 : 0;
+      }
+      if (bar) bar.material.color.setHex(on ? 0xfff6c8 : 0x6a7080);
+    }
+
     moon.position.set(camX - 6.2, 10.4, -16);
     moonGlow.position.copy(moon.position);
     skyline.position.set(camX + 1.4, 8.9, -10);
@@ -1211,9 +1302,28 @@ export function createWorld(canvas, sprites) {
       moon.material.opacity = Math.max(0.15, skyInfo.moon);
       moonGlow.visible = skyInfo.moon > 0.12;
       moonGlow.material.opacity = 0.2 + skyInfo.moon * 0.65;
-      hemi.intensity = 0.45 + skyInfo.light * 0.5;
+      sun.visible = skyInfo.sun > 0.12;
+      sunGlow.visible = skyInfo.sun > 0.12;
+      sun.position.set(camX + 7.4, 6.2 + skyInfo.sun * 8.5, -16);
+      sunGlow.position.copy(sun.position);
+      sunGlow.material.opacity = 0.25 + skyInfo.sun * 0.6;
+      hemi.intensity = 0.4 + skyInfo.light * 0.55;
       hemi.color.setHex(skyInfo.top);
-      moonLight.intensity = 0.15 + skyInfo.moon * 0.55;
+      moonLight.intensity = skyInfo.moon * 0.62;
+      moonLight.color.setHex(0xe8f0ff);
+      sunLight.intensity = skyInfo.sun * 1.15;
+      sunLight.color.setHex(skyInfo.sun > 0.7 ? 0xfff2d0 : 0xffa060);
+      sunLight.position.set(camX + 12, 8 + skyInfo.sun * 14, 8);
+      amb.intensity = 0.45 + skyInfo.light * 0.55;
+      amb.color.setHex(skyInfo.sun > 0.4 ? 0x88a8c8 : 0x4a3068);
+      neonFill.intensity = 0.12 + skyInfo.star * 0.18;
+      const litWin = skyInfo.windows > 0.32;
+      winMat.map = litWin ? WIN_LIT : WIN_DIM;
+      winMatFar.map = litWin ? WIN_LIT : WIN_DIM;
+      if (homePane) homePane.material.color.setHex(litWin ? 0xf0c430 : 0x1a1424);
+      lampHeadMat.color.setHex(skyInfo.lamps > 0.35 ? 0xf0c430 : 0x2a2430);
+      lampGlowMat.opacity = skyInfo.lamps > 0.35 ? 0.2 + skyInfo.lamps * 0.7 : 0;
+      for (const pl of lampLights) pl.intensity = skyInfo.lamps > 0.35 ? 0.35 + skyInfo.lamps * 0.7 : 0;
       skyline.material.color.setHex(skyInfo.star > 0.4 ? 0xffffff : 0xffe8d0);
     }
 
@@ -1252,6 +1362,7 @@ export function createWorld(canvas, sprites) {
         const rust = state.car.kind === "luxury" ? 0x1a1a1e : 0x6a3a24;
         body.material.color.setHex(state.car.hp > 0 ? rust : 0x2a2438);
       }
+      setCarLights(playerCar, !!(skyInfo && skyInfo.headlights));
       const speed = Math.min(1, Math.abs(state.car.vx) / 180);
       speedStreaks.forEach((streak, i) => {
         const on = state.inCar && speed > 0.35;
@@ -1276,9 +1387,29 @@ export function createWorld(canvas, sprites) {
       const blue = copCarMesh.getObjectByName("copBlue");
       if (red) red.visible = flash;
       if (blue) blue.visible = !flash;
+      setCarLights(copCarMesh, !!(skyInfo && skyInfo.headlights));
     } else {
       copCarMesh.visible = false;
     }
+
+    let ti = 0;
+    for (const t of state.traffic || []) {
+      const mesh = take(trafficPool, () => {
+        const m = makeLuxuryCar();
+        scene.add(m);
+        return m;
+      }, ti++);
+      place(mesh, renderGameX(t, alpha), GROUND_Y, camX, 4.95 + (t.lat ?? restLat(t.facing)));
+      mesh.position.y = 0;
+      mesh.rotation.y = t.facing < 0 ? Math.PI : 0;
+      const body = mesh.getObjectByName("body");
+      if (body) {
+        const hex = typeof t.color === "string" ? parseInt(String(t.color).slice(1), 16) : (t.color || 0x2a3048);
+        body.material.color.setHex(hex);
+      }
+      setCarLights(mesh, !!(skyInfo && skyInfo.headlights));
+    }
+    hideFrom(trafficPool, ti);
 
     if (state.plugMeet && !(state.order && (state.order.phase === "active" || state.order.phase === "nudge"))) {
       destPin.visible = true;
