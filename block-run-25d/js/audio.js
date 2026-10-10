@@ -186,9 +186,9 @@ export function setEngine(kind, speed = 0) {
       return;
     }
     if (kind === "rev") {
-      e.osc.frequency.setTargetAtTime(78, t, 0.04);
-      e.filt.frequency.setTargetAtTime(280, t, 0.05);
-      e.g.gain.setTargetAtTime(0.09, t, 0.04);
+      e.osc.frequency.setTargetAtTime(270, t, 0.04);
+      e.filt.frequency.setTargetAtTime(780, t, 0.05);
+      e.g.gain.setTargetAtTime(0.15, t, 0.04);
     } else {
       const u = Math.max(0, Math.min(1, speed));
       e.osc.frequency.setTargetAtTime(110 + u * 160, t, 0.06);

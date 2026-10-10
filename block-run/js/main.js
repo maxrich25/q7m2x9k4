@@ -1,10 +1,10 @@
-import { TICK } from "../../block-run-25d/js/config.js?v=40";
-import { bindAudioUnlock, unlockAudio, startMusic } from "../../block-run-25d/js/audio.js?v=40";
-import { createInput } from "../../block-run-25d/js/input.js?v=40";
-import { createGame } from "../../block-run-25d/js/game.js?v=40";
-import { createHud } from "../../block-run-25d/js/hud.js?v=40";
-import { loadArt } from "./art.js?v=40";
-import { createWorld } from "./draw.js?v=40";
+import { TICK } from "../../block-run-25d/js/config.js?v=41";
+import { bindAudioUnlock, unlockAudio, startMusic } from "../../block-run-25d/js/audio.js?v=41";
+import { createInput } from "../../block-run-25d/js/input.js?v=41";
+import { createGame } from "../../block-run-25d/js/game.js?v=41";
+import { createHud } from "../../block-run-25d/js/hud.js?v=41";
+import { loadArt } from "./art.js?v=41";
+import { createWorld } from "./draw.js?v=41";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -56,7 +56,7 @@ try {
 const PULSE_KEYS = [
   "shoot", "jump", "start", "mute", "pause", "exit", "gearTap", "shiftStep",
   "accept", "decline", "serve", "gate", "hitup", "uturn", "phone", "phoneClose",
-  "textPlug", "buyGreen", "buyWhite", "buyTier", "buyProduct", "buyTierId", "buyClose", "stashClose",
+  "textPlug", "pingContact", "pingContactId", "buyGreen", "buyWhite", "buyTier", "buyProduct", "buyTierId", "buyClose", "stashClose",
   "inventory", "invClose", "phoneTab",
   "stashInCash", "stashOutCash", "stashInGreen", "stashOutGreen",
   "stashInWhite", "stashOutWhite",
@@ -122,6 +122,7 @@ window.__br = {
   solicit: () => game.solicit(),
   serve: () => game.serve(),
   textPlug: () => game.textPlug(),
+  pingContact: (id) => game.pingContact(id),
   togglePhone: () => game.togglePhone(),
   setUi: (name) => game.setUi(name),
   openBuy: () => game.openBuy(),

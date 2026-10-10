@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=40";
-import { isUnlocked } from "./audio.js?v=40";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=41";
+import { isUnlocked } from "./audio.js?v=41";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -69,7 +69,6 @@ export function createHud(opts = {}) {
   const tabTexts = document.getElementById("tab-texts");
   const tabContacts = document.getElementById("tab-contacts");
   const phoneHomeRow = document.getElementById("phone-home-row");
-  const brakeShift = document.getElementById("brake-shift");
 
   function pips(el, count, filled, cls) {
     if (!el) return;
@@ -128,13 +127,21 @@ export function createHud(opts = {}) {
         : c.status === "offering" ? "TEXTED"
           : c.status === "waiting" ? "WAITING"
             : c.status === "nudge" ? "WHERE U AT"
-              : (c.flakes ? `AROUND ${c.flakes}/3` : "AROUND");
+              : !c.knows ? "DON'T KNOW"
+                : (c.flakes ? `AROUND ${c.flakes}/3` : "AROUND");
       row.innerHTML = `<div><div class="who">${c.name}</div><div class="st">${st}</div></div>`;
       if (c.kind === "plug") {
         const b = document.createElement("button");
         b.type = "button";
         b.dataset.role = "text-plug";
         b.textContent = c.status === "meet" ? "MEET" : "TEXT";
+        row.appendChild(b);
+      } else if (!c.knows) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.dataset.role = "ping-contact";
+        b.dataset.id = c.id;
+        b.textContent = "HIT UP";
         row.appendChild(b);
       }
       phoneList.appendChild(row);
@@ -218,27 +225,20 @@ export function createHud(opts = {}) {
     if (driving) placeKnob(gear);
     shiftHint?.classList.toggle("hidden", !(driving && (state.car?.shiftHint || 0) > 0));
     padUturn?.classList.toggle("off", driving && !state.turnOk);
-    padUturn?.classList.toggle("hidden", !state.turnOk);
-    brakeShift?.classList.toggle("hidden", !(driving && state.stopped));
-    if (brakeShift && driving && state.stopped) {
-      brakeShift.querySelectorAll("[data-gear]").forEach((el) => {
-        el.classList.toggle("on", el.dataset.gear === gear);
-      });
-    }
+    padUturn?.classList.toggle("hidden", !driving);
     btnPhone?.classList.toggle("unread", !!state.unread);
 
     const playUi = state.mode === "play" && !state.ui;
+    const offer = state.order?.phase === "offer" || state.order?.phase === "stalling";
     if (ctx) {
-      const any = playUi && (state.showServe || state.showGate || state.showHitUp);
+      const any = playUi && !offer && (state.showServe || state.showGate || state.showHitUp);
       ctx.classList.toggle("hidden", !any);
     }
-    btnServe?.classList.toggle("hidden", !(playUi && state.showServe));
-    btnServe?.classList.toggle("pulse", !!(playUi && state.showServe));
-    btnGate?.classList.toggle("hidden", !(playUi && state.showGate));
+    btnServe?.classList.toggle("hidden", !(playUi && !offer && state.showServe));
+    btnServe?.classList.toggle("pulse", !!(playUi && !offer && state.showServe));
+    btnGate?.classList.toggle("hidden", !(playUi && !offer && state.showGate));
     if (btnGate && state.gate) btnGate.textContent = state.gate;
-    btnHit?.classList.toggle("hidden", !(playUi && state.showHitUp));
-
-    const offer = state.order?.phase === "offer" || state.order?.phase === "stalling";
+    btnHit?.classList.toggle("hidden", !(playUi && !offer && state.showHitUp));
     const live = state.order && (state.order.phase === "active" || state.order.phase === "nudge");
     if (phone) {
       const on = !!(state.order && (state.mode === "play" || state.mode === "paused") && state.ui !== "phone");
@@ -259,7 +259,7 @@ export function createHud(opts = {}) {
       phoneActions?.classList.toggle("hidden", !offer || state.mode !== "play" || !!state.ui);
     }
     if (dealNav) {
-      const on = state.mode === "play" || state.mode === "paused";
+      const on = (state.mode === "play" || state.mode === "paused") && !offer;
       dealNav.classList.toggle("hidden", !on || !!state.ui);
       if (on && dealDist) {
         const arrow = state.dealDir < 0 ? "<<" : ">>";

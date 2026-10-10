@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat,
-} from "./config.js?v=40";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=40";
+} from "./config.js?v=41";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=41";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -1413,7 +1413,7 @@ export function createWorld(canvas, sprites) {
     }
     hideFrom(trafficPool, ti);
 
-    if (state.plugMeet && !(state.order && (state.order.phase === "active" || state.order.phase === "nudge"))) {
+    if (state.plugMeet && !state.order) {
       destPin.visible = true;
       place(destPin, state.plugMeet.x, GROUND_Y, camX, 1.2);
       destPin.position.y = 2.85 + Math.sin(performance.now() * 0.01) * 0.18;
