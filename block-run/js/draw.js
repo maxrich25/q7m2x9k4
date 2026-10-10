@@ -1,8 +1,8 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
   CAR_LANE_NEAR, CAR_LANE_FAR,
-} from "../../block-run-25d/js/config.js?v=47";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=47";
+} from "../../block-run-25d/js/config.js?v=48";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=48";
 
 const STREET_CROP = 168;
 const STREET_W = 398;
