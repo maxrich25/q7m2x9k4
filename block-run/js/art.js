@@ -1,7 +1,7 @@
 import {
   pixelCanvas, setFromCanvases, flipCanvas, remapHoodie,
-} from "../../block-run-25d/js/paint.js?v=38";
-import { OUTFITS } from "../../block-run-25d/js/config.js?v=38";
+} from "../../block-run-25d/js/paint.js?v=39";
+import { OUTFITS } from "../../block-run-25d/js/config.js?v=39";
 
 const SPRITE_BASE = new URL("../sprites/", import.meta.url);
 
@@ -121,40 +121,47 @@ function cleanStreet(street) {
     g.drawImage(street, 0, 142, 110, 6, 0, 148, 110, 20);
     const img = g.getImageData(0, 0, w, h);
     const d = img.data;
-    const skyRow = 50;
-    const isSky = (i) => {
-      const r = d[i];
-      const gv = d[i + 1];
-      const b = d[i + 2];
+    const pix = (x, y) => {
+      const i = (y * w + x) * 4;
+      return [d[i], d[i + 1], d[i + 2]];
+    };
+    const isOpenSky = (r, gv, b, y) => {
       const lum = r + gv + b;
       const dist = Math.abs(r - 12) + Math.abs(gv - 1) + Math.abs(b - 31);
-      return dist < 55 && lum < 88;
+      if (dist <= 36 && lum <= 64) return true;
+      if (y < 52 && lum >= 200) return true;
+      return false;
     };
+    const tops = new Array(w);
+    for (let x = 0; x < w; x++) {
+      let top = h;
+      for (let y = 0; y < h; y++) {
+        const [r, gv, b] = pix(x, y);
+        if (isOpenSky(r, gv, b, y)) continue;
+        let run = 0;
+        for (let k = 0; k < 8 && y + k < h; k++) {
+          const p = pix(x, y + k);
+          if (!isOpenSky(p[0], p[1], p[2], y + k)) run += 1;
+        }
+        if (run >= 4) {
+          top = y;
+          break;
+        }
+      }
+      tops[x] = top;
+    }
+    for (let x = 0; x < w; x++) {
+      if (tops[x] < h) continue;
+      const left = x > 0 ? tops[x - 1] : h;
+      const right = x + 1 < w ? tops[x + 1] : h;
+      const near = Math.min(left, right);
+      tops[x] = near < h ? near : 80;
+    }
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        const i = (y * w + x) * 4;
-        if (y < skyRow || isSky(i)) d[i + 3] = 0;
+        if (y < tops[x]) d[(y * w + x) * 4 + 3] = 0;
       }
     }
-    const kill = [];
-    for (let y = 0; y < 84; y++) {
-      for (let x = 0; x < w; x++) {
-        const i = (y * w + x) * 4;
-        if (d[i + 3] === 0) continue;
-        let n = 0;
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            if (!dx && !dy) continue;
-            const nx = x + dx;
-            const ny = y + dy;
-            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-            if (d[(ny * w + nx) * 4 + 3]) n += 1;
-          }
-        }
-        if (n <= 1) kill.push(i);
-      }
-    }
-    for (const i of kill) d[i + 3] = 0;
     g.putImageData(img, 0, 0);
   });
 }
