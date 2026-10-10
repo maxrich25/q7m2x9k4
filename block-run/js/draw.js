@@ -1,7 +1,7 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
-} from "../../block-run-25d/js/config.js?v=37";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=37";
+} from "../../block-run-25d/js/config.js?v=38";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=38";
 
 const STREET_CROP = 168;
 const STREET_W = 398;
@@ -153,20 +153,6 @@ export function createWorld(canvas, art) {
     for (let x = -shift; x < VW + sw; x += sw) {
       g.drawImage(street, 0, 0, sw, sh, Math.round(x), destY, sw, destH);
     }
-  }
-
-  function tintSkyline(sky) {
-    const { destH, destY } = backdropDest();
-    const y0 = destY + destH * (48 / 168);
-    const y1 = destY + destH * (120 / 168);
-    const day = Math.max(0, sky?.sun ?? 0);
-    if (day < 0.12) return;
-    const grd = g.createLinearGradient(0, y0, 0, y1);
-    grd.addColorStop(0, `rgba(48,78,120,${(0.1 + day * 0.3).toFixed(3)})`);
-    grd.addColorStop(0.55, `rgba(48,78,120,${(0.05 + day * 0.14).toFixed(3)})`);
-    grd.addColorStop(1, "rgba(48,78,120,0)");
-    g.fillStyle = grd;
-    g.fillRect(0, Math.round(y0), VW, Math.round(y1 - y0));
   }
 
   function washBackdrop(sky) {
@@ -380,7 +366,6 @@ export function createWorld(canvas, art) {
     g.imageSmoothingEnabled = false;
     drawSky(state.sky);
     drawBackdrop(camX);
-    tintSkyline(state.sky);
     washBackdrop(state.sky);
     drawSunMoon(state.sky);
     drawStreet(camX);

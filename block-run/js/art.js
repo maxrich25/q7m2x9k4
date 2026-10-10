@@ -1,7 +1,7 @@
 import {
   pixelCanvas, setFromCanvases, flipCanvas, remapHoodie,
-} from "../../block-run-25d/js/paint.js?v=37";
-import { OUTFITS } from "../../block-run-25d/js/config.js?v=37";
+} from "../../block-run-25d/js/paint.js?v=38";
+import { OUTFITS } from "../../block-run-25d/js/config.js?v=38";
 
 const SPRITE_BASE = new URL("../sprites/", import.meta.url);
 
@@ -121,19 +121,40 @@ function cleanStreet(street) {
     g.drawImage(street, 0, 142, 110, 6, 0, 148, 110, 20);
     const img = g.getImageData(0, 0, w, h);
     const d = img.data;
+    const skyRow = 50;
+    const isSky = (i) => {
+      const r = d[i];
+      const gv = d[i + 1];
+      const b = d[i + 2];
+      const lum = r + gv + b;
+      const dist = Math.abs(r - 12) + Math.abs(gv - 1) + Math.abs(b - 31);
+      return dist < 55 && lum < 88;
+    };
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
-        const r = d[i];
-        const gv = d[i + 1];
-        const b = d[i + 2];
-        const lum = r + gv + b;
-        const sky = y < h * 0.58 && lum < 72 && b >= r && r < 42;
-        // Moon + stars live above the skyline (y<50). Leave tower window dots intact.
-        const moonOrStar = y < 50 && lum > 200 && r > 80;
-        if (sky || moonOrStar) d[i + 3] = 0;
+        if (y < skyRow || isSky(i)) d[i + 3] = 0;
       }
     }
+    const kill = [];
+    for (let y = 0; y < 84; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (d[i + 3] === 0) continue;
+        let n = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            if (d[(ny * w + nx) * 4 + 3]) n += 1;
+          }
+        }
+        if (n <= 1) kill.push(i);
+      }
+    }
+    for (const i of kill) d[i + 3] = 0;
     g.putImageData(img, 0, 0);
   });
 }
