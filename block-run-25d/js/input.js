@@ -1,11 +1,11 @@
-import { unlockAudio } from "./audio.js?v=21";
+import { unlockAudio } from "./audio.js?v=22";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyS", "KeyJ", "KeyK", "KeyZ", "KeyX",
   "KeyF", "KeyQ", "KeyE",
   "Digit1", "Digit2", "Digit3", "Digit4",
   "Space", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
-  "KeyM", "Escape", "KeyP",
+  "KeyM", "Escape", "KeyP", "KeyY", "KeyN",
 ]);
 
 const GEAR_KEYS = {
@@ -46,6 +46,8 @@ export function createInput(root = document) {
   let mutePulse = false;
   let pausePulse = false;
   let exitPulse = false;
+  let acceptPulse = false;
+  let declinePulse = false;
   let gearPulse = null;
 
   function roleOf(target) {
@@ -66,6 +68,8 @@ export function createInput(root = document) {
     if (e.code === "KeyX") exitPulse = true;
     if (e.code === "KeyM") mutePulse = true;
     if (e.code === "Escape" || e.code === "KeyP") pausePulse = true;
+    if (e.code === "KeyY") acceptPulse = true;
+    if (e.code === "KeyN") declinePulse = true;
     if (GEAR_KEYS[e.code]) gearPulse = GEAR_KEYS[e.code];
   }
 
@@ -102,6 +106,8 @@ export function createInput(root = document) {
     if (role === "exit") exitPulse = true;
     if (role === "mute") mutePulse = true;
     if (role === "gear" && gear) gearPulse = gear;
+    if (role === "accept") acceptPulse = true;
+    if (role === "decline") declinePulse = true;
     try { e.target.setPointerCapture(e.pointerId); } catch {}
     const btn = e.target.closest("[data-role]");
     if (btn && recRole !== "shifter") btn.classList.add("held");
@@ -223,6 +229,11 @@ export function createInput(root = document) {
     qWas = qOn;
     eWas = eOn;
 
+    const accept = acceptPulse;
+    const decline = declinePulse;
+    acceptPulse = false;
+    declinePulse = false;
+
     const start = startEdge;
     const mute = muteEdge;
     const pause = pauseEdge;
@@ -254,6 +265,8 @@ export function createInput(root = document) {
       mute,
       pause,
       exit: exitEdge,
+      accept,
+      decline,
       shiftGear,
       gearTap,
       shiftStep,

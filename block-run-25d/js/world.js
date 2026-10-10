@@ -2,9 +2,9 @@ import * as THREE from "three";
 import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
-  BLOCK_LEN,
-} from "./config.js?v=21";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=21";
+  BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX,
+} from "./config.js?v=22";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=22";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -228,61 +228,98 @@ function chromeRim(x, z, radius = 0.22) {
 
 function makeLuxuryCar() {
   const g = new THREE.Group();
-  const paint = new THREE.MeshLambertMaterial({ color: 0x1a1a1e });
-  const chrome = new THREE.MeshBasicMaterial({ color: 0xf2f4f8 });
-  const tint = new THREE.MeshBasicMaterial({ color: 0x1a2834 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(3.95, 0.5, 1.36), paint);
-  body.position.y = 0.42;
+  const paint = new THREE.MeshLambertMaterial({ color: 0x121214 });
+  const chrome = new THREE.MeshBasicMaterial({ color: 0xe8eef4 });
+  const tint = new THREE.MeshBasicMaterial({ color: 0x152028 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(4.25, 0.38, 1.32), paint);
+  body.position.y = 0.4;
   body.name = "body";
   g.add(body);
-  const highlight = new THREE.Mesh(
-    new THREE.BoxGeometry(3.6, 0.04, 1.1),
-    new THREE.MeshBasicMaterial({ color: 0x3a3a42 }),
-  );
-  highlight.position.set(0.1, 0.66, 0);
-  g.add(highlight);
-  const hood = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.14, 1.24), paint);
-  hood.position.set(1.12, 0.68, 0);
+  const rocker = new THREE.Mesh(new THREE.BoxGeometry(4.05, 0.1, 1.36), paint);
+  rocker.position.y = 0.24;
+  g.add(rocker);
+  const hood = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.12, 1.2), paint);
+  hood.position.set(1.22, 0.62, 0);
+  hood.rotation.z = -0.16;
   g.add(hood);
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.14, 1.24), paint);
-  deck.position.set(-1.22, 0.68, 0);
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.12, 1.2), paint);
+  deck.position.set(-1.35, 0.6, 0);
+  deck.rotation.z = 0.12;
   g.add(deck);
   const cabin = new THREE.Mesh(
-    new THREE.BoxGeometry(1.78, 0.52, 1.22),
-    new THREE.MeshLambertMaterial({ color: 0x121218 }),
+    new THREE.BoxGeometry(1.55, 0.34, 1.16),
+    new THREE.MeshLambertMaterial({ color: 0x0c0c10 }),
   );
-  cabin.position.set(-0.1, 0.96, 0);
+  cabin.position.set(-0.18, 0.78, 0);
   g.add(cabin);
-  const glass = new THREE.Mesh(new THREE.BoxGeometry(1.58, 0.36, 1.16), tint);
-  glass.position.set(-0.08, 1.04, 0);
+  const wind = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.28, 1.12), tint);
+  wind.position.set(0.62, 0.8, 0);
+  wind.rotation.z = -0.52;
+  g.add(wind);
+  const backGlass = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.26, 1.12), tint);
+  backGlass.position.set(-0.92, 0.78, 0);
+  backGlass.rotation.z = 0.42;
+  g.add(backGlass);
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.22, 1.1), tint);
+  glass.position.set(-0.16, 0.86, 0);
   g.add(glass);
-  const belt = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.05, 1.24), chrome);
-  belt.position.set(-0.1, 0.72, 0);
+  const belt = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.04, 1.2), chrome);
+  belt.position.set(-0.16, 0.64, 0);
   g.add(belt);
-  const grille = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.26, 0.78), chrome);
-  grille.position.set(2.0, 0.42, 0);
+  const grille = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.16, 0.7), chrome);
+  grille.position.set(2.14, 0.38, 0);
   g.add(grille);
-  const bumperF = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 1.34), chrome);
-  bumperF.position.set(2.04, 0.26, 0);
+  const bumperF = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.1, 1.3), chrome);
+  bumperF.position.set(2.16, 0.22, 0);
   g.add(bumperF);
-  const bumperR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 1.34), chrome);
-  bumperR.position.set(-2.04, 0.26, 0);
+  const bumperR = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 1.3), chrome);
+  bumperR.position.set(-2.16, 0.22, 0);
   g.add(bumperR);
-  const lightMat = new THREE.MeshBasicMaterial({ color: 0xf4f0e8 });
-  for (const z of [-0.44, 0.44]) {
-    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.24), lightMat);
-    lamp.position.set(1.98, 0.48, z);
-    g.add(lamp);
-    const tail = new THREE.Mesh(
-      new THREE.BoxGeometry(0.1, 0.1, 0.22),
-      new THREE.MeshBasicMaterial({ color: 0xe21b7a }),
+  const ledF = new THREE.Mesh(
+    new THREE.BoxGeometry(0.08, 0.05, 1.18),
+    new THREE.MeshBasicMaterial({ color: 0xc8e8ff }),
+  );
+  ledF.position.set(2.14, 0.5, 0);
+  g.add(ledF);
+  const ledR = new THREE.Mesh(
+    new THREE.BoxGeometry(0.08, 0.05, 1.16),
+    new THREE.MeshBasicMaterial({ color: 0xe21b7a }),
+  );
+  ledR.position.set(-2.14, 0.48, 0);
+  g.add(ledR);
+  for (const [x, z] of [[-1.28, 0.62], [-1.28, -0.62], [1.28, 0.62], [1.28, -0.62]]) {
+    g.add(chromeRim(x, z, 0.3));
+  }
+  return g;
+}
+
+function makeTrafficLight() {
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.05, 0.06, 3.2, 6),
+    new THREE.MeshLambertMaterial({ color: 0x2a2430 }),
+  );
+  pole.position.y = 1.6;
+  g.add(pole);
+  const head = new THREE.Mesh(
+    new THREE.BoxGeometry(0.22, 0.72, 0.18),
+    new THREE.MeshLambertMaterial({ color: 0x141018 }),
+  );
+  head.position.set(0, 3.05, 0.12);
+  g.add(head);
+  const mk = (name, y, hex) => {
+    const m = new THREE.Mesh(
+      new THREE.CircleGeometry(0.07, 8),
+      new THREE.MeshBasicMaterial({ color: hex }),
     );
-    tail.position.set(-1.98, 0.46, z);
-    g.add(tail);
-  }
-  for (const [x, z] of [[-1.2, 0.6], [-1.2, -0.6], [1.2, 0.6], [1.2, -0.6]]) {
-    g.add(chromeRim(x, z, 0.22));
-  }
+    m.name = name;
+    m.position.set(0, y, 0.22);
+    g.add(m);
+    return m;
+  };
+  mk("bulbRed", 3.26, 0x3a1018);
+  mk("bulbYellow", 3.05, 0x3a3010);
+  mk("bulbGreen", 2.84, 0x103a18);
   return g;
 }
 
@@ -713,6 +750,20 @@ export function createWorld(canvas, sprites) {
     stampTheme(THEMES[i % THEMES.length], i * BLOCK_LEN, i === 0);
   }
 
+  for (let i = 0; i < blockCount; i++) {
+    const x = i * BLOCK_LEN;
+    for (let s = 0; s < 6; s++) {
+      const stripe = new THREE.Mesh(
+        new THREE.BoxGeometry(0.55, 0.025, 3.8),
+        new THREE.MeshBasicMaterial({ color: 0xf4f0e8 }),
+      );
+      stripe.position.set(x + (s - 2.5) * 0.72, 0.05, 5.5);
+      city.add(stripe);
+    }
+  }
+  addNeon("HOME", "#3de0ff", gameToWorldX(HOME_X), 2.35, 0.15, true);
+  addNeon("PLUG", "#e21b7a", gameToWorldX(PLUG_X), 2.35, 0.15, true);
+
   const shop = makeKiosk();
   shop.position.set(gameToWorldX(SHOP_X), 0, -1.35);
   city.add(shop);
@@ -751,6 +802,13 @@ export function createWorld(canvas, sprites) {
 
   const playerCar = makeLuxuryCar();
   scene.add(playerCar);
+  const lightMeshes = [];
+  for (let i = 0; i < LIGHT_COUNT; i++) {
+    const m = makeTrafficLight();
+    scene.add(m);
+    lightMeshes.push(m);
+  }
+  const pedPool = [];
   const speedStreaks = [];
   for (let i = 0; i < 4; i++) {
     const streak = new THREE.Mesh(
@@ -929,7 +987,7 @@ export function createWorld(canvas, sprites) {
     if (state.car) {
       const cx = renderGameX(state.car, alpha);
       playerCar.visible = true;
-      place(playerCar, cx, GROUND_Y, camX, 4.95);
+      place(playerCar, cx, GROUND_Y, camX, 4.95 + (state.car.lat || 0));
       playerCar.position.y = state.car.hp > 0 ? 0 : -0.12;
       const yaw = Number.isFinite(state.car.yaw) ? state.car.yaw : (state.car.facing < 0 ? Math.PI : 0);
       playerCar.rotation.y = yaw;
@@ -963,7 +1021,7 @@ export function createWorld(canvas, sprites) {
       copCarMesh.visible = false;
     }
 
-    if (state.order) {
+    if (state.order && (state.order.phase === "active" || state.order.phase === "nudge")) {
       destPin.visible = true;
       place(destPin, state.order.x, GROUND_Y, camX, 1.2);
       destPin.position.y = 2.85 + Math.sin(performance.now() * 0.01) * 0.18;
@@ -1006,8 +1064,52 @@ export function createWorld(canvas, sprites) {
     sellLabel.position.y = 1.55;
     place(fireLabel, DUMPSTER_X, 154, camX, 0.7);
     fireLabel.position.y = 1.55;
-    sellLabel.visible = !state.carrying;
-    fireLabel.visible = state.carrying;
+    sellLabel.visible = !!(state.combat && !state.carrying);
+    fireLabel.visible = !!(state.combat && state.carrying);
+
+    const looks = sprites.peds || sprites.buyers || [];
+    let pedI = 0;
+    for (const ped of state.peds || []) {
+      const spr = take(pedPool, () => {
+        const s = makeBillboard(looks[0]?.walk?.[0] || sprites.idle[0], 2.2);
+        scene.add(s);
+        const sh = new THREE.Mesh(shadowGeo, shadowMat.clone());
+        sh.rotation.x = -Math.PI / 2;
+        sh.position.y = 0.03;
+        scene.add(sh);
+        s.userData.shadow = sh;
+        return s;
+      }, pedI++);
+      const set = looks[ped.look % looks.length] || looks[0];
+      const frames = Math.abs(ped.vx || 0) > 2 ? (set.walk || set.idle) : (set.idle || set.walk);
+      setBillboardFrame(spr, frameAt(frames, ped.anim, 9), ped.facing);
+      place(spr, ped.x, GROUND_Y, camX, 1.15);
+      spr.position.y = 0;
+      orientBillboard(spr, camera);
+      spr.material.color.setHex(0xffffff);
+      if (spr.userData.shadow) {
+        spr.userData.shadow.visible = true;
+        spr.userData.shadow.position.x = spr.position.x;
+        spr.userData.shadow.position.z = 1.15;
+      }
+    }
+    hideFrom(pedPool, pedI);
+    for (let i = pedI; i < pedPool.length; i++) {
+      if (pedPool[i].userData.shadow) pedPool[i].userData.shadow.visible = false;
+    }
+
+    (state.lights || []).forEach((L, i) => {
+      const m = lightMeshes[i];
+      if (!m) return;
+      place(m, L.x, GROUND_Y, camX, 3.05);
+      m.position.y = 0;
+      const red = m.getObjectByName("bulbRed");
+      const yel = m.getObjectByName("bulbYellow");
+      const grn = m.getObjectByName("bulbGreen");
+      if (red) red.material.color.setHex(L.phase === "red" ? 0xff2a3a : 0x3a1018);
+      if (yel) yel.material.color.setHex(L.phase === "yellow" ? 0xf0c430 : 0x3a3010);
+      if (grn) grn.material.color.setHex(L.phase === "green" ? 0x3dff7a : 0x103a18);
+    });
 
     let fi = 0;
     let bangI = 0;
