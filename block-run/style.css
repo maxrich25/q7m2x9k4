@@ -141,13 +141,17 @@ html, body {
 }
 #phone-timer.hidden { display: none; }
 #phone-actions {
-  display: grid;
+  display: none;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
   margin-top: 8px;
   pointer-events: auto;
 }
 #phone-actions.hidden { display: none; }
+@media (min-width: 900px) and (min-height: 500px) {
+  #phone-actions { display: grid; }
+  #phone-actions.hidden { display: none; }
+}
 #phone-actions button {
   font-family: var(--font);
   font-size: 8px;
@@ -354,7 +358,32 @@ html, body {
   line-height: 1.7;
   color: var(--cream);
 }
-#overlay.pause-mode { pointer-events: auto; background: rgba(7, 6, 12, 0.78); }
+#overlay.pause-mode, #overlay.title-mode { pointer-events: auto; }
+#overlay.pause-mode { background: rgba(7, 6, 12, 0.78); }
+#cart-picks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 16px;
+  pointer-events: auto;
+}
+#cart-picks.hidden { display: none; }
+.cart-pick {
+  font-family: var(--font);
+  font-size: 8px;
+  line-height: 1.35;
+  text-decoration: none;
+  color: var(--cream);
+  background: #121018;
+  border: 2px solid #3a3644;
+  padding: 12px 8px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+.cart-pick.on { border-color: var(--gold); color: var(--gold); }
 #pause-actions {
   display: flex;
   flex-direction: column;
@@ -394,9 +423,10 @@ html, body {
 #pad {
   flex: 0 0 auto;
   display: flex;
+  flex-direction: column;
   align-items: stretch;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 8px;
   padding: 10px 12px calc(12px + var(--sab)) calc(12px + var(--sal));
   padding-right: calc(12px + var(--sar));
   background: var(--pad);
@@ -413,6 +443,25 @@ html, body {
 }
 #pad-foot .pad-fire, #pad-car .pad-fire { display: none; }
 #pad-foot.hidden, #pad-car.hidden { display: none; }
+#pad-ctx {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 8px;
+  width: 100%;
+  flex: 0 0 auto;
+  pointer-events: auto;
+}
+#pad-ctx.hidden { display: none; }
+#pad-ctx .ctx-btn {
+  min-height: 48px;
+  font-size: 10px;
+}
+#btn-accept {
+  background: var(--gold);
+  color: #07060c;
+  border-color: var(--gold);
+}
+#btn-stall { color: var(--pink); }
 
 #pad-move {
   display: grid;
@@ -548,17 +597,7 @@ html, body {
   border-color: var(--cream);
 }
 
-#ctx {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 10px;
-  display: flex;
-  gap: 8px;
-  pointer-events: auto;
-  z-index: 6;
-}
-#ctx.hidden { display: none; }
+#ctx, #ctx.hidden { display: none !important; }
 .ctx-btn {
   flex: 1 1 auto;
   font-family: var(--font);

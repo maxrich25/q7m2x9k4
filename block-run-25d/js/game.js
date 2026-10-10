@@ -11,8 +11,8 @@ import {
   restLat, CAR_KINDS, GREEN_TIERS, WHITE_TIERS, STALL_LINES,
   OUTFITS, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
   nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen,
-} from "./config.js?v=41";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=41";
+} from "./config.js?v=42";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=42";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -44,6 +44,7 @@ export function createGame() {
     kind: "beater",
   };
   let inCar = false;
+  let revU = 0;
   let boughtOnce = false;
   let repTipSent = false;
   let inbox = [];
@@ -125,7 +126,7 @@ export function createGame() {
     const nearPlug = Math.abs(wrapDelta(player.x, plugMeet?.x ?? PLUG_X, WORLD)) < 28;
     const nearHome = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && player.y >= 197.5;
     const nearPed = !inCar && peds.some((p) => Math.abs(wrapDelta(player.x, p.x, WORLD)) < 18);
-    const exitOk = inCar && (car.gear === "P" || Math.abs(car.vx) < CAR_STOP);
+    const exitOk = inCar && car.gear === "P";
     const liveDeal = order && (order.phase === "active" || order.phase === "nudge");
     const nearDeal = !!(liveDeal && Math.abs(wrapDelta(player.x, order.x, WORLD)) < 32);
     const slowEnough = Math.abs(player.vx) < SERVE_SLOW;
@@ -259,12 +260,14 @@ export function createGame() {
     car.turnLatFrom = 0;
     car.turnLatTo = 0;
     inCar = false;
+    revU = 0;
     wreckT = 0;
     copCar = null;
   }
 
   function enterCar() {
     inCar = true;
+    revU = 0;
     car.gear = "P";
     car.vx = 0;
     car.shiftHint = 0;
@@ -315,8 +318,9 @@ export function createGame() {
     if (dir === car.facing) return false;
     if (!opts.force && Math.abs(car.vx) > CAR_TURN_MAX) return false;
     car.turnT = CAR_TURN_TIME;
-    car.turnFrom = car.facing < 0 ? Math.PI : 0;
-    car.turnTo = dir < 0 ? Math.PI : 0;
+    const fromYaw = car.facing < 0 ? Math.PI : 0;
+    car.turnFrom = fromYaw;
+    car.turnTo = fromYaw + Math.PI;
     car.turnLatFrom = restLat(car.facing);
     car.turnLatTo = restLat(dir);
     car.facing = dir;
@@ -594,7 +598,7 @@ export function createGame() {
     });
     sfx.ping();
     pop(player.x, 150, "HIT " + c.name);
-    if (!order) orderCd = Math.min(orderCd, 2.5 + Math.random() * 2.5);
+    if (!order) spawnOrder(null, { contactId: c.id });
     return true;
   }
 
@@ -797,7 +801,7 @@ export function createGame() {
     const nearHomeNow = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && onGround();
     const nearPlugNow = Math.abs(wrapDelta(player.x, plugMeet?.x ?? PLUG_X, WORLD)) < 28;
     if (inCar) {
-      if (car.gear === "P" || Math.abs(car.vx) < CAR_STOP) {
+      if (car.gear === "P") {
         leaveCar();
         return true;
       }
@@ -1242,9 +1246,9 @@ export function createGame() {
         const toLat = car.turnLatTo ?? restLat(car.facing);
         car.lat = fromLat + (toLat - fromLat) * s + Math.sin(u * Math.PI) * (CAR_TURN_ARC * 0.35);
         const oldDir = car.turnFrom < Math.PI / 2 ? 1 : -1;
-        const along = (1 - u) * oldDir + u * car.facing;
-        car.x = wrap(car.x + along * 22 * dt, WORLD);
-        car.vx *= Math.exp(-3.2 * dt);
+        const along = Math.cos(u * Math.PI) * oldDir;
+        car.x = wrap(car.x + along * 36 * dt, WORLD);
+        car.vx *= Math.exp(-2.4 * dt);
       } else {
         car.yaw = car.facing < 0 ? Math.PI : 0;
         car.lat = restLat(car.facing);
@@ -1273,9 +1277,16 @@ export function createGame() {
         if (Math.abs(car.vx) > vmax) car.vx = Math.sign(car.vx) * vmax;
         car.x = wrap(car.x + car.vx * dt, WORLD);
       }
-      if (gas && (car.gear === "P" || car.gear === "N")) setEngine("rev");
-      else if (gas && (car.gear === "D" || car.gear === "R")) setEngine("accel", Math.abs(car.vx) / vmax);
-      else setEngine("off");
+      if (gas && (car.gear === "P" || car.gear === "N")) {
+        revU = Math.min(1, revU + dt / 0.85);
+        setEngine("accel", revU);
+      } else if (gas && (car.gear === "D" || car.gear === "R")) {
+        revU = Math.abs(car.vx) / vmax;
+        setEngine("accel", revU);
+      } else {
+        revU = Math.max(0, revU - dt / 0.22);
+        setEngine("off");
+      }
       player.x = car.x;
       player.vx = car.vx;
       player.facing = car.facing;

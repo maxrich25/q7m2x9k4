@@ -1,4 +1,4 @@
-import { unlockAudio } from "./audio.js?v=41";
+import { unlockAudio } from "./audio.js?v=42";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyS", "KeyJ", "KeyK", "KeyZ", "KeyX",
@@ -131,7 +131,7 @@ export function createInput(root = document) {
   function onPointerDown(e) {
     const role = roleOf(e.target);
     if (!role) {
-      if (e.target.closest("#btn-mute, #btn-pause, #pause-actions, a.menu-link, .sheet, #ctx")) return;
+      if (e.target.closest("#btn-mute, #btn-pause, #pause-actions, a.menu-link, a.cart-pick, #cart-picks, .sheet, #ctx, #pad-ctx, #pad")) return;
       if (e.target.closest("#overlay.pause-mode")) return;
       if (e.target.closest("#view")) startPulse = true;
       unlockAudio();

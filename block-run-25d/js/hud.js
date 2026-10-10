@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=41";
-import { isUnlocked } from "./audio.js?v=41";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=42";
+import { isUnlocked } from "./audio.js?v=42";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -38,10 +38,13 @@ export function createHud(opts = {}) {
   const shiftKnob = document.getElementById("shift-knob");
   const shiftHint = document.getElementById("shift-hint");
   const padUturn = document.querySelector('[data-role="uturn"]');
-  const ctx = document.getElementById("ctx");
+  const ctx = document.getElementById("pad-ctx") || document.getElementById("ctx");
+  const btnAccept = document.getElementById("btn-accept");
+  const btnStall = document.getElementById("btn-stall");
   const btnServe = document.getElementById("btn-serve");
   const btnGate = document.getElementById("btn-gate");
   const btnHit = document.getElementById("btn-hitup");
+  const cartPicks = document.getElementById("cart-picks");
   const saleEl = document.getElementById("sale-pop");
   const saleWhat = document.getElementById("sale-what");
   const saleAmt = document.getElementById("sale-amt");
@@ -230,15 +233,22 @@ export function createHud(opts = {}) {
 
     const playUi = state.mode === "play" && !state.ui;
     const offer = state.order?.phase === "offer" || state.order?.phase === "stalling";
+    const padEl = document.getElementById("pad");
+    const padOn = !!(padEl && window.getComputedStyle(padEl).display !== "none");
+    const showAccept = !!(offer && state.mode === "play");
+    const showServe = !!(playUi && !offer && state.showServe);
+    const showGate = !!(playUi && !offer && state.showGate);
+    const showHit = !!(playUi && !offer && state.showHitUp);
     if (ctx) {
-      const any = playUi && !offer && (state.showServe || state.showGate || state.showHitUp);
-      ctx.classList.toggle("hidden", !any);
+      ctx.classList.toggle("hidden", !(showAccept || showServe || showGate || showHit));
     }
-    btnServe?.classList.toggle("hidden", !(playUi && !offer && state.showServe));
-    btnServe?.classList.toggle("pulse", !!(playUi && !offer && state.showServe));
-    btnGate?.classList.toggle("hidden", !(playUi && !offer && state.showGate));
+    btnAccept?.classList.toggle("hidden", !showAccept);
+    btnStall?.classList.toggle("hidden", !showAccept);
+    btnServe?.classList.toggle("hidden", !showServe);
+    btnServe?.classList.toggle("pulse", showServe);
+    btnGate?.classList.toggle("hidden", !showGate);
     if (btnGate && state.gate) btnGate.textContent = state.gate;
-    btnHit?.classList.toggle("hidden", !(playUi && !offer && state.showHitUp));
+    btnHit?.classList.toggle("hidden", !showHit);
     const live = state.order && (state.order.phase === "active" || state.order.phase === "nudge");
     if (phone) {
       const on = !!(state.order && (state.mode === "play" || state.mode === "paused") && state.ui !== "phone");
@@ -256,7 +266,7 @@ export function createHud(opts = {}) {
         }
         phone.classList.toggle("urgent", state.order.phase === "nudge" || (live && state.order.t < 8));
       }
-      phoneActions?.classList.toggle("hidden", !offer || state.mode !== "play" || !!state.ui);
+      phoneActions?.classList.toggle("hidden", !showAccept || padOn);
     }
     if (dealNav) {
       const on = (state.mode === "play" || state.mode === "paused") && !offer;
@@ -314,6 +324,8 @@ export function createHud(opts = {}) {
     const show = state.mode !== "play";
     overlay.classList.toggle("hidden", !show);
     overlay.classList.toggle("pause-mode", state.mode === "paused");
+    overlay.classList.toggle("title-mode", state.mode === "title");
+    cartPicks?.classList.toggle("hidden", state.mode !== "title");
     pauseActions?.classList.toggle("hidden", state.mode !== "paused");
     titleEl.classList.remove("wasted", "clear");
     bodyEl.classList.remove("tips", "intro-card");
