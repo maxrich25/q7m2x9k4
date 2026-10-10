@@ -5,14 +5,21 @@ export const WORLD = 3980;
 export const GROUND_Y = 198;
 export const MAX_HP = 3;
 export const CAR_HP = 3;
-export const CAR_ACCEL = 260;
-export const CAR_MAX = 220;
+export const CAR_ACCEL = 160;
+export const CAR_MAX = 142;
 export const CAR_FRICTION = 1.15;
-export const CAR_CREEP = 23;
+export const CAR_CREEP = 18;
 export const CAR_TURN_TIME = 1.0;
 export const CAR_TURN_MAX = 28;
-export const CAR_TURN_ARC = 2.4;
+export const CAR_TURN_ARC = 3.9;
 export const CAR_STOP = 8;
+/** US right-hand traffic: +X uses the camera-side (near) lane. */
+export const CAR_LANE_NEAR = 3.9;
+export const CAR_LANE_FAR = 0;
+export const CAR_KINDS = {
+  beater: { accel: 160, max: 142, creep: 18, color: 0x6a3a24 },
+  luxury: { accel: 260, max: 220, creep: 23, color: 0x121214 },
+};
 export const GEARS = ["P", "R", "N", "D"];
 /** Keep enemy/gun/wave code compiled; off for the dealing-loop build. */
 export const COMBAT = false;
@@ -47,7 +54,7 @@ export const HI_KEY = "block-run-25d-hi";
 
 export const SHOP_X = 175;
 export const DUMPSTER_X = 493;
-export const CAR_X = 100;
+export const CAR_X = 220;
 export const BUYER_COUNT = 5;
 export const COP_CAR_HP = 3;
 
@@ -59,10 +66,30 @@ export const LIGHT_COUNT = Math.round(STREET_LEN / BLOCK_LEN);
 export const ORDER_SPOTS = [
   { id: "motel", label: "the motel", x: 1520 },
   { id: "studio", label: "the studio", x: 1880 },
+  { id: "alley", label: "the back alley", x: 1924 },
   { id: "taco", label: "the taco stand", x: 2100 },
   { id: "gas", label: "the gas station", x: 1640 },
   { id: "park", label: "the park", x: 1960 },
   { id: "liquor", label: "the uptown liquor", x: 1760 },
+];
+
+export const GREEN_TIERS = [
+  { id: "half", label: "1/2 OZ", grams: 14, cost: 100, minRep: 0 },
+  { id: "oz", label: "OZ", grams: 28, cost: 180, minRep: 2 },
+  { id: "qp", label: "QP", grams: 112, cost: 650, minRep: 4 },
+  { id: "hp", label: "1/2 P", grams: 224, cost: 1200, minRep: 6 },
+  { id: "p", label: "P", grams: 448, cost: 2200, minRep: 8 },
+];
+export const WHITE_TIERS = [
+  { id: "eighth", label: "8TH", grams: 3.5, cost: 140, minRep: 0 },
+  { id: "quad", label: "7G", grams: 7, cost: 260, minRep: 2 },
+  { id: "half", label: "1/2 OZ", grams: 14, cost: 500, minRep: 3 },
+  { id: "oz", label: "OZ", grams: 28, cost: 950, minRep: 5 },
+];
+export const STALL_LINES = [
+  "aite but don't have me waitin",
+  "yo u comin or what, clock is tickin",
+  "last chance bro i got others",
 ];
 
 export const WEAPONS = {
@@ -79,6 +106,10 @@ export const COLORS = {
   cream: 0xf4f0e8,
   night: 0x140c22,
 };
+
+export function restLat(facing) {
+  return facing > 0 ? CAR_LANE_NEAR : CAR_LANE_FAR;
+}
 
 export function wrap(value, length) {
   value %= length;

@@ -56,7 +56,8 @@ try {
 const PULSE_KEYS = [
   "shoot", "jump", "start", "mute", "pause", "exit", "gearTap", "shiftStep",
   "accept", "decline", "serve", "gate", "hitup", "uturn", "phone", "phoneClose",
-  "textPlug", "buyGreen", "buyWhite", "buyClose", "stashClose",
+  "textPlug", "buyGreen", "buyWhite", "buyTier", "buyProduct", "buyTierId", "buyClose", "stashClose",
+  "inventory", "invClose", "phoneTab",
   "stashInCash", "stashOutCash", "stashInGreen", "stashOutGreen",
   "stashInWhite", "stashOutWhite",
 ];
@@ -109,6 +110,9 @@ window.__br = {
   setStash: (n) => game.setStash(n),
   setClock: (t) => game.setClock(t),
   acceptOrder: () => game.acceptOrder(),
+  stallOrder: () => game.stallOrder(),
+  setBoughtOnce: (on) => game.setBoughtOnce?.(on),
+  setPhoneTab: (t) => game.setPhoneTab?.(t),
   declineOrder: () => game.declineOrder(),
   buyPack: () => game.buyPack(),
   buyProduct: (id) => game.buyProduct(id),

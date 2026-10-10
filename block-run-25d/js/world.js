@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX,
-} from "./config.js?v=29";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=29";
+} from "./config.js?v=30";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=30";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -461,23 +461,37 @@ function makeLamp() {
 }
 
 function skylineTex() {
-  return canvasTex(512, 128, (g, w, h) => {
+  return canvasTex(640, 160, (g, w, h) => {
     g.clearRect(0, 0, w, h);
-    g.fillStyle = "#0b0814";
-    const heights = [40, 70, 55, 90, 48, 110, 62, 80, 44, 96, 58, 74, 88, 50, 100, 66];
-    let x = 0;
-    for (let i = 0; i < heights.length; i++) {
-      const bw = 28 + (i % 3) * 8;
-      const bh = heights[i];
-      g.fillRect(x, h - bh, bw, bh);
-      g.fillStyle = i % 2 ? "#3de0ff" : "#f0c430";
-      for (let wy = h - bh + 6; wy < h - 6; wy += 8) {
-        for (let wx = x + 4; wx < x + bw - 4; wx += 6) {
-          if (Math.random() > 0.45) g.fillRect(wx, wy, 2, 3);
+    const towers = [
+      { w: 18, h: 52 }, { w: 14, h: 70 }, { w: 22, h: 44 },
+      { w: 16, h: 96, crown: true }, { w: 12, h: 60 }, { w: 28, h: 118, spire: true },
+      { w: 15, h: 80 }, { w: 20, h: 54 }, { w: 13, h: 88 }, { w: 24, h: 72 },
+      { w: 11, h: 48 }, { w: 19, h: 104, crown: true }, { w: 16, h: 66 },
+      { w: 14, h: 90 }, { w: 21, h: 58 }, { w: 12, h: 76 },
+    ];
+    let x = 8;
+    for (const t of towers) {
+      g.fillStyle = "#0a0614";
+      g.fillRect(x, h - t.h, t.w, t.h);
+      if (t.spire) {
+        g.fillRect(x + t.w / 2 - 2, h - t.h - 22, 4, 22);
+        g.fillStyle = "#3de0ff";
+        g.fillRect(x + t.w / 2 - 1, h - t.h - 26, 2, 4);
+      }
+      if (t.crown) {
+        g.fillStyle = "#1a1028";
+        g.fillRect(x - 2, h - t.h, t.w + 4, 6);
+      }
+      g.fillStyle = "#f0c430";
+      for (let wy = h - t.h + 8; wy < h - 8; wy += 7) {
+        for (let wx = x + 3; wx < x + t.w - 3; wx += 5) {
+          if (((wx + wy) % 11) > 4) g.fillRect(wx, wy, 2, 2);
         }
       }
-      g.fillStyle = "#0b0814";
-      x += bw + 4;
+      g.fillStyle = "#3de0ff";
+      if (t.h > 80) g.fillRect(x + 3, h - t.h + 4, 3, 3);
+      x += t.w + 6;
     }
   });
 }
@@ -499,7 +513,7 @@ export function createWorld(canvas, sprites) {
   scene.fog = new THREE.FogExp2(0x120820, 0.011);
   scene.background = new THREE.Color(0x140a28);
 
-  const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 180);
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 220);
   camera.position.set(0, 4.6, 11.5);
 
   scene.add(new THREE.AmbientLight(0x4a3068, 1.05));
@@ -538,10 +552,10 @@ export function createWorld(canvas, sprites) {
   scene.add(moonGlow);
 
   const skyline = new THREE.Mesh(
-    new THREE.PlaneGeometry(90, 18),
+    new THREE.PlaneGeometry(140, 28),
     new THREE.MeshBasicMaterial({ map: skylineTex(), transparent: true }),
   );
-  skyline.position.set(0, 8.4, -26);
+  skyline.position.set(0, 11.2, -36);
   scene.add(skyline);
 
   const city = new THREE.Group();
@@ -729,8 +743,8 @@ export function createWorld(canvas, sprites) {
       city.add(graffiti);
     }
     const palms = theme.park
-      ? [[8, -2.4], [16, -5.2], [22, -2.2], [30, -5.8], [38, -2.5], [46, -5.0]]
-      : [[6.5, -2.5], [21.2, -2.3], [40.8, -2.6]];
+      ? [[8, -2.4], [16, -5.2], [22, -2.2], [30, -5.8], [38, -2.5], [46, -5.0], [12, 3.4], [34, 3.6]]
+      : [[6.5, -2.5], [14.2, -4.8], [21.2, -2.3], [29.4, -5.1], [40.8, -2.6], [18, 3.5]];
     for (const [x, z] of palms) {
       const palm = makePalm();
       palm.position.set(x + xOff, 0, z);
@@ -840,6 +854,18 @@ export function createWorld(canvas, sprites) {
   const bangPool = [];
 
   const playerCar = makeLuxuryCar();
+  const rustA = new THREE.Mesh(
+    new THREE.BoxGeometry(0.55, 0.12, 0.2),
+    new THREE.MeshLambertMaterial({ color: 0x8a4a20 }),
+  );
+  rustA.position.set(-1.1, 0.42, 0.66);
+  playerCar.add(rustA);
+  const rustB = new THREE.Mesh(
+    new THREE.BoxGeometry(0.4, 0.1, 0.18),
+    new THREE.MeshLambertMaterial({ color: 0x3a2010 }),
+  );
+  rustB.position.set(1.4, 0.38, -0.66);
+  playerCar.add(rustB);
   scene.add(playerCar);
   const lightMeshes = [];
   for (let i = 0; i < LIGHT_COUNT; i++) {
@@ -880,6 +906,9 @@ export function createWorld(canvas, sprites) {
   const homeLabel = makeLabel("HOME", "#3de0ff");
   homeLabel.scale.set(3.4, 0.85, 1);
   scene.add(homeLabel);
+  const stashLabel = makeLabel("STASH", "#f0c430");
+  stashLabel.scale.set(2.6, 0.7, 1);
+  scene.add(stashLabel);
   const buyerSprite = makeBillboard(sprites.buyers[0].idle[0], 2.2);
   buyerSprite.visible = false;
   scene.add(buyerSprite);
@@ -991,8 +1020,8 @@ export function createWorld(canvas, sprites) {
 
     const playing = state.mode === "play" || paused;
     const portrait = camera.aspect < 1;
-    const camZ = portrait ? (state.inCar ? 17.8 : 16.4) : (state.inCar ? 14.6 : 13.2);
-    const camY = portrait ? (state.inCar ? 2.9 : 2.48) : (state.inCar ? 2.72 : 2.36);
+    const camZ = portrait ? (state.inCar ? 20.4 : 18.8) : (state.inCar ? 16.8 : 15.2);
+    const camY = portrait ? (state.inCar ? 3.35 : 2.86) : (state.inCar ? 3.1 : 2.7);
     if (playing) {
       const leadGame = state.inCar ? (portrait ? 10 : 16) : (portrait ? 14 : 22);
       const lookX = nearestWorldX(wrap(px + p.facing * leadGame, WORLD), camX);
@@ -1011,8 +1040,8 @@ export function createWorld(canvas, sprites) {
 
     moon.position.set(camX - 4.5, 9.2, -11);
     moonGlow.position.copy(moon.position);
-    skyline.position.set(camX + 2, 8.4, -16);
-    sky.position.set(camX, 16, -22);
+    skyline.position.set(camX + 2, 12.4, -28);
+    sky.position.set(camX, 18, -32);
 
     buyerT += stepDt;
     const blink = state.invuln > 0 && Math.floor(state.invuln * 20) % 2 === 0;
@@ -1044,7 +1073,10 @@ export function createWorld(canvas, sprites) {
       const yaw = Number.isFinite(state.car.yaw) ? state.car.yaw : (state.car.facing < 0 ? Math.PI : 0);
       playerCar.rotation.y = yaw;
       const body = playerCar.getObjectByName("body");
-      if (body) body.material.color.setHex(state.car.hp > 0 ? 0x1a1a1e : 0x2a2438);
+      if (body) {
+        const rust = state.car.kind === "luxury" ? 0x1a1a1e : 0x6a3a24;
+        body.material.color.setHex(state.car.hp > 0 ? rust : 0x2a2438);
+      }
       const speed = Math.min(1, Math.abs(state.car.vx) / 180);
       speedStreaks.forEach((streak, i) => {
         const on = state.inCar && speed > 0.35;
@@ -1061,7 +1093,7 @@ export function createWorld(canvas, sprites) {
 
     if (state.copCar) {
       copCarMesh.visible = true;
-      place(copCarMesh, renderGameX(state.copCar, alpha), GROUND_Y, camX, 5.5);
+      place(copCarMesh, renderGameX(state.copCar, alpha), GROUND_Y, camX, 4.95 + (state.copCar.facing > 0 ? 3.9 : 0));
       copCarMesh.position.y = 0;
       copCarMesh.rotation.y = state.copCar.facing < 0 ? Math.PI : 0;
       const flash = Math.sin(performance.now() * 0.012) > 0;
@@ -1120,6 +1152,8 @@ export function createWorld(canvas, sprites) {
     plugLabel.position.y = 2.85;
     place(homeLabel, HOME_X, 154, camX, 1.15);
     homeLabel.position.y = 3.15;
+    place(stashLabel, HOME_X, 154, camX, 1.15);
+    stashLabel.position.y = 2.35;
     if (state.plugMeet) {
       plugSprite.visible = true;
       const pset = sprites.plug || sprites.buyers[0];
