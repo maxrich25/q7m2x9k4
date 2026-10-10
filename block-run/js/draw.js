@@ -135,14 +135,20 @@ export function createWorld(canvas, art) {
     const moon = sky?.moon ?? 0;
     if (moon <= 0.12) return;
     const y = bannerSafeY();
-    const x = 20;
+    const x = 22;
     const drop = Math.round((1 - moon) * 10);
     const cy = y + drop;
-    g.fillStyle = `rgba(244,240,232,${Math.min(1, 0.55 + moon * 0.45).toFixed(2)})`;
-    g.fillRect(x - 4, cy - 6, 8, 12);
-    g.fillRect(x - 6, cy - 4, 12, 8);
-    g.fillStyle = "#c8c0b0";
-    g.fillRect(x - 1, cy - 2, 2, 2);
+    const a = Math.min(1, 0.62 + moon * 0.38);
+    g.fillStyle = `rgba(232,224,208,${a.toFixed(2)})`;
+    g.fillRect(x - 3, cy - 6, 6, 1);
+    g.fillRect(x - 5, cy - 5, 10, 2);
+    g.fillRect(x - 6, cy - 3, 12, 6);
+    g.fillRect(x - 5, cy + 3, 10, 2);
+    g.fillRect(x - 3, cy + 5, 6, 1);
+    g.fillStyle = `rgba(244,240,232,${a.toFixed(2)})`;
+    g.fillRect(x - 3, cy - 3, 6, 6);
+    g.fillStyle = "#b8b0a0";
+    g.fillRect(x - 1, cy - 1, 2, 2);
     g.fillRect(x + 2, cy + 1, 2, 2);
   }
 
