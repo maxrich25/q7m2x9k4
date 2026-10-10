@@ -1,0 +1,50 @@
+:root {
+  --sat: env(safe-area-inset-top);
+  --sar: env(safe-area-inset-right);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: #07060c;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #07060c;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+#menu-home {
+  position: fixed;
+  bottom: calc(96px + var(--sab));
+  left: calc(8px + var(--sal));
+  z-index: 20;
+  font-family: "Press Start 2P", ui-monospace, monospace;
+  font-size: 7px;
+  color: #3de0ff;
+  text-decoration: none;
+  background: rgba(7, 6, 12, 0.82);
+  border: 2px solid #3a3644;
+  padding: 6px 7px;
+  pointer-events: auto;
+}

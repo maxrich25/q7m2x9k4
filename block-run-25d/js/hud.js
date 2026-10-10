@@ -1,7 +1,8 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=24";
-import { isUnlocked } from "./audio.js?v=24";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=25";
+import { isUnlocked } from "./audio.js?v=25";
 
-export function createHud() {
+export function createHud(opts = {}) {
+  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
   const cashEl = document.getElementById("hud-cash");
   const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
@@ -237,7 +238,7 @@ export function createHud() {
     bodyEl.classList.remove("tips", "intro-card");
     if (state.mode === "title") {
       titleEl.innerHTML = "BLOCK<br><span>RUN</span>";
-      subEl.textContent = "2.5D NIGHT BLOCK";
+      subEl.textContent = subtitle;
       bodyEl.innerHTML = "";
       hiEl.textContent = "";
       promptEl.textContent = isUnlocked() ? "TAP TO START" : "TAP TO START";

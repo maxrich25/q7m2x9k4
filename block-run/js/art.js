@@ -1,0 +1,162 @@
+import {
+  pixelCanvas, paintLook, paintCopFig, paintPlugFig, PED_LOOKS,
+  setFromCanvases, flipCanvas,
+} from "../../block-run-25d/js/paint.js?v=25";
+
+const SPRITE_BASE = new URL("../sprites/", import.meta.url);
+
+function loadImage(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    let done = false;
+    const finish = (value) => {
+      if (done) return;
+      done = true;
+      resolve(value);
+    };
+    const timer = window.setTimeout(() => finish(null), 5000);
+    img.onload = () => {
+      window.clearTimeout(timer);
+      finish(img);
+    };
+    img.onerror = () => {
+      window.clearTimeout(timer);
+      finish(null);
+    };
+    img.src = url;
+  });
+}
+
+function toCanvas(img) {
+  const w = img?.naturalWidth || img?.width || 32;
+  const h = img?.naturalHeight || img?.height || 40;
+  return pixelCanvas(w, h, (g) => {
+    if (img) g.drawImage(img, 0, 0);
+  });
+}
+
+function fallback(kind, frame = 0) {
+  return pixelCanvas(32, 40, (g) => {
+    const pal = {
+      shot: ["#3de0ff", "#ffffff"],
+      boom: ["#f0c430", "#e21b7a"],
+      pack: ["#d4a24a", "#6a4420"],
+      cash: ["#3dff7a", "#145828"],
+      dumpster: ["#2a8a4a", "#0e2a16"],
+    }[kind] || ["#f4f0e8", "#e21b7a"];
+    g.fillStyle = pal[1];
+    g.fillRect(8, 10 + (frame % 2), 16, 28);
+    g.fillStyle = pal[0];
+    g.fillRect(10, 12 + (frame % 2), 12, 10);
+    g.fillRect(12, 6 + (frame % 2), 8, 6);
+  });
+}
+
+async function loadRaw(file) {
+  return loadImage(new URL(file, SPRITE_BASE).href);
+}
+
+function withFlip(frames) {
+  return frames.map((c) => {
+    c.flipped = flipCanvas(c);
+    return c;
+  });
+}
+
+function sheetFrom(src, extras) {
+  const set = setFromCanvases(src, extras);
+  return {
+    idle: withFlip(set.idle),
+    walk: withFlip(set.walk),
+    jump: withFlip(set.jump),
+    shoot: withFlip(set.shoot),
+    wave: withFlip(set.wave),
+  };
+}
+
+function paintCar(cop = false) {
+  return pixelCanvas(56, 24, (g) => {
+    g.fillStyle = cop ? "#e8eef4" : "#141418";
+    g.fillRect(4, 10, 48, 8);
+    g.fillStyle = cop ? "#1a2430" : "#0c0c10";
+    g.fillRect(16, 4, 20, 8);
+    g.fillStyle = "#152028";
+    g.fillRect(18, 5, 16, 5);
+    g.fillStyle = cop ? "#111018" : "#d8dee8";
+    g.fillRect(8, 16, 8, 8);
+    g.fillRect(40, 16, 8, 8);
+    g.fillStyle = "#c8d0dc";
+    g.fillRect(10, 18, 4, 4);
+    g.fillRect(42, 18, 4, 4);
+    if (cop) {
+      g.fillStyle = "#e21b7a";
+      g.fillRect(20, 2, 6, 3);
+      g.fillStyle = "#3de0ff";
+      g.fillRect(27, 2, 6, 3);
+    } else {
+      g.fillStyle = "#c8e8ff";
+      g.fillRect(48, 11, 4, 3);
+      g.fillStyle = "#e21b7a";
+      g.fillRect(4, 11, 3, 3);
+    }
+  });
+}
+
+export async function loadArt() {
+  const [idleImgs, walkImgs, shootImgs, packImg, cashImg, dumpImg, streetImg] = await Promise.all([
+    Promise.all([1, 2, 3, 4].map((i) => loadRaw(`idle-${i}.png`))),
+    Promise.all([1, 2, 3, 4].map((i) => loadRaw(`walk-${i}.png`))),
+    Promise.all([1, 2, 3, 4].map((i) => loadRaw(`shoot-${i}.png`))),
+    loadRaw("pack.png"),
+    loadRaw("cash.png"),
+    loadRaw("dumpster.png"),
+    loadImage(new URL("../map/street.png", import.meta.url).href),
+  ]);
+
+  const idleBase = toCanvas(idleImgs[0] || fallback("idle"));
+  const walkBase = toCanvas(walkImgs[0] || idleBase);
+  const playerIdle = withFlip((idleImgs.every(Boolean) ? idleImgs : [idleBase]).map((img) => toCanvas(img)));
+  const playerWalkOrig = walkImgs.filter(Boolean).map((img) => toCanvas(img));
+  const derived = setFromCanvases(walkBase);
+  const playerWalk = withFlip(playerWalkOrig.length
+    ? [
+      playerWalkOrig[0],
+      derived.walk[1],
+      playerWalkOrig[1] || derived.walk[2],
+      playerWalkOrig[2] || derived.walk[3],
+      playerWalkOrig[3] || derived.walk[4],
+      derived.walk[5],
+    ]
+    : derived.walk);
+  const playerShoot = withFlip((shootImgs.every(Boolean) ? shootImgs : derived.shoot).map((img) => (
+    img instanceof HTMLCanvasElement ? img : toCanvas(img)
+  )));
+  const player = {
+    idle: playerIdle,
+    walk: playerWalk,
+    jump: withFlip(derived.jump),
+    shoot: playerShoot,
+  };
+
+  const buyers = PED_LOOKS.map((_, i) => sheetFrom(paintLook(i)));
+  const plug = sheetFrom(paintPlugFig());
+  const cop = sheetFrom(paintCopFig());
+
+  return {
+    player,
+    idle: player.idle,
+    walk: player.walk,
+    jump: player.jump,
+    shoot: player.shoot,
+    buyers,
+    peds: buyers,
+    plug,
+    cop,
+    pack: toCanvas(packImg || fallback("pack")),
+    cash: toCanvas(cashImg || fallback("cash")),
+    dumpster: toCanvas(dumpImg || fallback("dumpster")),
+    street: streetImg,
+    car: withFlip([paintCar(false)])[0],
+    copCar: withFlip([paintCar(true)])[0],
+  };
+}
