@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat,
-} from "./config.js?v=43";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=43";
+} from "./config.js?v=44";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=44";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -332,6 +332,72 @@ function makeLuxuryCar() {
     g.add(chromeRim(x, z, 0.3));
   }
   return g;
+}
+
+function makeBeaterCar() {
+  const g = new THREE.Group();
+  const paint = new THREE.MeshLambertMaterial({ color: 0x6a3a24 });
+  const rust = new THREE.MeshLambertMaterial({ color: 0x8a4a20 });
+  const tint = new THREE.MeshBasicMaterial({ color: 0x2a2018 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(3.55, 0.48, 1.28), paint);
+  body.position.y = 0.42;
+  body.name = "body";
+  g.add(body);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.45, 0.46, 1.18), tint);
+  cabin.position.set(-0.15, 0.82, 0);
+  g.add(cabin);
+  const hood = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.14, 1.16), paint);
+  hood.position.set(1.05, 0.62, 0);
+  g.add(hood);
+  const patch = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.1, 0.22), rust);
+  patch.position.set(-1.05, 0.52, 0.62);
+  g.add(patch);
+  const dent = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.08, 0.2), new THREE.MeshLambertMaterial({ color: 0x3a2010 }));
+  dent.position.set(1.2, 0.4, -0.62);
+  g.add(dent);
+  const bumperF = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.12, 1.24), new THREE.MeshBasicMaterial({ color: 0x8a8070 }));
+  bumperF.position.set(1.82, 0.22, 0);
+  g.add(bumperF);
+  const bumperR = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 1.24), new THREE.MeshBasicMaterial({ color: 0x8a8070 }));
+  bumperR.position.set(-1.82, 0.22, 0);
+  g.add(bumperR);
+  const ledF = new THREE.Mesh(
+    new THREE.BoxGeometry(0.08, 0.08, 0.9),
+    new THREE.MeshBasicMaterial({ color: 0xc8a060 }),
+  );
+  ledF.position.set(1.8, 0.48, 0);
+  ledF.name = "headBar";
+  g.add(ledF);
+  for (const [name, z] of [["headL", -0.38], ["headR", 0.38]]) {
+    const lamp = new THREE.Mesh(
+      new THREE.BoxGeometry(0.1, 0.1, 0.16),
+      new THREE.MeshBasicMaterial({ color: 0xfff2b0 }),
+    );
+    lamp.name = name;
+    lamp.position.set(1.82, 0.46, z);
+    g.add(lamp);
+  }
+  const headGlow = glowSprite("#fff2b0", 1.0);
+  headGlow.name = "headGlow";
+  headGlow.position.set(1.95, 0.48, 0);
+  headGlow.visible = false;
+  g.add(headGlow);
+  const tail = new THREE.Mesh(
+    new THREE.BoxGeometry(0.08, 0.08, 0.86),
+    new THREE.MeshBasicMaterial({ color: 0xe21b7a }),
+  );
+  tail.position.set(-1.8, 0.46, 0);
+  g.add(tail);
+  for (const [x, z] of [[-1.1, 0.58], [-1.1, -0.58], [1.1, 0.58], [1.1, -0.58]]) {
+    g.add(chromeRim(x, z, 0.28));
+  }
+  return g;
+}
+
+function makeStreetCar(kind) {
+  const mesh = kind === "luxury" ? makeLuxuryCar() : makeBeaterCar();
+  mesh.userData.kind = kind === "luxury" ? "luxury" : "beater";
+  return mesh;
 }
 
 function makeTrafficLight() {
@@ -693,13 +759,13 @@ export function createWorld(canvas, sprites) {
     map: skylineTex(),
     transparent: true,
     depthWrite: false,
-    fog: false,
-    depthTest: false,
+    fog: true,
+    depthTest: true,
   });
   const skyline = new THREE.Sprite(skylineMat);
-  skyline.scale.set(108, 26, 1);
-  skyline.position.set(0, 14.6, -28);
-  skyline.renderOrder = -4;
+  skyline.scale.set(148, 34, 1);
+  skyline.position.set(0, 16.4, -58);
+  skyline.renderOrder = -8;
   scene.add(skyline);
 
   function litTower(w, h, d, color, win = 0xf0c430) {
@@ -769,10 +835,10 @@ export function createWorld(canvas, sprites) {
   hazeTex.wrapT = THREE.ClampToEdgeWrapping;
   const hazeBand = new THREE.Mesh(
     new THREE.PlaneGeometry(230, 7),
-    new THREE.MeshBasicMaterial({ map: hazeTex, transparent: true, depthWrite: false, fog: false, depthTest: false }),
+    new THREE.MeshBasicMaterial({ map: hazeTex, transparent: true, depthWrite: false, fog: true, depthTest: true }),
   );
-  hazeBand.position.set(0, 5.4, -11.2);
-  hazeBand.renderOrder = -3;
+  hazeBand.position.set(0, 8.2, -42);
+  hazeBand.renderOrder = -6;
   scene.add(hazeBand);
   const farPalms = [];
   for (let i = 0; i < 14; i++) {
@@ -1039,8 +1105,16 @@ export function createWorld(canvas, sprites) {
   const homeHouse = makeSafeHouse();
   homeHouse.position.set(gameToWorldX(HOME_X), 0, -1.05);
   city.add(homeHouse);
-  addNeon("HOME", "#3de0ff", gameToWorldX(HOME_X), 4.35, 0.55, true);
+  addNeon("HOME", "#3de0ff", gameToWorldX(HOME_X), 4.85, 0.85, true);
   addNeon("PLUG", "#e21b7a", gameToWorldX(PLUG_X), 2.55, 0.15, true);
+  const caliX = gameToWorldX(HOME_X + 340);
+  const caliPole = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.07, 0.09, 5.4, 6),
+    new THREE.MeshLambertMaterial({ color: 0x2a2430 }),
+  );
+  caliPole.position.set(caliX, 2.7, 0.35);
+  city.add(caliPole);
+  addNeon("CALI", "#f0c430", caliX, 5.7, 0.55, true);
 
   const shop = makeKiosk();
   shop.position.set(gameToWorldX(SHOP_X), 0, -1.35);
@@ -1083,7 +1157,7 @@ export function createWorld(canvas, sprites) {
   scene.add(fireLabel);
   const bangPool = [];
 
-  const playerCar = makeLuxuryCar();
+  const playerCar = makeBeaterCar();
   const rustA = new THREE.Mesh(
     new THREE.BoxGeometry(0.55, 0.12, 0.2),
     new THREE.MeshLambertMaterial({ color: 0x8a4a20 }),
@@ -1096,6 +1170,12 @@ export function createWorld(canvas, sprites) {
   );
   rustB.position.set(1.4, 0.38, -0.66);
   playerCar.add(rustB);
+  const youLight = new THREE.Mesh(
+    new THREE.BoxGeometry(0.22, 0.14, 0.22),
+    new THREE.MeshBasicMaterial({ color: 0x3de0ff }),
+  );
+  youLight.position.set(0.05, 1.12, 0);
+  playerCar.add(youLight);
   scene.add(playerCar);
   const lightMeshes = [];
   for (let i = 0; i < LIGHT_COUNT; i++) {
@@ -1137,6 +1217,9 @@ export function createWorld(canvas, sprites) {
   const stashLabel = makeLabel("STASH", "#f0c430");
   stashLabel.scale.set(1.7, 0.4, 1);
   scene.add(stashLabel);
+  const youLabel = makeLabel("YOU", "#3de0ff");
+  youLabel.scale.set(1.35, 0.32, 1);
+  scene.add(youLabel);
   const buyerSprite = makeBillboard(sprites.buyers[0].idle[0], 2.2);
   buyerSprite.visible = false;
   scene.add(buyerSprite);
@@ -1249,18 +1332,20 @@ export function createWorld(canvas, sprites) {
 
     const playing = state.mode === "play" || paused;
     const portrait = camera.aspect < 1;
-    const camZ = portrait ? (state.inCar ? 20.4 : 18.8) : (state.inCar ? 16.8 : 15.2);
-    const camY = portrait ? (state.inCar ? 3.35 : 2.86) : (state.inCar ? 3.1 : 2.7);
+    const boardU = 1 - Math.max(0, Math.min(1, (state.boardT || 0) / 0.38));
+    const carCam = state.inCar ? boardU : (1 - boardU);
+    const camZ = (portrait ? 18.8 : 15.2) + carCam * (portrait ? 1.6 : 1.6);
+    const camY = (portrait ? 2.86 : 2.7) + carCam * (portrait ? 0.49 : 0.4);
     const wantFace = p.facing < 0 ? -1 : 1;
-    lookFace += (wantFace - lookFace) * (1 - Math.exp(-4.2 * Math.max(stepDt, 0.0001)));
+    lookFace += (wantFace - lookFace) * (1 - Math.exp(-1.7 * Math.max(stepDt, 0.0001)));
     if (playing) {
       const leadGame = state.inCar ? (portrait ? 10 : 16) : (portrait ? 14 : 22);
       const lookX = nearestWorldX(wrap(px + lookFace * leadGame, WORLD), camX);
       const dx = wrapDelta(camX, lookX, STREET_LEN);
-      const follow = state.inCar ? 6.4 : 4.1;
+      const follow = state.inCar ? 3.0 : 2.2;
       camX = wrap(camX + dx * (1 - Math.exp(-follow * Math.max(stepDt, 0.0001) * (paused ? 0 : 1))), STREET_LEN);
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.08, camZ);
-      tmp.set(camX + lookFace * (state.inCar ? 0.7 : 0.75), 1.48 + gameToWorldY(p.y) * 0.12, state.inCar ? 3.1 : 1.85);
+      tmp.set(camX + lookFace * (0.75 - carCam * 0.05), 1.48 + gameToWorldY(p.y) * 0.12, 1.85 + carCam * 1.25);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
     } else {
@@ -1286,10 +1371,10 @@ export function createWorld(canvas, sprites) {
 
     moon.position.set(camX - 8.4, 14.6, -28);
     moonGlow.position.copy(moon.position);
-    skyline.position.set(camX + 1.6, 14.8, -28);
-    hazeBand.position.set(camX, 7.4, -18);
+    skyline.position.set(camX + 1.6, 16.8, -58);
+    hazeBand.position.set(camX, 8.4, -42);
     sky.position.set(camX, 18, -36);
-    dtla.position.set(camX + 0.8, 0, -32);
+    dtla.position.set(camX + 0.8, 0, -36);
     for (const t of dtla.children) {
       t.position.x = t.userData.dx || 0;
       t.position.z = 0;
@@ -1340,8 +1425,11 @@ export function createWorld(canvas, sprites) {
 
     buyerT += stepDt;
     const blink = state.invuln > 0 && Math.floor(state.invuln * 20) % 2 === 0;
-    playerSprite.visible = !state.inCar;
-    playerSprite.material.opacity = blink ? 0.4 : 1;
+    const boarding = (state.boardT || 0) > 0;
+    playerSprite.visible = !state.inCar || boarding;
+    let playerAlpha = blink ? 0.4 : 1;
+    if (boarding) playerAlpha = state.inCar ? (1 - boardU) : boardU;
+    playerSprite.material.opacity = playerAlpha;
     const airborne = p.y < 197.2;
     const fit = (sprites.outfits && sprites.outfits[state.outfit | 0]) || sprites;
     const animSet = state.muzzle > 0 ? fit.shoot
@@ -1352,8 +1440,10 @@ export function createWorld(canvas, sprites) {
     const sprFace = lookFace < 0 ? -1 : 1;
     setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate), sprFace);
     place(playerSprite, px, GROUND_Y, camX, 1.15);
-    playerSprite.position.y = 0;
+    playerSprite.position.y = boarding ? (state.inCar ? -boardU * 0.35 : (1 - boardU) * 0.28) : 0;
     orientBillboard(playerSprite, camera);
+    const spinW = Math.max(0.16, Math.abs(lookFace));
+    playerSprite.scale.x = (playerSprite.userData.baseW || 1) * spinW;
     playerSprite.material.color.set(p.flash > 0 ? 0xffffff : 0xffffff);
     if (p.flash > 0) playerSprite.material.color.setHex(0xffc8e8);
     else playerSprite.material.color.setHex(0xffffff);
@@ -1363,6 +1453,7 @@ export function createWorld(canvas, sprites) {
     playerShadow.position.z = 1.15;
     playerShadow.scale.setScalar(p.y < 198 ? 0.7 : 1);
 
+    if (!state.car) youLabel.visible = false;
     if (state.car) {
       const cx = renderGameX(state.car, alpha);
       playerCar.visible = true;
@@ -1376,6 +1467,8 @@ export function createWorld(canvas, sprites) {
         body.material.color.setHex(state.car.hp > 0 ? rust : 0x2a2438);
       }
       setCarLights(playerCar, !!(skyInfo && skyInfo.headlights));
+      youLabel.visible = true;
+      youLabel.position.set(playerCar.position.x, 1.85, playerCar.position.z);
       const speed = Math.min(1, Math.abs(state.car.vx) / 180);
       speedStreaks.forEach((streak, i) => {
         const on = state.inCar && speed > 0.35;
@@ -1407,11 +1500,21 @@ export function createWorld(canvas, sprites) {
 
     let ti = 0;
     for (const t of state.traffic || []) {
-      const mesh = take(trafficPool, () => {
-        const m = makeLuxuryCar();
-        scene.add(m);
-        return m;
-      }, ti++);
+      const kind = t.kind === "luxury" ? "luxury" : "beater";
+      let mesh = trafficPool[ti];
+      if (!mesh || mesh.userData.kind !== kind) {
+        if (mesh) {
+          scene.remove(mesh);
+          mesh.traverse((o) => {
+            if (o.geometry) o.geometry.dispose?.();
+          });
+        }
+        mesh = makeStreetCar(kind);
+        scene.add(mesh);
+        trafficPool[ti] = mesh;
+      }
+      mesh.visible = true;
+      ti += 1;
       place(mesh, renderGameX(t, alpha), GROUND_Y, camX, 4.95 + (t.lat ?? restLat(t.facing)));
       mesh.position.y = 0;
       mesh.rotation.y = t.facing < 0 ? Math.PI : 0;

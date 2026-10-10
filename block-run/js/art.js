@@ -1,8 +1,8 @@
 import {
   pixelCanvas, setFromCanvases, flipCanvas, remapHoodie,
-  PED_LOOKS, paintPlugFig,
-} from "../../block-run-25d/js/paint.js?v=43";
-import { OUTFITS } from "../../block-run-25d/js/config.js?v=43";
+  PED_LOOKS, paintPlugFig, paintLook,
+} from "../../block-run-25d/js/paint.js?v=44";
+import { OUTFITS } from "../../block-run-25d/js/config.js?v=44";
 
 const SPRITE_BASE = new URL("../sprites/", import.meta.url);
 
@@ -238,10 +238,7 @@ export async function loadArt() {
   const thugSheet = sheetFromImgs(thugImgs, toCanvas(idleImgs[0] || fallback("idle")));
   const runSheet = sheetFromImgs(runImgs, toCanvas(walkImgs[0] || fallback("idle")));
   const bossSheet = sheetFromImgs(bossImgs, toCanvas(idleImgs[0] || fallback("idle")));
-  const buyers = PED_LOOKS.map((look) => {
-    const set = makePlayer(look.shirt);
-    return { idle: set.idle, walk: set.walk, jump: set.jump, shoot: set.shoot, wave: set.idle };
-  });
+  const buyers = PED_LOOKS.map((look, i) => sheetFrom(paintLook(i)));
   const plug = sheetFrom(paintPlugFig());
   const cop = thugSheet;
 

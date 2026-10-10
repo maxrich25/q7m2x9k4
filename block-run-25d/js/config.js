@@ -57,7 +57,7 @@ export const SAVE_KEY = "block-run-save";
 export const SHOP_X = 175;
 export const DUMPSTER_X = 493;
 export const CAR_X = 220;
-export const BUYER_COUNT = 5;
+export const BUYER_COUNT = 8;
 export const COP_CAR_HP = 3;
 
 /** 3D street length in meters. Game x maps onto this wrapping strip. */
@@ -77,8 +77,8 @@ export const ORDER_SPOTS = [
 
 export const MAX_REP = 16;
 export const START_HOUR = 21;
-/** ~14 real minutes per in-game day (24 * 35s). */
-export const SEC_PER_HOUR = 35;
+/** ~24 real minutes per in-game day (24 * 60s), GTA-ish 1s = 1min. */
+export const SEC_PER_HOUR = 60;
 
 export const GREEN_TIERS = [
   { id: "half", label: "1/2 OZ", grams: 14, cost: 100, minRep: 0 },
