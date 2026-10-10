@@ -1280,7 +1280,7 @@ export function createWorld(canvas, sprites) {
     skyline.position.set(camX + 1.6, 13.4, -22);
     hazeBand.position.set(camX, 7.4, -18);
     sky.position.set(camX, 18, -36);
-    dtla.position.set(camX + 0.8, 2.4, -20);
+    dtla.position.set(camX + 0.8, 0, -26);
     for (const t of dtla.children) {
       t.position.x = t.userData.dx || 0;
       t.position.z = 0;
