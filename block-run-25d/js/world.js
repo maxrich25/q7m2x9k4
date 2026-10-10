@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX,
-} from "./config.js?v=23";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=23";
+} from "./config.js?v=24";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=24";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -762,8 +762,46 @@ export function createWorld(canvas, sprites) {
       city.add(stripe);
     }
   }
-  addNeon("HOME", "#3de0ff", gameToWorldX(HOME_X), 2.35, 0.15, true);
-  addNeon("PLUG", "#e21b7a", gameToWorldX(PLUG_X), 2.35, 0.15, true);
+  function makeSafeHouse() {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(3.8, 2.6, 2.4),
+      new THREE.MeshLambertMaterial({ color: 0x3a3048 }),
+    );
+    body.position.y = 1.3;
+    g.add(body);
+    const roof = new THREE.Mesh(
+      new THREE.BoxGeometry(4.2, 0.28, 2.8),
+      new THREE.MeshLambertMaterial({ color: 0x1a1424 }),
+    );
+    roof.position.y = 2.7;
+    g.add(roof);
+    const door = new THREE.Mesh(
+      new THREE.BoxGeometry(0.85, 1.45, 0.08),
+      new THREE.MeshBasicMaterial({ color: 0x3de0ff }),
+    );
+    door.position.set(0, 0.72, 1.24);
+    g.add(door);
+    const pane = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.7, 0.7),
+      new THREE.MeshBasicMaterial({ color: 0xf0c430 }),
+    );
+    pane.position.set(1.15, 1.55, 1.22);
+    g.add(pane);
+    const stoop = new THREE.Mesh(
+      new THREE.BoxGeometry(1.4, 0.12, 0.7),
+      new THREE.MeshLambertMaterial({ color: 0x2a2438 }),
+    );
+    stoop.position.set(0, 0.06, 1.5);
+    g.add(stoop);
+    return g;
+  }
+  const homeHouse = makeSafeHouse();
+  homeHouse.position.set(gameToWorldX(HOME_X), 0, -1.05);
+  city.add(homeHouse);
+  addNeon("HOME", "#3de0ff", gameToWorldX(HOME_X), 3.55, 0.35, true);
+  addNeon("HOME", "#3de0ff", gameToWorldX(HOME_X), 2.05, 1.35, true);
+  addNeon("PLUG", "#e21b7a", gameToWorldX(PLUG_X), 2.55, 0.15, true);
 
   const shop = makeKiosk();
   shop.position.set(gameToWorldX(SHOP_X), 0, -1.35);
@@ -840,10 +878,17 @@ export function createWorld(canvas, sprites) {
   const plugLabel = makeLabel("PLUG", "#e21b7a");
   scene.add(plugLabel);
   const homeLabel = makeLabel("HOME", "#3de0ff");
+  homeLabel.scale.set(3.4, 0.85, 1);
   scene.add(homeLabel);
   const buyerSprite = makeBillboard(sprites.buyers[0].idle[0], 2.2);
   buyerSprite.visible = false;
   scene.add(buyerSprite);
+  const plugSprite = makeBillboard((sprites.plug || sprites.buyers[0]).idle[0], 2.25);
+  plugSprite.visible = false;
+  scene.add(plugSprite);
+  const plugGlow = glowSprite("#e21b7a", 2.8);
+  plugGlow.visible = false;
+  scene.add(plugGlow);
   let buyerT = 0;
 
   const playerSprite = makeBillboard(sprites.idle[0], 2.65);
@@ -969,6 +1014,7 @@ export function createWorld(canvas, sprites) {
     skyline.position.set(camX + 2, 8.4, -16);
     sky.position.set(camX, 16, -22);
 
+    buyerT += stepDt;
     const blink = state.invuln > 0 && Math.floor(state.invuln * 20) % 2 === 0;
     playerSprite.visible = !state.inCar;
     playerSprite.material.opacity = blink ? 0.4 : 1;
@@ -1027,12 +1073,18 @@ export function createWorld(canvas, sprites) {
       copCarMesh.visible = false;
     }
 
+    if (state.plugMeet && !(state.order && (state.order.phase === "active" || state.order.phase === "nudge"))) {
+      destPin.visible = true;
+      place(destPin, state.plugMeet.x, GROUND_Y, camX, 1.2);
+      destPin.position.y = 2.85 + Math.sin(performance.now() * 0.01) * 0.18;
+    } else {
+      destPin.visible = false;
+    }
     if (state.order && (state.order.phase === "active" || state.order.phase === "nudge")) {
       destPin.visible = true;
       place(destPin, state.order.x, GROUND_Y, camX, 1.2);
       destPin.position.y = 2.85 + Math.sin(performance.now() * 0.01) * 0.18;
       buyerSprite.visible = true;
-      buyerT += stepDt;
       const look = Math.max(0, state.order.look | 0) % sprites.buyers.length;
       const buyerSet = sprites.buyers[look];
       const face = wrapDelta(state.order.x, px, WORLD) >= 0 ? 1 : -1;
@@ -1050,7 +1102,7 @@ export function createWorld(canvas, sprites) {
       buyerArrow.visible = true;
       buyerArrow.position.set(buyerSprite.position.x, 3.15 + Math.sin(performance.now() * 0.014) * 0.22, 1.2);
     } else {
-      destPin.visible = false;
+      if (!state.plugMeet) destPin.visible = false;
       buyerSprite.visible = false;
       buyerGlow.visible = false;
       buyerArrow.visible = false;
@@ -1063,10 +1115,25 @@ export function createWorld(canvas, sprites) {
       orientBillboard(packHeld, camera);
     }
 
-    place(plugLabel, PLUG_X, 154, camX, 1.15);
-    plugLabel.position.y = 2.55;
+    const plugX = state.plugMeet?.x ?? PLUG_X;
+    place(plugLabel, plugX, 154, camX, 1.15);
+    plugLabel.position.y = 2.85;
     place(homeLabel, HOME_X, 154, camX, 1.15);
-    homeLabel.position.y = 2.55;
+    homeLabel.position.y = 3.15;
+    if (state.plugMeet) {
+      plugSprite.visible = true;
+      const pset = sprites.plug || sprites.buyers[0];
+      const pface = wrapDelta(plugX, px, WORLD) >= 0 ? 1 : -1;
+      setBillboardFrame(plugSprite, frameAt(pset.wave || pset.idle, buyerT, 7), pface);
+      place(plugSprite, plugX, GROUND_Y, camX, 1.2);
+      plugSprite.position.y = 0;
+      orientBillboard(plugSprite, camera);
+      plugGlow.visible = true;
+      plugGlow.position.set(plugSprite.position.x, 1.35, 1.2);
+    } else {
+      plugSprite.visible = false;
+      plugGlow.visible = false;
+    }
 
     place(dumpSprite, DUMPSTER_X, 198, camX, -0.35);
     dumpSprite.position.y = 0;

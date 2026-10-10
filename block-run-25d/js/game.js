@@ -6,8 +6,10 @@ import {
   SHOP_X, DUMPSTER_X, CAR_X, ORDER_SPOTS, WEAPONS, wrap, wrapDelta, hitWrap,
   formatDeal, dealFeet, COMBAT, START_CASH, PACK_COST, PACK_PAY,
   PLUG_X, HOME_X, PED_COUNT, LIGHT_COUNT, lightGameX, lightPhaseAt,
-} from "./config.js?v=23";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=23";
+  PRODUCTS, HALF_OZ, SALE_AMOUNTS, FLAKE_LIMIT, CONTACT_NAMES, MORE_NAMES,
+  INTRO_TEXT, SALE_POP_T, SERVE_SLOW, fmtGrams, streetGrams,
+} from "./config.js?v=24";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio } from "./audio.js?v=24";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -18,10 +20,14 @@ function saveHi(value) {
 }
 
 const ORDER_LINES = [
-  (n, spot) => `yo need ${n} pack${n > 1 ? "s" : ""}, by ${spot}`,
-  (n, spot) => `u up? ${n} by ${spot} rn`,
-  (n, spot) => `bring ${n} to ${spot}`,
+  (dollars, product, spot) => `yo need $${dollars} ${product.toLowerCase()}, by ${spot}`,
+  (dollars, product, spot) => `u up? $${dollars} ${product.toLowerCase()} at ${spot} rn`,
+  (dollars, product, spot) => `bring $${dollars} ${product.toLowerCase()} to ${spot}`,
 ];
+
+function emptyInv() {
+  return { GREEN: 0, WHITE: 0 };
+}
 
 export function createGame() {
   let mode = "title";
@@ -45,6 +51,13 @@ export function createGame() {
   let cash = START_CASH;
   let stash = 0;
   let packs = 0;
+  let inv = emptyInv();
+  let stashInv = emptyInv();
+  let contacts = [];
+  let plugMeet = null;
+  let ui = null;
+  let salePop = null;
+  let usedNames = new Set();
   let rep = 1;
   let hi = loadHi();
   let wave = 1;
@@ -90,30 +103,47 @@ export function createGame() {
       }
       if (order && (order.phase === "active" || order.phase === "nudge")) {
         destSide = edgeSide(order.x, lastView);
+      } else if (plugMeet) {
+        destSide = edgeSide(plugMeet.x, lastView);
       }
     }
     const nearCar = !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && player.y >= 197.5;
-    const nearPlug = !inCar && Math.abs(wrapDelta(player.x, PLUG_X, WORLD)) < 26 && player.y >= 197.5;
-    const nearHome = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 26 && player.y >= 197.5;
+    const nearPlug = Math.abs(wrapDelta(player.x, plugMeet?.x ?? PLUG_X, WORLD)) < 28;
+    const nearHome = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && player.y >= 197.5;
     const nearPed = !inCar && peds.some((p) => Math.abs(wrapDelta(player.x, p.x, WORLD)) < 18);
     const exitOk = inCar && (car.gear === "P" || Math.abs(car.vx) < CAR_STOP);
-    let prompt = "";
-    if (mode === "play") {
-      if (exitOk) prompt = "EXIT";
-      else if (nearCar) prompt = "ENTER";
-      else if (nearPlug) prompt = cash >= PACK_COST ? "BUY $20" : "NEED $";
-      else if (nearHome) prompt = cash > 0 ? "STASH" : "HOME";
-      else if (nearPed) prompt = "HIT UP";
-      else if (order && needPackT > 0) prompt = "NEED PACK";
-    }
     const liveDeal = order && (order.phase === "active" || order.phase === "nudge");
+    const nearDeal = !!(liveDeal && Math.abs(wrapDelta(player.x, order.x, WORLD)) < 32);
+    const slowEnough = Math.abs(player.vx) < SERVE_SLOW;
+    const canServe = !!(mode === "play" && !ui && nearDeal && slowEnough && ( !inCar || inCar ));
+    const canBuy = !!(plugMeet && nearPlug && slowEnough);
+    let prompt = "";
+    let gate = "";
+    if (mode === "play" && !ui) {
+      if (exitOk) gate = "EXIT";
+      else if (nearCar) gate = "ENTER";
+      else if (nearHome) gate = "ENTER";
+      else if (canBuy) gate = "BUY";
+      if (canServe) prompt = "SERVE";
+      else if (gate) prompt = gate;
+      else if (nearPlug && !plugMeet) prompt = "TEXT PLUG";
+      else if (nearPed && !nearCar && !nearHome) prompt = "HIT UP";
+    }
     const dealD = liveDeal ? wrapDelta(player.x, order.x, WORLD) : 0;
+    const navTarget = liveDeal ? order.x : (plugMeet ? plugMeet.x : HOME_X);
+    const navLabel = liveDeal ? "DEAL" : (plugMeet ? "PLUG" : "HOME");
+    const navD = wrapDelta(player.x, navTarget, WORLD);
     const lights = [];
     for (let i = 0; i < LIGHT_COUNT; i++) {
       lights.push({ x: lightGameX(i), phase: lightPhaseAt(clock, i) });
     }
     return {
-      mode, cash, stash, packs, rep, hi, hp: player.hp, carrying, wave, gun,
+      mode, cash, stash, packs, inv: { ...inv }, stashInv: { ...stashInv },
+      contacts: contacts.map((c) => ({ ...c })),
+      plugMeet: plugMeet ? { ...plugMeet } : null,
+      ui, salePop: salePop ? { ...salePop } : null,
+      introText: INTRO_TEXT, products: PRODUCTS, halfOz: HALF_OZ,
+      rep, hi, hp: player.hp, carrying, wave, gun,
       heat, muted: isMuted(), combat: COMBAT,
       player: { ...player },
       car: { ...car },
@@ -122,12 +152,20 @@ export function createGame() {
       peds: peds.map((p) => ({ ...p })),
       lights,
       copCar: copCar ? { ...copCar } : null,
-      prompt, destSide, hitUp: nearPed && !nearCar && !nearPlug && !nearHome,
-      dealM: liveDeal ? Math.round(dealFeet(player.x, order.x)) : 0,
-      dealLabel: liveDeal ? formatDeal(player.x, order.x) : "",
-      dealDir: liveDeal ? (dealD >= 0 ? 1 : -1) : 0,
+      prompt, gate, destSide, hitUp: prompt === "HIT UP",
+      canServe, canBuy, nearHome, nearCar, nearPlug, nearPed, exitOk,
+      showServe: canServe,
+      showGate: !!(gate && mode === "play" && !ui),
+      showHitUp: prompt === "HIT UP",
+      turnOk: inCar && Math.abs(car.vx) <= CAR_TURN_MAX && car.turnT <= 0,
+      dealM: Math.round(dealFeet(player.x, navTarget)),
+      dealLabel: formatDeal(player.x, navTarget),
+      dealDir: navD >= 0 ? 1 : -1,
       dealMe: player.x / WORLD,
-      dealAt: liveDeal ? order.x / WORLD : 0,
+      dealAt: navTarget / WORLD,
+      homeAt: HOME_X / WORLD,
+      navLabel,
+      liveDeal: !!liveDeal,
       foes: foes.map((f) => ({ ...f })),
       shots: shots.map((s) => ({ ...s })),
       loot: loot.map((l) => ({ ...l })),
@@ -137,7 +175,6 @@ export function createGame() {
       boss: boss ? { ...boss } : null,
       shake, muzzle, invuln,
       edgeL, edgeR, viewHalf: lastView?.halfWidth || 0,
-      exitOk,
     };
   }
 
@@ -179,7 +216,9 @@ export function createGame() {
     car.turnFrom = 0;
     car.turnTo = 0;
     car.shiftHint = 0;
-    car.lat = 0;
+    car.lat = restLat(1);
+    car.turnLatFrom = 0;
+    car.turnLatTo = 0;
     inCar = false;
     wreckT = 0;
     copCar = null;
@@ -192,6 +231,7 @@ export function createGame() {
     car.shiftHint = 0;
     car.turnT = 0;
     car.yaw = car.facing < 0 ? Math.PI : 0;
+    car.lat = restLat(car.facing);
     player.x = car.x;
     player.y = GROUND_Y;
     player.vy = 0;
@@ -231,15 +271,30 @@ export function createGame() {
     return true;
   }
 
+  function restLat(facing) {
+    return facing < 0 ? CAR_TURN_ARC : 0;
+  }
+
   function requestTurn(dir) {
-    if (!dir || car.turnT > 0) return;
-    if (dir === car.facing) return;
-    if (Math.abs(car.vx) > CAR_TURN_MAX) return;
+    if (!dir || car.turnT > 0) return false;
+    if (dir === car.facing) return false;
+    if (Math.abs(car.vx) > CAR_TURN_MAX) return false;
     car.turnT = CAR_TURN_TIME;
     car.turnFrom = car.facing < 0 ? Math.PI : 0;
     car.turnTo = dir < 0 ? Math.PI : 0;
+    car.turnLatFrom = restLat(car.facing);
+    car.turnLatTo = restLat(dir);
     car.facing = dir;
-    car.lat = 0;
+    return true;
+  }
+
+  function doUTurn() {
+    if (!inCar || car.turnT > 0) return false;
+    if (Math.abs(car.vx) > CAR_TURN_MAX) {
+      pop(car.x, 150, "SLOW");
+      return false;
+    }
+    return requestTurn(-car.facing);
   }
 
   function spawnPeds() {
@@ -261,10 +316,165 @@ export function createGame() {
     return Math.max(5, 18 - rep * 1.3) + Math.random() * 5;
   }
 
+  function seedContacts() {
+    const n = 3 + Math.floor(Math.random() * 3);
+    usedNames = new Set();
+    contacts = [];
+    for (let i = 0; i < n; i++) {
+      const name = CONTACT_NAMES[i] || MORE_NAMES[i];
+      usedNames.add(name);
+      contacts.push({
+        id: "c" + i,
+        name,
+        kind: "customer",
+        status: "idle",
+        flakes: 0,
+        look: i % BUYER_COUNT,
+      });
+    }
+    contacts.push({
+      id: "plug",
+      name: "PLUG",
+      kind: "plug",
+      status: "idle",
+      flakes: 0,
+      look: 0,
+    });
+  }
+
+  function findContact(id) {
+    return contacts.find((c) => c.id === id);
+  }
+
+  function loseContact(c, why) {
+    if (!c || c.kind === "plug") return;
+    pop(player.x, 150, "LOST " + c.name);
+    contacts = contacts.filter((x) => x.id !== c.id);
+    if (order && order.contactId === c.id) order = null;
+    if (why) sfx.hit();
+  }
+
+  function markFlake(c) {
+    if (!c || c.kind === "plug") return;
+    c.flakes = (c.flakes || 0) + 1;
+    c.status = "idle";
+    if (c.flakes >= FLAKE_LIMIT) loseContact(c, true);
+  }
+
+  function pickNewName() {
+    const pool = [...CONTACT_NAMES, ...MORE_NAMES].filter((n) => !usedNames.has(n));
+    if (!pool.length) return null;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function addContact(name, look) {
+    const n = name || pickNewName();
+    if (!n) return null;
+    usedNames.add(n);
+    const c = {
+      id: "c" + Date.now().toString(36) + Math.floor(Math.random() * 99),
+      name: n,
+      kind: "customer",
+      status: "idle",
+      flakes: 0,
+      look: look ?? (contacts.length % BUYER_COUNT),
+    };
+    contacts.splice(contacts.findIndex((x) => x.kind === "plug"), 0, c);
+    pop(player.x, 148, "NEW " + n);
+    sfx.ping();
+    return c;
+  }
+
+  function gramsOf(id) {
+    return Math.max(0, inv[id] || 0);
+  }
+
+  function setUi(name) {
+    ui = name || null;
+  }
+
+  function togglePhone() {
+    ui = ui === "phone" ? null : "phone";
+    return ui === "phone";
+  }
+
+  function textPlug() {
+    const plug = findContact("plug");
+    if (!plug) return false;
+    plugMeet = { x: PLUG_X, t: 90, label: "the plug" };
+    plug.status = "meet";
+    ui = null;
+    sfx.ping();
+    pop(PLUG_X, 150, "MEET PLUG");
+    return true;
+  }
+
+  function buyProduct(id) {
+    const p = PRODUCTS[id];
+    if (!p) return false;
+    if (!plugMeet) {
+      pop(player.x, 150, "TEXT PLUG");
+      return false;
+    }
+    if (cash < p.buyHalf) {
+      pop(plugMeet.x, 154, "NEED $");
+      return false;
+    }
+    cash -= p.buyHalf;
+    inv[id] = gramsOf(id) + HALF_OZ;
+    packs = Math.round((gramsOf("GREEN") + gramsOf("WHITE")) / HALF_OZ);
+    sfx.buy();
+    pop(plugMeet.x, 150, "+" + HALF_OZ + "g " + id);
+    maybeHi();
+    return true;
+  }
+
+  function transfer(kind, dir) {
+    if (kind === "cash") {
+      if (dir > 0) {
+        if (cash <= 0) return false;
+        stash += cash;
+        const n = cash;
+        cash = 0;
+        maybeHi();
+        sfx.drop();
+        pop(HOME_X, 150, "IN $" + n);
+        return true;
+      }
+      if (stash <= 0) return false;
+      cash += stash;
+      const n = stash;
+      stash = 0;
+      sfx.pickup();
+      pop(HOME_X, 150, "OUT $" + n);
+      return true;
+    }
+    const id = kind;
+    if (!PRODUCTS[id]) return false;
+    if (dir > 0) {
+      const n = gramsOf(id);
+      if (n <= 0) return false;
+      stashInv[id] = (stashInv[id] || 0) + n;
+      inv[id] = 0;
+      sfx.drop();
+      pop(HOME_X, 150, "IN " + id);
+      return true;
+    }
+    const n = stashInv[id] || 0;
+    if (n <= 0) return false;
+    inv[id] = gramsOf(id) + n;
+    stashInv[id] = 0;
+    sfx.pickup();
+    pop(HOME_X, 150, "OUT " + id);
+    return true;
+  }
+
   function acceptOrder() {
     if (!order || order.phase !== "offer") return false;
     order.phase = "active";
     order.t = order.maxT;
+    const c = findContact(order.contactId);
+    if (c) c.status = "waiting";
     sfx.ping();
     return true;
   }
@@ -272,6 +482,8 @@ export function createGame() {
   function declineOrder() {
     if (!order || order.phase !== "offer") return false;
     pop(player.x, 150, "DECLINED");
+    const c = findContact(order.contactId);
+    markFlake(c);
     order = null;
     rep = Math.max(0, rep - 1);
     orderCd = nextOrderWait() + 4;
@@ -281,31 +493,57 @@ export function createGame() {
   function failOrder() {
     if (!order) return;
     pop(player.x, 152, "NO SHOW");
+    const c = findContact(order.contactId);
+    markFlake(c);
     order = null;
     rep = Math.max(0, rep - 2);
     orderCd = nextOrderWait() + 6;
   }
 
   function buyPack() {
-    if (cash < PACK_COST) {
-      pop(PLUG_X, 154, "NEED $");
-      return false;
-    }
-    cash -= PACK_COST;
-    packs += 1;
-    sfx.buy();
-    pop(PLUG_X, 150, "+1 PACK");
-    return true;
+    return buyProduct("GREEN");
   }
 
   function stashCash() {
-    if (cash <= 0) return false;
-    const n = cash;
-    stash += cash;
-    cash = 0;
-    maybeHi();
+    return transfer("cash", 1);
+  }
+
+  function serve() {
+    if (!order || (order.phase !== "active" && order.phase !== "nudge")) return false;
+    const nearDeal = Math.abs(wrapDelta(player.x, order.x, WORLD)) < 32;
+    const slow = Math.abs(player.vx) < SERVE_SLOW;
+    if (!nearDeal || !slow) return false;
+    const grams = order.grams || streetGrams(order.product, order.dollars);
+    if (gramsOf(order.product) + 0.001 < grams) {
+      needPackT = 1.2;
+      pop(order.x, 154, "NEED " + order.product);
+      return false;
+    }
+    inv[order.product] = gramsOf(order.product) - grams;
+    packs = Math.round((gramsOf("GREEN") + gramsOf("WHITE")) / HALF_OZ);
+    const pay = order.dollars;
+    cash += pay;
+    heat = Math.min(3, heat + 0.18);
+    rep = Math.min(10, rep + 2);
+    salePop = {
+      product: order.product,
+      grams,
+      dollars: pay,
+      life: SALE_POP_T,
+    };
+    pop(order.x, 150, "SOLD +$" + pay);
     sfx.drop();
-    pop(HOME_X, 150, "STASH +" + n);
+    burst(order.x, 178, 14, "#f0c430");
+    maybeHi();
+    const c = findContact(order.contactId);
+    if (c) {
+      c.status = "idle";
+      c.flakes = 0;
+    }
+    if (Math.random() < 0.38) addContact();
+    order = null;
+    orderCd = nextOrderWait();
+    needPackT = 0;
     return true;
   }
 
@@ -314,22 +552,56 @@ export function createGame() {
     if (!ped) return false;
     ped.hitCd = 4;
     heat = Math.min(3, heat + 0.12);
-    if (packs < 1) {
-      pop(ped.x, 154, "NEED PACK");
-      return true;
-    }
-    if (Math.random() < 0.58) {
-      packs -= 1;
-      const pay = PACK_PAY + Math.floor(Math.random() * 12);
-      cash += pay;
-      maybeHi();
-      pop(ped.x, 150, "SOLD +" + pay);
-      sfx.drop();
+    if (Math.random() < 0.55) {
+      const c = addContact(null, ped.look);
+      if (c) pop(ped.x, 150, c.name);
+      else pop(ped.x, 150, "GOT U");
     } else {
       pop(ped.x, 150, "NAH");
       sfx.hit();
     }
     return true;
+  }
+
+  function openBuy() {
+    if (!plugMeet) {
+      ui = "phone";
+      return false;
+    }
+    ui = "buy";
+    return true;
+  }
+
+  function openStash() {
+    ui = "stash";
+    return true;
+  }
+
+  function useGate() {
+    const nearCarNow = !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && onGround();
+    const nearHomeNow = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && onGround();
+    const nearPlugNow = Math.abs(wrapDelta(player.x, plugMeet?.x ?? PLUG_X, WORLD)) < 28;
+    if (inCar) {
+      if (car.gear === "P" || Math.abs(car.vx) < CAR_STOP) {
+        leaveCar();
+        return true;
+      }
+      pop(car.x, 150, "PARK");
+      return false;
+    }
+    if (nearCarNow) {
+      enterCar();
+      return true;
+    }
+    if (nearHomeNow) {
+      openStash();
+      return true;
+    }
+    if (nearPlugNow && plugMeet) {
+      openBuy();
+      return true;
+    }
+    return false;
   }
 
   function reset(keepWave) {
@@ -347,6 +619,14 @@ export function createGame() {
     carrying = false;
     heat = 0;
     packs = 0;
+    if (!keepWave) {
+      inv = emptyInv();
+      stashInv = emptyInv();
+      plugMeet = null;
+      ui = null;
+      salePop = null;
+      seedContacts();
+    }
     stash = keepWave ? stash : 0;
     cash = keepWave ? cash : START_CASH;
     rep = keepWave ? rep : 1;
@@ -423,21 +703,38 @@ export function createGame() {
       pool.sort((a, b) => Math.abs(wrapDelta(player.x, b.x, WORLD)) - Math.abs(wrapDelta(player.x, a.x, WORLD)));
       spot = pool[Math.floor(Math.random() * Math.min(3, pool.length))];
     }
-    const packs = opts.packs ?? (Math.random() < 0.42 ? 2 : 1);
+    const idle = contacts.filter((c) => c.kind === "customer" && c.status === "idle");
+    const who = opts.contactId
+      ? findContact(opts.contactId)
+      : idle[Math.floor(Math.random() * idle.length)];
+    if (!who && !opts.force) {
+      orderCd = 6;
+      return null;
+    }
+    const product = opts.product || (Math.random() < 0.7 ? "GREEN" : "WHITE");
+    const dollars = opts.dollars || SALE_AMOUNTS[Math.floor(Math.random() * SALE_AMOUNTS.length)];
+    const grams = opts.grams ?? streetGrams(product, dollars);
     const dist = Math.abs(wrapDelta(player.x, spot.x, WORLD));
     const line = ORDER_LINES[Math.floor(Math.random() * ORDER_LINES.length)];
     const timer = opts.t ?? Math.max(11, Math.min(22, dist / 95));
+    const look = who?.look ?? ((opts.look ?? Math.floor(Math.random() * BUYER_COUNT)) % BUYER_COUNT + BUYER_COUNT) % BUYER_COUNT;
+    if (who) who.status = opts.phase === "active" || opts.phase === "nudge" ? "waiting" : "offering";
     order = {
       id: spot.id,
+      contactId: who?.id || "guest",
+      name: who?.name || "SOMEONE",
       x: spot.x,
       label: spot.label,
-      packs,
+      product,
+      dollars,
+      grams,
+      packs: 0,
       phase: opts.phase || "offer",
       t: opts.phase === "active" || opts.phase === "nudge" ? timer : 0,
       maxT: timer,
       dist,
-      look: ((opts.look ?? Math.floor(Math.random() * BUYER_COUNT)) % BUYER_COUNT + BUYER_COUNT) % BUYER_COUNT,
-      text: opts.text || line(packs, spot.label),
+      look,
+      text: opts.text || line(dollars, product, spot.label),
     };
     orderCd = nextOrderWait();
     sfx.ping();
@@ -445,24 +742,7 @@ export function createGame() {
   }
 
   function completeOrder() {
-    if (!order) return;
-    if (packs < order.packs) {
-      needPackT = 1.2;
-      pop(order.x, 154, "NEED PACK");
-      return;
-    }
-    packs -= order.packs;
-    const pay = Math.round(PACK_PAY + (order.packs - 1) * 14 + Math.min(36, order.dist * 0.03));
-    cash += pay;
-    heat = Math.min(3, heat + 0.18);
-    rep = Math.min(10, rep + 2);
-    pop(order.x, 150, "SOLD +" + pay);
-    sfx.drop();
-    burst(order.x, 178, 14, "#f0c430");
-    maybeHi();
-    order = null;
-    orderCd = nextOrderWait();
-    needPackT = 0;
+    return serve();
   }
 
   function hurtCar(amount = 1) {
@@ -589,9 +869,16 @@ export function createGame() {
   function beginPlay(keepWave) {
     unlockAudio();
     reset(keepWave);
-    mode = "play";
+    mode = keepWave ? "play" : "intro";
+    if (keepWave) ui = null;
     sfx.start();
     startMusic();
+  }
+
+  function finishIntro() {
+    if (mode !== "intro") return;
+    mode = "play";
+    ui = "phone";
   }
 
   function tick(dt, input, view) {
@@ -614,6 +901,11 @@ export function createGame() {
       clock += dt;
       return snapshot();
     }
+    if (mode === "intro") {
+      if (input.start || input.shoot || input.jump) finishIntro();
+      clock += dt;
+      return snapshot();
+    }
     if (mode === "dead" || mode === "clear") {
       if (input.start || input.shoot || input.jump) {
         if (mode === "clear") {
@@ -631,7 +923,32 @@ export function createGame() {
     car.px = car.x;
     if (copCar) copCar.px = copCar.x;
 
-    const nearCar = !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && onGround();
+    if (input.phone) togglePhone();
+    if (input.phoneClose) ui = null;
+    if (input.textPlug) textPlug();
+    if (input.buyGreen) buyProduct("GREEN");
+    if (input.buyWhite) buyProduct("WHITE");
+    if (input.buyClose || input.stashClose) ui = null;
+    if (input.stashInCash) transfer("cash", 1);
+    if (input.stashOutCash) transfer("cash", -1);
+    if (input.stashInGreen) transfer("GREEN", 1);
+    if (input.stashOutGreen) transfer("GREEN", -1);
+    if (input.stashInWhite) transfer("WHITE", 1);
+    if (input.stashOutWhite) transfer("WHITE", -1);
+
+    if (ui) {
+      if (input.accept) acceptOrder();
+      if (input.decline) declineOrder();
+      clock += dt;
+      atHome = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28;
+      heat = Math.max(0, heat - dt * (atHome ? 0.2 : 0.04));
+      if (salePop) {
+        salePop.life -= dt;
+        if (salePop.life <= 0) salePop = null;
+      }
+      return snapshot();
+    }
+
     let usedJump = false;
     if (inCar) {
       const want = input.gearTap || input.shiftGear;
@@ -641,39 +958,13 @@ export function createGame() {
         const next = GEARS[i + input.shiftStep];
         if (next) tryShift(next, !!input.brake);
       }
-      if (input.steer) requestTurn(input.steer < 0 ? -1 : 1);
-      if (input.exit) {
-        if (car.gear === "P" || Math.abs(car.vx) < CAR_STOP) {
-          leaveCar();
-          usedJump = true;
-          jumpBuf = 0;
-        } else {
-          pop(car.x, 150, "PARK");
-        }
-      }
-    } else if (nearCar && input.jump) {
-      enterCar();
-      usedJump = true;
-      jumpBuf = 0;
-      coyote = 0;
-    } else if (!inCar && input.jump) {
-      const nearPlug = Math.abs(wrapDelta(player.x, PLUG_X, WORLD)) < 26 && onGround();
-      const nearHome = Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 26 && onGround();
-      const nearPed = peds.some((p) => Math.abs(wrapDelta(player.x, p.x, WORLD)) < 18);
-      if (nearPlug) {
-        buyPack();
-        usedJump = true;
-        jumpBuf = 0;
-      } else if (nearHome) {
-        stashCash();
-        usedJump = true;
-        jumpBuf = 0;
-      } else if (nearPed) {
-        solicit();
-        usedJump = true;
-        jumpBuf = 0;
-      }
+      if (input.uturn) doUTurn();
+      if (input.gate || input.exit) useGate();
+    } else if (input.gate) {
+      useGate();
     }
+    if (input.serve) serve();
+    if (input.hitup && !inCar) solicit();
     if (input.accept) acceptOrder();
     if (input.decline) declineOrder();
 
@@ -684,14 +975,16 @@ export function createGame() {
         const u = 1 - car.turnT / CAR_TURN_TIME;
         const s = u * u * (3 - 2 * u);
         car.yaw = car.turnFrom + (car.turnTo - car.turnFrom) * s;
-        car.lat = Math.sin(u * Math.PI) * CAR_TURN_ARC;
+        const fromLat = car.turnLatFrom ?? restLat(car.turnFrom < Math.PI / 2 ? 1 : -1);
+        const toLat = car.turnLatTo ?? restLat(car.facing);
+        car.lat = fromLat + (toLat - fromLat) * s + Math.sin(u * Math.PI) * (CAR_TURN_ARC * 0.35);
         const oldDir = car.turnFrom < Math.PI / 2 ? 1 : -1;
         const along = (1 - u) * oldDir + u * car.facing;
         car.x = wrap(car.x + along * 22 * dt, WORLD);
         car.vx *= Math.exp(-3.2 * dt);
       } else {
         car.yaw = car.facing < 0 ? Math.PI : 0;
-        car.lat = 0;
+        car.lat = restLat(car.facing);
       }
 
       const brake = !!input.brake;
@@ -780,6 +1073,18 @@ export function createGame() {
     atHome = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28;
     heat = Math.max(0, heat - dt * (atHome ? 0.2 : 0.04));
     needPackT = Math.max(0, needPackT - dt);
+    if (salePop) {
+      salePop.life -= dt;
+      if (salePop.life <= 0) salePop = null;
+    }
+    if (plugMeet) {
+      plugMeet.t -= dt;
+      if (plugMeet.t <= 0) {
+        plugMeet = null;
+        const plug = findContact("plug");
+        if (plug) plug.status = "idle";
+      }
+    }
 
     if (COMBAT) {
       spawnCd -= dt;
@@ -845,15 +1150,7 @@ export function createGame() {
             failOrder();
           }
         } else {
-          const nearDeal = Math.abs(wrapDelta(player.x, order.x, WORLD)) < 28;
-          const slow = Math.abs(player.vx) < 42;
-          if (nearDeal && slow) {
-            if (packs >= order.packs || (COMBAT && carrying)) completeOrder();
-            else if (needPackT <= 0) {
-              needPackT = 1.2;
-              pop(order.x, 154, "NEED PACK");
-            }
-          }
+          // sales require the SERVE button — do not auto-complete
         }
       }
     }
@@ -886,12 +1183,13 @@ export function createGame() {
         );
         if (caught) {
           copCar.bumpCd = 1.6;
-          if (packs > 0 || cash > 0) {
-            const lostP = packs;
+          if (gramsOf("GREEN") > 0 || gramsOf("WHITE") > 0 || cash > 0) {
+            const lostP = gramsOf("GREEN") + gramsOf("WHITE");
             const lostC = cash;
+            inv = emptyInv();
             packs = 0;
             cash = 0;
-            pop(player.x, 146, lostP ? "LOST PACKS" : "LOST $");
+            pop(player.x, 146, lostP ? "LOST BAG" : "LOST $");
             sfx.siren();
             if (lostC) burst(player.x, 178, 10, "#f0c430");
           }
@@ -1124,23 +1422,43 @@ export function createGame() {
     tick,
     getState: snapshot,
     start: () => beginPlay(false),
+    finishIntro,
     pause() { if (mode === "play") mode = "paused"; },
     resume() { if (mode === "paused") mode = "play"; },
     restart() { beginPlay(false); },
-    toTitle() { mode = "title"; reset(false); },
+    toTitle() { mode = "title"; ui = null; reset(false); },
     giveCash(n) { cash += n; maybeHi(); },
     setGun(name) { if (WEAPONS[name]) gun = name; },
     setCarrying(on) { carrying = !!on; },
     setHeat(h) { heat = Math.max(0, Math.min(3, h)); },
     setPacks(n) { packs = Math.max(0, n | 0); },
+    setInv(id, grams) {
+      if (!PRODUCTS[id]) return;
+      inv[id] = Math.max(0, Number(grams) || 0);
+    },
+    setStashInv(id, grams) {
+      if (!PRODUCTS[id]) return;
+      stashInv[id] = Math.max(0, Number(grams) || 0);
+    },
     setRep(n) { rep = Math.max(0, Math.min(10, n)); },
     setStash(n) { stash = Math.max(0, n | 0); maybeHi(); },
     setClock(t) { clock = Math.max(0, Number(t) || 0); },
     acceptOrder,
     declineOrder,
     buyPack,
+    buyProduct,
     stashCash,
+    transfer,
     solicit,
+    serve,
+    textPlug,
+    togglePhone,
+    setUi,
+    openBuy,
+    openStash,
+    useGate,
+    doUTurn,
+    addContact,
     startUTurn(dir) {
       const d = dir < 0 ? -1 : 1;
       if (d === car.facing) car.facing *= -1;

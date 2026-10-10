@@ -1,8 +1,8 @@
-import { unlockAudio } from "./audio.js?v=23";
+import { unlockAudio } from "./audio.js?v=24";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyS", "KeyJ", "KeyK", "KeyZ", "KeyX",
-  "KeyF", "KeyQ", "KeyE",
+  "KeyF", "KeyQ", "KeyE", "KeyU", "KeyC", "KeyH", "KeyT",
   "Digit1", "Digit2", "Digit3", "Digit4",
   "Space", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
   "KeyM", "Escape", "KeyP", "KeyY", "KeyN",
@@ -13,6 +13,29 @@ const GEAR_KEYS = {
   Digit2: "R",
   Digit3: "N",
   Digit4: "D",
+};
+
+const TAP_ROLES = {
+  serve: "serve",
+  gate: "gate",
+  exit: "gate",
+  hitup: "hitup",
+  uturn: "uturn",
+  phone: "phone",
+  "phone-close": "phoneClose",
+  "text-plug": "textPlug",
+  "buy-green": "buyGreen",
+  "buy-white": "buyWhite",
+  "buy-close": "buyClose",
+  "stash-close": "stashClose",
+  "stash-in-cash": "stashInCash",
+  "stash-out-cash": "stashOutCash",
+  "stash-in-green": "stashInGreen",
+  "stash-out-green": "stashOutGreen",
+  "stash-in-white": "stashInWhite",
+  "stash-out-white": "stashOutWhite",
+  accept: "accept",
+  decline: "decline",
 };
 
 function gearFromY(clientY, root) {
@@ -49,6 +72,11 @@ export function createInput(root = document) {
   let acceptPulse = false;
   let declinePulse = false;
   let gearPulse = null;
+  const taps = {};
+
+  function pulseTap(key) {
+    if (key) taps[key] = true;
+  }
 
   function roleOf(target) {
     const btn = target?.closest?.("[data-role]");
@@ -61,11 +89,18 @@ export function createInput(root = document) {
     down.add(e.code);
     unlockAudio();
     if (e.code === "Enter" || e.code === "Space") startPulse = true;
-    if (e.code === "Space" || e.code === "KeyJ" || e.code === "KeyK" || e.code === "KeyZ" || e.code === "KeyF") {
+    if (e.code === "Space" || e.code === "KeyJ" || e.code === "KeyK" || e.code === "KeyZ") {
       shootPulse = true;
     }
-    if (e.code === "ArrowUp" || e.code === "KeyW" || e.code === "KeyX") jumpPulse = true;
-    if (e.code === "KeyX") exitPulse = true;
+    if (e.code === "ArrowUp" || e.code === "KeyW") jumpPulse = true;
+    if (e.code === "KeyX") {
+      exitPulse = true;
+      pulseTap("gate");
+    }
+    if (e.code === "KeyU") pulseTap("uturn");
+    if (e.code === "KeyF") pulseTap("serve");
+    if (e.code === "KeyH") pulseTap("hitup");
+    if (e.code === "KeyC" || e.code === "KeyT") pulseTap("phone");
     if (e.code === "KeyM") mutePulse = true;
     if (e.code === "Escape" || e.code === "KeyP") pausePulse = true;
     if (e.code === "KeyY") acceptPulse = true;
@@ -85,7 +120,7 @@ export function createInput(root = document) {
   function onPointerDown(e) {
     const role = roleOf(e.target);
     if (!role) {
-      if (e.target.closest("#btn-mute, #btn-pause, #pause-actions, a.menu-link")) return;
+      if (e.target.closest("#btn-mute, #btn-pause, #pause-actions, a.menu-link, .sheet, #ctx")) return;
       if (e.target.closest("#overlay.pause-mode")) return;
       if (e.target.closest("#view")) startPulse = true;
       unlockAudio();
@@ -100,14 +135,13 @@ export function createInput(root = document) {
       gear = gearFromY(e.clientY, root) || gear;
     }
     pointers.set(e.pointerId, { role: recRole, gear });
-    startPulse = role !== "mute";
+    if (role !== "mute" && !TAP_ROLES[role] && role !== "phone") startPulse = true;
     if (role === "fire") shootPulse = true;
     if (role === "jump") jumpPulse = true;
     if (role === "exit") exitPulse = true;
     if (role === "mute") mutePulse = true;
     if (role === "gear" && gear) gearPulse = gear;
-    if (role === "accept") acceptPulse = true;
-    if (role === "decline") declinePulse = true;
+    if (TAP_ROLES[role]) pulseTap(TAP_ROLES[role]);
     try { e.target.setPointerCapture(e.pointerId); } catch {}
     const btn = e.target.closest("[data-role]");
     if (btn && recRole !== "shifter") btn.classList.add("held");
@@ -150,14 +184,16 @@ export function createInput(root = document) {
     return (forced ?? down).has(code);
   }
 
+  function take(key) {
+    const on = !!taps[key];
+    taps[key] = false;
+    return on;
+  }
+
   function poll() {
     let moveX = 0;
     if (held("KeyA") || held("ArrowLeft")) moveX -= 1;
     if (held("KeyD") || held("ArrowRight")) moveX += 1;
-
-    let steer = 0;
-    if (held("KeyA") || held("ArrowLeft")) steer -= 1;
-    if (held("KeyD") || held("ArrowRight")) steer += 1;
 
     let shoot = false;
     let jump = false;
@@ -165,27 +201,26 @@ export function createInput(root = document) {
     let gas = held("KeyW") || held("ArrowUp");
     let exitHeld = held("KeyX");
     let shiftGear = null;
+    let uturnHeld = held("KeyU");
 
     for (const rec of pointers.values()) {
       if (rec.role === "left") moveX -= 1;
       if (rec.role === "right") moveX += 1;
-      if (rec.role === "steer-left") steer -= 1;
-      if (rec.role === "steer-right") steer += 1;
       if (rec.role === "fire") shoot = true;
       if (rec.role === "jump") jump = true;
       if (rec.role === "brake") brake = true;
       if (rec.role === "gas") gas = true;
-      if (rec.role === "exit") exitHeld = true;
+      if (rec.role === "exit" || rec.role === "gate") exitHeld = true;
+      if (rec.role === "uturn") uturnHeld = true;
       if (rec.role === "shifter" && rec.gear) shiftGear = rec.gear;
     }
 
-    if (held("Space") || held("KeyJ") || held("KeyK") || held("KeyZ") || held("KeyF")) shoot = true;
-    if (held("ArrowUp") || held("KeyW") || held("KeyX")) jump = true;
+    if (held("Space") || held("KeyJ") || held("KeyK") || held("KeyZ")) shoot = true;
+    if (held("KeyW") || held("ArrowUp")) jump = true;
     if (shootPulse) shoot = true;
     if (jumpPulse) jump = true;
 
     moveX = Math.max(-1, Math.min(1, moveX));
-    steer = Math.max(-1, Math.min(1, steer));
 
     const startHeld = held("Enter") || held("Space") || pointers.size > 0 || startPulse;
     const startEdge = (startHeld && !startWas) || startPulse;
@@ -238,24 +273,23 @@ export function createInput(root = document) {
     const mute = muteEdge;
     const pause = pauseEdge;
 
-    root.querySelectorAll(".pad-btn").forEach((btn) => {
+    root.querySelectorAll(".pad-btn, .ctx-btn").forEach((btn) => {
       const role = btn.dataset.role;
       const on =
         (role === "left" && moveX < 0) ||
         (role === "right" && moveX > 0) ||
         (role === "jump" && jump) ||
         (role === "fire" && shoot) ||
-        (role === "steer-left" && steer < 0) ||
-        (role === "steer-right" && steer > 0) ||
         (role === "brake" && brake) ||
         (role === "gas" && gas) ||
-        (role === "exit" && exitHeld);
+        (role === "uturn" && uturnHeld) ||
+        ((role === "exit" || role === "gate") && exitHeld);
       if (role) btn.classList.toggle("held", on);
     });
 
     return {
       moveX,
-      steer,
+      steer: 0,
       brake,
       gas,
       shoot: shootEdge,
@@ -270,6 +304,23 @@ export function createInput(root = document) {
       shiftGear,
       gearTap,
       shiftStep,
+      serve: take("serve"),
+      gate: take("gate") || exitEdge,
+      hitup: take("hitup"),
+      uturn: take("uturn"),
+      phone: take("phone"),
+      phoneClose: take("phoneClose"),
+      textPlug: take("textPlug"),
+      buyGreen: take("buyGreen"),
+      buyWhite: take("buyWhite"),
+      buyClose: take("buyClose"),
+      stashClose: take("stashClose"),
+      stashInCash: take("stashInCash"),
+      stashOutCash: take("stashOutCash"),
+      stashInGreen: take("stashInGreen"),
+      stashOutGreen: take("stashOutGreen"),
+      stashInWhite: take("stashInWhite"),
+      stashOutWhite: take("stashOutWhite"),
     };
   }
 
@@ -280,19 +331,16 @@ export function createInput(root = document) {
   function heldRoles() {
     const roles = new Set();
     for (const rec of pointers.values()) roles.add(rec.role);
-    if (held("KeyA") || held("ArrowLeft")) {
-      roles.add("left");
-      roles.add("steer-left");
+    if (held("KeyA") || held("ArrowLeft")) roles.add("left");
+    if (held("KeyD") || held("ArrowRight")) roles.add("right");
+    if (held("Space") || held("KeyJ") || held("KeyK") || held("KeyZ")) roles.add("fire");
+    if (held("ArrowUp") || held("KeyW")) {
+      roles.add("jump");
+      roles.add("gas");
     }
-    if (held("KeyD") || held("ArrowRight")) {
-      roles.add("right");
-      roles.add("steer-right");
-    }
-    if (held("Space") || held("KeyJ") || held("KeyK") || held("KeyZ") || held("KeyF")) roles.add("fire");
-    if (held("ArrowUp") || held("KeyW") || held("KeyX")) roles.add("jump");
-    if (held("KeyW") || held("ArrowUp")) roles.add("gas");
     if (held("KeyS") || held("ArrowDown")) roles.add("brake");
-    if (held("KeyX")) roles.add("exit");
+    if (held("KeyX")) roles.add("gate");
+    if (held("KeyU")) roles.add("uturn");
     return roles;
   }
 

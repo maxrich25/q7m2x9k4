@@ -16,12 +16,24 @@ export const CAR_STOP = 8;
 export const GEARS = ["P", "R", "N", "D"];
 /** Keep enemy/gun/wave code compiled; off for the dealing-loop build. */
 export const COMBAT = false;
-export const START_CASH = 100;
+export const HALF_OZ = 14;
+export const PRODUCTS = {
+  GREEN: { id: "GREEN", buyHalf: 100, streetGram: 14, color: "#3dff7a" },
+  WHITE: { id: "WHITE", buyHalf: 500, streetGram: 55, color: "#f4f0e8" },
+};
+export const START_CASH = PRODUCTS.GREEN.buyHalf + 30;
+export const SALE_AMOUNTS = [20, 40, 60];
+export const FLAKE_LIMIT = 3;
 export const PACK_COST = 20;
 export const PACK_PAY = 46;
 export const PLUG_X = 1480;
 export const HOME_X = 240;
 export const PED_COUNT = 10;
+export const CONTACT_NAMES = ["DEZ", "MARI", "KILO", "NIA", "JUNO"];
+export const MORE_NAMES = ["ACE", "BREE", "CAM", "DRE", "EZ", "FAY", "GIO", "HANA", "IZZY", "JAY"];
+export const INTRO_TEXT = "You just quit your garbage job. You saved enough for a first re-up, and you know people.";
+export const SALE_POP_T = 2.4;
+export const SERVE_SLOW = 36;
 export const LIGHT_CYCLE = 16;
 export const GRAVITY = 780;
 export const JUMP_VEL = -340;
@@ -115,6 +127,18 @@ export function dealMeters(fromX, toX) {
 
 export function dealFeet(fromX, toX) {
   return dealMeters(fromX, toX) * 3.28084;
+}
+
+export function fmtGrams(n) {
+  const g = Math.max(0, Number(n) || 0);
+  const r = Math.round(g * 10) / 10;
+  return Number.isInteger(r) ? String(r) : r.toFixed(1);
+}
+
+export function streetGrams(productId, dollars) {
+  const p = PRODUCTS[productId];
+  if (!p || !p.streetGram) return 0;
+  return (Number(dollars) || 0) / p.streetGram;
 }
 
 export function formatDeal(fromX, toX) {

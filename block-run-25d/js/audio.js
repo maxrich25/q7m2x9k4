@@ -58,11 +58,17 @@ export function unlockAudio() {
   if (ctx.state !== "running") {
     try {
       ctx.resume().then(() => {
-        if (ctx && ctx.state === "running") unlocked = true;
+        if (ctx && ctx.state === "running") {
+          unlocked = true;
+          startMusic();
+        }
       });
     } catch {}
   }
-  if (ctx.state === "running") unlocked = true;
+  if (ctx.state === "running") {
+    unlocked = true;
+    startMusic();
+  }
 }
 
 export function bindAudioUnlock() {
@@ -263,7 +269,7 @@ export function stopMusic() {
 }
 
 export function startMusic() {
-  stopMusic();
+  if (musicTimer != null) return;
   ensure();
   let next = 0;
   const bar = () => {
