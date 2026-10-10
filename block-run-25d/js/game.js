@@ -11,8 +11,8 @@ import {
   restLat, CAR_KINDS, GREEN_TIERS, WHITE_TIERS, STALL_LINES,
   OUTFITS, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
   nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen,
-} from "./config.js?v=40";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=40";
+} from "./config.js?v=41";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=41";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -115,6 +115,8 @@ export function createGame() {
       }
       if (order && (order.phase === "active" || order.phase === "nudge")) {
         destSide = edgeSide(order.x, lastView);
+      } else if (order && (order.phase === "offer" || order.phase === "stalling")) {
+        destSide = 0;
       } else if (plugMeet) {
         destSide = edgeSide(plugMeet.x, lastView);
       }
@@ -172,7 +174,7 @@ export function createGame() {
       slowToServe: !!(nearDeal && !slowEnough && mode === "play" && !ui),
       showGate: !!(gate && mode === "play" && !ui),
       showHitUp: prompt === "HIT UP",
-      turnOk: inCar && car.gear === "D" && Math.abs(car.vx) > 18 && car.turnT <= 0,
+      turnOk: inCar && car.gear === "D" && car.turnT <= 0,
       stopped: inCar && Math.abs(car.vx) < CAR_STOP,
       boughtOnce,
       unread: inbox.some((m) => m.unread) || !!(order && (order.phase === "offer" || order.phase === "stalling")),
@@ -308,10 +310,10 @@ export function createGame() {
     return true;
   }
 
-  function requestTurn(dir) {
+  function requestTurn(dir, opts = {}) {
     if (!dir || car.turnT > 0) return false;
     if (dir === car.facing) return false;
-    if (Math.abs(car.vx) > CAR_TURN_MAX) return false;
+    if (!opts.force && Math.abs(car.vx) > CAR_TURN_MAX) return false;
     car.turnT = CAR_TURN_TIME;
     car.turnFrom = car.facing < 0 ? Math.PI : 0;
     car.turnTo = dir < 0 ? Math.PI : 0;
@@ -323,12 +325,11 @@ export function createGame() {
 
   function doUTurn() {
     if (!inCar || car.turnT > 0) return false;
-    if (car.gear !== "D" || Math.abs(car.vx) <= 18) return false;
-    if (Math.abs(car.vx) > CAR_TURN_MAX) {
-      pop(car.x, 150, "SLOW");
+    if (car.gear !== "D") {
+      pop(car.x, 150, "DRIVE");
       return false;
     }
-    return requestTurn(-car.facing);
+    return requestTurn(-car.facing, { force: true });
   }
 
   const TRAFFIC_COLS = ["#2a3048", "#6a3a24", "#1a3a48", "#4a2030", "#3a3a38", "#204028", "#5a4030"];
@@ -398,6 +399,7 @@ export function createGame() {
         name,
         kind: "customer",
         status: "idle",
+        knows: false,
         flakes: 0,
         look: i % BUYER_COUNT,
       });
@@ -426,6 +428,12 @@ export function createGame() {
       t: clock,
       unread: true,
     });
+    inbox.unshift({
+      from: "PHONE",
+      text: "they don't know you got work yet. CONTACTS → HIT UP when you're holding",
+      t: clock,
+      unread: true,
+    });
     sfx.ping();
   }
 
@@ -450,7 +458,7 @@ export function createGame() {
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  function addContact(name, look) {
+  function addContact(name, look, opts = {}) {
     const n = name || pickNewName();
     if (!n) return null;
     usedNames.add(n);
@@ -459,6 +467,7 @@ export function createGame() {
       name: n,
       kind: "customer",
       status: "idle",
+      knows: !!opts.knows,
       flakes: 0,
       look: look ?? (contacts.length % BUYER_COUNT),
     };
@@ -541,8 +550,51 @@ export function createGame() {
     boughtOnce = true;
     sfx.buy();
     pop(plugMeet.x, 150, "+" + tier.grams + "g " + id);
-    if (firstBuy) sendRepTip();
+    if (firstBuy) {
+      sendRepTip();
+      orderCd = 99;
+    }
     maybeHi();
+    return true;
+  }
+
+  function stockedProducts() {
+    const ids = [];
+    if (gramsOf("GREEN") > 0.001) ids.push("GREEN");
+    if (gramsOf("WHITE") > 0.001) ids.push("WHITE");
+    return ids;
+  }
+
+  function pingContact(id) {
+    const c = findContact(id);
+    if (!c || c.kind === "plug") return false;
+    if (c.knows) {
+      pop(player.x, 150, "THEY KNOW");
+      return false;
+    }
+    const stocked = stockedProducts();
+    if (!boughtOnce || !stocked.length) {
+      pop(player.x, 150, "RE-UP FIRST");
+      return false;
+    }
+    c.knows = true;
+    c.status = "idle";
+    const what = stocked.map((p) => p.toLowerCase()).join(" + ");
+    inbox.unshift({
+      from: "ME",
+      text: "yo I'm up, got " + what,
+      t: clock,
+      unread: false,
+    });
+    inbox.unshift({
+      from: c.name,
+      text: "bet",
+      t: clock,
+      unread: true,
+    });
+    sfx.ping();
+    pop(player.x, 150, "HIT " + c.name);
+    if (!order) orderCd = Math.min(orderCd, 2.5 + Math.random() * 2.5);
     return true;
   }
 
@@ -685,7 +737,7 @@ export function createGame() {
     ped.hitCd = 4;
     bumpHeat(0.12);
     if (Math.random() < 0.55) {
-      const c = addContact(null, ped.look);
+      const c = addContact(null, ped.look, { knows: true });
       if (c) pop(ped.x, 150, c.name);
       else pop(ped.x, 150, "GOT U");
     } else {
@@ -877,15 +929,20 @@ export function createGame() {
       pool.sort((a, b) => Math.abs(wrapDelta(player.x, b.x, WORLD)) - Math.abs(wrapDelta(player.x, a.x, WORLD)));
       spot = pool[Math.floor(Math.random() * Math.min(3, pool.length))];
     }
-    const idle = contacts.filter((c) => c.kind === "customer" && c.status === "idle");
+    const idle = contacts.filter((c) => c.kind === "customer" && c.status === "idle" && c.knows);
     const who = opts.contactId
       ? findContact(opts.contactId)
       : idle[Math.floor(Math.random() * idle.length)];
     if (!who && !opts.force) {
-      orderCd = 6;
+      orderCd = 8;
       return null;
     }
-    const product = opts.product || (Math.random() < 0.7 ? "GREEN" : "WHITE");
+    const stocked = stockedProducts();
+    if (!opts.product && !stocked.length && !opts.force) {
+      orderCd = 8;
+      return null;
+    }
+    const product = opts.product || stocked[Math.floor(Math.random() * stocked.length)] || "GREEN";
     const dollars = opts.dollars || SALE_AMOUNTS[Math.floor(Math.random() * SALE_AMOUNTS.length)];
     const grams = opts.grams ?? streetGrams(product, dollars);
     const dist = Math.abs(wrapDelta(player.x, spot.x, WORLD));
@@ -1055,7 +1112,7 @@ export function createGame() {
   function finishIntro() {
     if (mode !== "intro") return;
     mode = "play";
-    ui = "phone";
+    ui = null;
   }
 
   function tick(dt, input, view) {
@@ -1115,6 +1172,7 @@ export function createGame() {
 
     if (input.phone) togglePhone();
     if (input.phoneClose) ui = null;
+    if (input.pingContact) pingContact(input.pingContactId);
     if (input.textPlug) textPlug();
     if (input.buyGreen) buyProduct("GREEN");
     if (input.buyWhite) buyProduct("WHITE");
@@ -1169,6 +1227,12 @@ export function createGame() {
 
     if (inCar) {
       car.shiftHint = Math.max(0, car.shiftHint - dt);
+      const spec = CAR_KINDS[car.kind] || CAR_KINDS.beater;
+      const accel = spec.accel || CAR_ACCEL;
+      const vmax = spec.max || CAR_MAX;
+      const creep = spec.creep || CAR_CREEP;
+      const brake = !!input.brake;
+      const gas = !!input.gas;
       if (car.turnT > 0) {
         car.turnT = Math.max(0, car.turnT - dt);
         const u = 1 - car.turnT / CAR_TURN_TIME;
@@ -1184,41 +1248,34 @@ export function createGame() {
       } else {
         car.yaw = car.facing < 0 ? Math.PI : 0;
         car.lat = restLat(car.facing);
-      }
-
-      const brake = !!input.brake;
-      const gas = !!input.gas;
-      const spec = CAR_KINDS[car.kind] || CAR_KINDS.beater;
-      const accel = spec.accel || CAR_ACCEL;
-      const vmax = spec.max || CAR_MAX;
-      const creep = spec.creep || CAR_CREEP;
-      if (car.gear === "P") {
-        car.vx = 0;
-      } else if (brake) {
-        if (Math.abs(car.vx) > 6) {
-          car.vx -= Math.sign(car.vx) * accel * 1.7 * dt;
-          if (Math.abs(car.vx) < 6) car.vx = 0;
-        } else {
+        if (car.gear === "P") {
           car.vx = 0;
-        }
-      } else if (car.gear === "N") {
-        car.vx -= car.vx * Math.min(1, CAR_FRICTION * dt);
-      } else {
-        const driveDir = car.gear === "D" ? car.facing : -car.facing;
-        if (gas) {
-          car.vx += driveDir * accel * dt;
+        } else if (brake) {
+          if (Math.abs(car.vx) > 6) {
+            car.vx -= Math.sign(car.vx) * accel * 1.7 * dt;
+            if (Math.abs(car.vx) < 6) car.vx = 0;
+          } else {
+            car.vx = 0;
+          }
+        } else if (car.gear === "N") {
+          car.vx -= car.vx * Math.min(1, CAR_FRICTION * dt);
         } else {
-          const target = driveDir * creep;
-          const diff = target - car.vx;
-          car.vx += Math.sign(diff) * Math.min(Math.abs(diff), accel * 0.55 * dt);
+          const driveDir = car.gear === "D" ? car.facing : -car.facing;
+          if (gas) {
+            car.vx += driveDir * accel * dt;
+          } else {
+            const target = driveDir * creep;
+            const diff = target - car.vx;
+            car.vx += Math.sign(diff) * Math.min(Math.abs(diff), accel * 0.55 * dt);
+          }
+          car.vx -= car.vx * Math.min(1, CAR_FRICTION * 0.22 * dt);
         }
-        car.vx -= car.vx * Math.min(1, CAR_FRICTION * 0.22 * dt);
+        if (Math.abs(car.vx) > vmax) car.vx = Math.sign(car.vx) * vmax;
+        car.x = wrap(car.x + car.vx * dt, WORLD);
       }
-      if (Math.abs(car.vx) > vmax) car.vx = Math.sign(car.vx) * vmax;
-      if (gas && car.gear === "P") setEngine("rev");
+      if (gas && (car.gear === "P" || car.gear === "N")) setEngine("rev");
       else if (gas && (car.gear === "D" || car.gear === "R")) setEngine("accel", Math.abs(car.vx) / vmax);
       else setEngine("off");
-      car.x = wrap(car.x + car.vx * dt, WORLD);
       player.x = car.x;
       player.vx = car.vx;
       player.facing = car.facing;
@@ -1685,6 +1742,7 @@ export function createGame() {
     solicit,
     serve,
     textPlug,
+    pingContact,
     togglePhone,
     setUi,
     openBuy,

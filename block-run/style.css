@@ -118,6 +118,7 @@ html, body {
   box-shadow: 0 0 16px rgba(7, 6, 12, 0.8), 0 0 8px rgba(226, 27, 122, 0.25);
   padding: 8px 10px 7px;
   pointer-events: none;
+  z-index: 9;
 }
 #phone.hidden { display: none; }
 #phone.urgent { border-color: var(--pink); }
@@ -149,9 +150,9 @@ html, body {
 #phone-actions.hidden { display: none; }
 #phone-actions button {
   font-family: var(--font);
-  font-size: 7px;
-  padding: 8px 4px;
-  min-height: 32px;
+  font-size: 8px;
+  padding: 10px 4px;
+  min-height: 44px;
   pointer-events: auto;
   border: 2px solid #3a3644;
   background: #121018;
@@ -824,24 +825,6 @@ html, body {
   text-align: left;
 }
 .txt-row .who { color: var(--gold); margin-bottom: 4px; }
-.pad-brake { position: relative; overflow: hidden; }
-#brake-shift {
-  position: absolute;
-  inset: 6px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  background: rgba(7, 6, 12, 0.88);
-  border: 2px solid var(--gold);
-  padding: 6px 4px;
-}
-#brake-shift.hidden { display: none; }
-#brake-shift i {
-  font-style: normal;
-  font-size: 10px;
-  color: var(--cream);
-}
-#brake-shift i.on { color: var(--gold); }
 .pad-uturn.hidden { display: none; }
 #pause-actions { display: flex; flex-direction: column; gap: 10px; }
 #btn-inventory {
