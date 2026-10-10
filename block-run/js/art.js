@@ -1,7 +1,7 @@
 import {
   pixelCanvas, setFromCanvases, flipCanvas, remapHoodie,
-} from "../../block-run-25d/js/paint.js?v=32";
-import { OUTFITS } from "../../block-run-25d/js/config.js?v=32";
+} from "../../block-run-25d/js/paint.js?v=33";
+import { OUTFITS } from "../../block-run-25d/js/config.js?v=33";
 
 const SPRITE_BASE = new URL("../sprites/", import.meta.url);
 

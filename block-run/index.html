@@ -12,7 +12,7 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <!-- Cache bust: keep ?v= identical with js imports (see README). -->
-  <link rel="stylesheet" href="style.css?v=32" />
+  <link rel="stylesheet" href="style.css?v=33" />
 </head>
 <body>
   <div id="app">
@@ -26,6 +26,7 @@
           <span id="hud-rep">R1</span>
           <span id="hud-time">9P</span>
           <button id="btn-phone" type="button" data-role="phone" aria-label="phone">PH</button>
+          <button id="btn-mute" type="button" data-role="mute" aria-label="sound on">SP</button>
           <button id="btn-pause" type="button" aria-label="pause">II</button>
         </div>
         <div id="phone" class="hidden">
@@ -136,6 +137,7 @@
             <p id="overlay-prompt" class="blink">TAP TO START</p>
             <div id="pause-actions" class="hidden">
               <button type="button" id="btn-resume">RESUME</button>
+              <button type="button" id="btn-sound" data-role="mute">SOUND ON</button>
               <button type="button" id="btn-inventory" data-role="inventory">INVENTORY</button>
               <a id="btn-mainmenu" href="../">QUIT</a>
             </div>
@@ -176,6 +178,6 @@
     </div>
   </div>
   <p id="status" class="sr-only">title</p>
-  <script type="module" src="js/main.js?v=32"></script>
+  <script type="module" src="js/main.js?v=33"></script>
 </body>
 </html>

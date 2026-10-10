@@ -2,7 +2,14 @@ let ctx = null;
 let master = null;
 let sfxGain = null;
 let musicGain = null;
-let muted = false;
+const MUTE_KEY = "block-run-muted";
+function loadMuted() {
+  try { return localStorage.getItem(MUTE_KEY) === "1"; } catch { return false; }
+}
+function saveMuted(on) {
+  try { localStorage.setItem(MUTE_KEY, on ? "1" : "0"); } catch {}
+}
+let muted = loadMuted();
 let unlocked = false;
 let musicTimer = null;
 let hookBound = false;
@@ -95,9 +102,15 @@ export function isMuted() {
 }
 
 export function setMuted(on) {
-  muted = on;
-  if (master && ctx) master.gain.setTargetAtTime(on ? 0 : 1, ctx.currentTime, 0.02);
-  if (!on) unlockAudio();
+  muted = !!on;
+  saveMuted(muted);
+  if (master && ctx) master.gain.setTargetAtTime(muted ? 0 : 1, ctx.currentTime, 0.02);
+  if (!muted) unlockAudio();
+}
+
+export function toggleMute() {
+  setMuted(!muted);
+  return muted;
 }
 
 function tone(opts) {
