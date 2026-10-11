@@ -2,9 +2,9 @@ import * as THREE from "three";
 import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
-  BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat,
-} from "./config.js?v=55";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=55";
+  BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
+} from "./config.js?v=58";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=58";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -465,12 +465,10 @@ function makeTrafficLight() {
   mk("bulbRed", 3.26, 0x3a1018);
   mk("bulbYellow", 3.05, 0x3a3010);
   mk("bulbGreen", 2.84, 0x103a18);
-  const stop = new THREE.Mesh(
-    new THREE.BoxGeometry(0.12, 0.04, 3.6),
-    new THREE.MeshBasicMaterial({ color: 0xf4f0e8 }),
-  );
-  stop.position.set(-1.15, 0.05, 6.4);
-  g.add(stop);
+  const glow = glowSprite("#ff2a3a", 1.8);
+  glow.name = "lightHalo";
+  glow.position.set(0, 3.15, 0.28);
+  g.add(glow);
   return g;
 }
 
@@ -736,17 +734,17 @@ export function createWorld(canvas, sprites) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x1a1030, 0.0046);
-  scene.background = new THREE.Color(0x140a28);
+  scene.fog = new THREE.FogExp2(0x0a0814, 0.016);
+  scene.background = new THREE.Color(0x0a0716);
 
-  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 280);
+  const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 180);
   camera.position.set(0, 4.6, 11.5);
 
-  const amb = new THREE.AmbientLight(0x4a3068, 1.05);
+  const amb = new THREE.AmbientLight(0x2a1838, 0.55);
   scene.add(amb);
-  const hemi = new THREE.HemisphereLight(0x7aa0d8, 0x2a1828, 0.85);
+  const hemi = new THREE.HemisphereLight(0x446688, 0x1a1018, 0.55);
   scene.add(hemi);
-  const moonLight = new THREE.DirectionalLight(0xe8f0ff, 0.7);
+  const moonLight = new THREE.DirectionalLight(0xc8d8ff, 0.35);
   moonLight.position.set(-8, 18, 8);
   scene.add(moonLight);
   const sunLight = new THREE.DirectionalLight(0xfff2d0, 0);
@@ -803,6 +801,7 @@ export function createWorld(canvas, sprites) {
   skyline.scale.set(92, 22, 1);
   skyline.position.set(0, 11.2, -32);
   skyline.renderOrder = -8;
+  skyline.visible = false;
   scene.add(skyline);
 
   function litTower(w, h, d, color, win = 0xf0c430) {
@@ -841,10 +840,12 @@ export function createWorld(canvas, sprites) {
   );
   hazeBand.position.set(0, 6.4, -28);
   hazeBand.renderOrder = -6;
+  hazeBand.visible = false;
   scene.add(hazeBand);
   const farPalms = [];
   for (let i = 0; i < 14; i++) {
     const palm = makePalm();
+    palm.visible = false;
     palm.scale.setScalar(1.35 + (i % 3) * 0.22);
     scene.add(palm);
     farPalms.push({ mesh: palm, dx: (i - 6.5) * 10.2 + (i % 2) * 2.4, z: -9.2 - (i % 3) * 0.45 });
@@ -912,16 +913,16 @@ export function createWorld(canvas, sprites) {
     { id: "park", neon: ["PARK", "#3de0ff"], cols: ["#2a4a38", "#3a3a30", "#2a3840"], park: true },
   ];
   const facadeLayout = [
-    { x: 4, w: 4.2, h: 4.2, d: 2.4 },
-    { x: 9, w: 3.6, h: 3.6, d: 2.2 },
-    { x: 13.2, w: 4.6, h: 4.8, d: 2.6 },
-    { x: 18.4, w: 5.4, h: 3.3, d: 2.0 },
-    { x: 24.2, w: 3.8, h: 4.4, d: 2.3 },
-    { x: 28.6, w: 4.0, h: 3.7, d: 2.2 },
-    { x: 33.4, w: 4.4, h: 4.6, d: 2.5 },
-    { x: 38.6, w: 3.6, h: 3.5, d: 2.1 },
-    { x: 43.2, w: 4.8, h: 4.3, d: 2.4 },
-    { x: 48.4, w: 3.4, h: 3.6, d: 2.2 },
+    { x: 4, w: 4.2, h: 5.2, d: 2.4 },
+    { x: 9, w: 3.6, h: 4.4, d: 2.2 },
+    { x: 13.2, w: 4.6, h: 6.4, d: 2.6 },
+    { x: 18.4, w: 5.4, h: 3.6, d: 2.0 },
+    { x: 24.2, w: 3.8, h: 5.8, d: 2.3 },
+    { x: 28.6, w: 4.0, h: 4.8, d: 2.2 },
+    { x: 33.4, w: 4.4, h: 6.0, d: 2.5 },
+    { x: 38.6, w: 3.6, h: 4.2, d: 2.1 },
+    { x: 43.2, w: 4.8, h: 5.4, d: 2.4 },
+    { x: 48.4, w: 3.4, h: 4.6, d: 2.2 },
   ];
 
   function addNeon(text, color, x, y, z, lit = false) {
@@ -1008,8 +1009,7 @@ export function createWorld(canvas, sprites) {
   }
 
   function stampTheme(theme, xOff, lit) {
-    const skip = theme.park || theme.id === "motel" || theme.id === "gas" || theme.id === "taco";
-    const layout = skip ? facadeLayout.filter((_, i) => i % 3 === 0) : facadeLayout;
+    const layout = facadeLayout;
     for (let i = 0; i < layout.length; i++) {
       const b = layout[i];
       const col = theme.cols[i % theme.cols.length];
@@ -1034,13 +1034,11 @@ export function createWorld(canvas, sprites) {
       graffiti.position.set(26 + xOff, 1.7, -1.1);
       city.add(graffiti);
     }
-    const palms = theme.park
-      ? [[8, -2.4], [16, -5.2], [22, -2.2], [30, -5.8], [38, -2.5], [46, -5.0], [12, 3.4], [34, 3.6], [4, 3.5], [42, 3.4]]
-      : [[6.5, -2.5], [14.2, -4.8], [21.2, -2.3], [29.4, -5.1], [40.8, -2.6], [18, 3.5], [2.4, 3.45], [33.6, 3.5], [48, 3.4]];
+    const palms = [[6.5, -2.2], [17.8, -2.15], [29.4, -2.25], [40.8, -2.2]];
     for (const [x, z] of palms) {
       const palm = makePalm();
       palm.position.set(x + xOff, 0, z);
-      palm.scale.setScalar(0.85 + ((x + xOff) % 3) * 0.1);
+      palm.scale.setScalar(1.85 + ((x + xOff) % 3) * 0.08);
       city.add(palm);
     }
     const lamp = makeLamp();
@@ -1059,8 +1057,8 @@ export function createWorld(canvas, sprites) {
   }
   for (let i = 0; i < blockCount * 2; i++) {
     const curbPalm = makePalm();
-    curbPalm.position.set((i + 0.35) * (BLOCK_LEN / 2), 0, 3.55);
-    curbPalm.scale.setScalar(0.95 + (i % 3) * 0.08);
+    curbPalm.position.set((i + 0.35) * (BLOCK_LEN / 2), 0, 0.42);
+    curbPalm.scale.setScalar(1.9 + (i % 3) * 0.08);
     city.add(curbPalm);
   }
 
@@ -1201,7 +1199,7 @@ export function createWorld(canvas, sprites) {
   const lightMeshes = [];
   for (let i = 0; i < LIGHT_COUNT; i++) {
     const m = makeTrafficLight();
-    m.scale.setScalar(1.2);
+    m.scale.setScalar(1.7);
     scene.add(m);
     lightMeshes.push(m);
   }
@@ -1321,7 +1319,7 @@ export function createWorld(canvas, sprites) {
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    camera.fov = w > h ? 40 : 52;
+    camera.fov = w > h ? 42 : 52;
     camera.updateProjectionMatrix();
   }
   resize();
@@ -1355,24 +1353,25 @@ export function createWorld(canvas, sprites) {
     const portrait = camera.aspect < 1;
     const boardU = 1 - Math.max(0, Math.min(1, (state.boardT || 0) / 0.38));
     const carCam = state.inCar ? boardU : (1 - boardU);
-    const camZ = (portrait ? 18.8 : 15.2) + carCam * (portrait ? 1.6 : 1.6);
-    const camY = (portrait ? 2.86 : 2.7) + carCam * (portrait ? 0.49 : 0.4);
+    const camZ = (portrait ? 15.8 : 14.2) + carCam * 0.7;
+    const camY = (portrait ? 2.92 : 3.15) + carCam * 0.22;
     const wantFace = p.facing < 0 ? -1 : 1;
-    lookFace += (wantFace - lookFace) * (1 - Math.exp(-1.7 * Math.max(stepDt, 0.0001)));
+    if (!state.inCar && Math.abs(p.vx) > 8) lookFace = wantFace;
+    else lookFace += (wantFace - lookFace) * (1 - Math.exp(-2.4 * Math.max(stepDt, 0.0001)));
     if (playing) {
-      const leadGame = state.inCar ? (portrait ? 10 : 16) : (portrait ? 14 : 22);
+      const leadGame = state.inCar ? (portrait ? 14 : 20) : (portrait ? 4 : 8);
       const lookX = nearestWorldX(wrap(px + lookFace * leadGame, WORLD), camX);
       const dx = wrapDelta(camX, lookX, STREET_LEN);
-      const follow = state.inCar ? 3.0 : 2.2;
+      const follow = state.inCar ? 2.4 : 6.5;
       camX = wrap(camX + dx * (1 - Math.exp(-follow * Math.max(stepDt, 0.0001) * (paused ? 0 : 1))), STREET_LEN);
-      camera.position.set(camX, camY + gameToWorldY(p.y) * 0.08, camZ);
-      tmp.set(camX + lookFace * (0.75 - carCam * 0.05), 1.48 + gameToWorldY(p.y) * 0.12, 1.85 + carCam * 1.25);
+      camera.position.set(camX, camY + gameToWorldY(p.y) * 0.12, camZ);
+      tmp.set(camX + lookFace * (state.inCar ? 2.0 : 0.4), 1.22 + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 0.7);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
     } else {
-      camX = wrap(camX + stepDt * 0.35, STREET_LEN);
-      camera.position.set(camX, camY + 0.06, camZ + 1.1);
-      camera.lookAt(camX, 1.32, 1.4);
+      camX = wrap(camX + stepDt * 1.6, STREET_LEN);
+      camera.position.set(camX, 4.2, 14.2);
+      camera.lookAt(camX + 1.4, 1.35, 0.6);
     }
 
     function setCarLights(mesh, on) {
@@ -1404,7 +1403,7 @@ export function createWorld(canvas, sprites) {
       fp.mesh.position.set(camX + fp.dx, 0, fp.z);
     }
     const skyInfo = state.sky;
-    if (skyInfo) {
+    if (skyInfo && DAY_NIGHT_ENABLED) {
       scene.background.setHex(skyInfo.top);
       renderer.setClearColor(skyInfo.top, 1);
       if (scene.fog) {
@@ -1453,16 +1452,15 @@ export function createWorld(canvas, sprites) {
     playerSprite.material.opacity = playerAlpha;
     const airborne = p.y < 197.2;
     const fit = (sprites.outfits && sprites.outfits[state.outfit | 0]) || sprites;
+    const walking = Math.abs(p.vx) > 8;
     const animSet = state.muzzle > 0 ? fit.shoot
       : airborne ? fit.jump
-      : Math.abs(p.vx) > 8 ? fit.walk
+      : walking ? fit.walk
       : fit.idle;
     const running = Math.abs(p.vx) > 55;
-    const rate = state.muzzle > 0 ? 14 : airborne ? 8 : running ? 16 : Math.abs(p.vx) > 8 ? 12 : 5;
-    const sprFace = lookFace < 0 ? -1 : 1;
-    const turning = Math.abs(Math.abs(lookFace) - 1) > 0.18;
-    const turnSet = turning ? (fit.shoot || animSet) : animSet;
-    setBillboardFrame(playerSprite, frameAt(turnSet, p.anim, rate), sprFace);
+    const rate = state.muzzle > 0 ? 14 : airborne ? 8 : running ? 10 : walking ? 8 : 3;
+    const sprFace = (state.inCar ? (state.car?.facing || 1) : p.facing) < 0 ? -1 : 1;
+    setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate), sprFace);
     place(playerSprite, px, GROUND_Y, camX, 1.15);
     playerSprite.position.y = boarding ? (state.inCar ? -boardU * 0.35 : (1 - boardU) * 0.28) : 0;
     if (boarding) {
@@ -1470,8 +1468,6 @@ export function createWorld(canvas, sprites) {
       playerSprite.position.x += (state.car?.facing || 1) * door * 0.35;
     }
     orientBillboard(playerSprite, camera);
-    const spinW = Math.max(0.16, Math.abs(lookFace));
-    playerSprite.scale.x = (playerSprite.userData.baseW || 1) * spinW;
     playerSprite.material.color.set(p.flash > 0 ? 0xffffff : 0xffffff);
     if (p.flash > 0) playerSprite.material.color.setHex(0xffc8e8);
     else playerSprite.material.color.setHex(0xffffff);
@@ -1669,14 +1665,19 @@ export function createWorld(canvas, sprites) {
     (state.lights || []).forEach((L, i) => {
       const m = lightMeshes[i];
       if (!m) return;
-      place(m, L.x, GROUND_Y, camX, 3.05);
+      place(m, L.x, GROUND_Y, camX, 0.72);
       m.position.y = 0;
       const red = m.getObjectByName("bulbRed");
       const yel = m.getObjectByName("bulbYellow");
       const grn = m.getObjectByName("bulbGreen");
+      const halo = m.getObjectByName("lightHalo");
       if (red) red.material.color.setHex(L.phase === "red" ? 0xff2a3a : 0x3a1018);
       if (yel) yel.material.color.setHex(L.phase === "yellow" ? 0xf0c430 : 0x3a3010);
       if (grn) grn.material.color.setHex(L.phase === "green" ? 0x3dff7a : 0x103a18);
+      if (halo) {
+        halo.visible = L.phase === "red" || L.phase === "yellow";
+        halo.material.color.setHex(L.phase === "red" ? 0xff2a3a : 0xf0c430);
+      }
     });
 
     let fi = 0;
