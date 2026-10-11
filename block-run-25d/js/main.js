@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=50";
-import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=50";
-import { createInput } from "./input.js?v=50";
-import { createGame } from "./game.js?v=50";
-import { loadSprites } from "./sprites.js?v=50";
-import { createWorld } from "./world.js?v=50";
-import { createHud } from "./hud.js?v=50";
+import { TICK } from "./config.js?v=51";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=51";
+import { createInput } from "./input.js?v=51";
+import { createGame } from "./game.js?v=51";
+import { loadSprites } from "./sprites.js?v=51";
+import { createWorld } from "./world.js?v=51";
+import { createHud } from "./hud.js?v=51";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
