@@ -152,6 +152,7 @@ window.__br = {
   setAnim: (t) => game.setAnim(t),
   setCarVx: (n) => game.setCarVx(n),
   setPassLane: (on) => game.setPassLane(on),
+  placeTrafficAhead: () => game.placeTrafficAhead(),
   getView: () => world?.getView?.() || view,
   unlockAudio,
   startMusic,

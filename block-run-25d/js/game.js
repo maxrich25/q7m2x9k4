@@ -2145,5 +2145,18 @@ export function createGame() {
       car.passT = on ? 1.2 : 0;
       car.lat = restLat(on ? -car.facing : car.facing);
     },
+    placeTrafficAhead() {
+      if (!traffic.length) traffic.push(makeTrafficCar(0));
+      const t = traffic[0];
+      t.facing = car.facing;
+      t.lat = restLat(car.facing);
+      t.x = wrap(car.x + (car.facing || 1) * 36, WORLD);
+      t.px = t.x;
+      t.vx = 18;
+      t.cruise = 18;
+      car.passT = 1.2;
+      car.lat = restLat(-car.facing);
+      return t.x;
+    },
   };
 }

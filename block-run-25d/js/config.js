@@ -256,9 +256,9 @@ const SKY_KEYS = [
   { h: 16, top: 0x3a78b8, bot: 0x6aa8d8, fog: 0x5a90c0, star: 0, moon: 0, sun: 0.88, light: 1.12, windows: 0.1, lamps: 0 },
   { h: 17, top: 0xc86a40, bot: 0xe89050, fog: 0x8a4030, star: 0.06, moon: 0.08, sun: 0.62, light: 0.98, windows: 0.48, lamps: 0.18 },
   { h: 18.5, top: 0xc84a38, bot: 0xe87840, fog: 0x8a3028, star: 0.16, moon: 0.24, sun: 0.28, light: 0.86, windows: 0.78, lamps: 0.62 },
-  { h: 20, top: 0x2a1040, bot: 0x3a1830, fog: 0x281428, star: 0.75, moon: 0.85, sun: 0, light: 0.62, windows: 0.95, lamps: 1 },
-  { h: 21, top: 0x140828, bot: 0x2a1428, fog: 0x22102a, star: 1, moon: 1, sun: 0, light: 0.55, windows: 0.96, lamps: 1 },
-  { h: 24, top: 0x120620, bot: 0x241228, fog: 0x1c0e22, star: 1, moon: 1, sun: 0, light: 0.5, windows: 0.95, lamps: 1 },
+  { h: 20, top: 0x2a1040, bot: 0x5a2840, fog: 0x3a1830, star: 0.75, moon: 0.85, sun: 0, light: 0.62, windows: 0.95, lamps: 1 },
+  { h: 21, top: 0x1a0a30, bot: 0x4a2038, fog: 0x321428, star: 1, moon: 1, sun: 0, light: 0.55, windows: 0.96, lamps: 1 },
+  { h: 24, top: 0x160828, bot: 0x3a1830, fog: 0x2a1026, star: 1, moon: 1, sun: 0, light: 0.5, windows: 0.95, lamps: 1 },
 ];
 
 export function skyTint(hour) {
