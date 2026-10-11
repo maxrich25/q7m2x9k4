@@ -1,8 +1,8 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
   CAR_LANE_NEAR, CAR_LANE_FAR,
-} from "../../block-run-25d/js/config.js?v=54";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=54";
+} from "../../block-run-25d/js/config.js?v=55";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=55";
 
 const STREET_CROP = 168;
 const STREET_W = 398;
@@ -35,40 +35,35 @@ export function createWorld(canvas, art) {
     buf.width = VW;
     buf.height = VH;
     const portrait = h > w * 1.15;
-    const padReserve = portrait ? 214 : 8;
+    const padReserve = portrait ? 200 : 8;
     const padTop = Math.max(140, (h - padReserve) * dpr);
-    if (portrait) {
-      const cropTop = 72;
-      const viewH = VH - cropTop;
-      const scale = padTop / viewH;
-      dest = {
-        x: Math.round((canvas.width - VW * scale) / 2),
-        y: Math.round(-cropTop * scale),
-        w: Math.round(VW * scale),
-        h: Math.round(VH * scale),
-        cssW: w,
-        cssH: h,
-        cssX: (w - VW * (scale / dpr)) / 2,
-        cssY: -cropTop * (scale / dpr),
-        cssScale: scale / dpr,
-        scale: scale / dpr,
-      };
-    } else {
-      const scale = canvas.width / VW;
-      const y = Math.max(0, Math.round((canvas.height - VH * scale) / 2));
-      dest = {
-        x: 0,
-        y,
-        w: canvas.width,
-        h: Math.round(VH * scale),
-        cssW: w,
-        cssH: h,
-        cssX: 0,
-        cssY: y / dpr,
-        cssScale: scale / dpr,
-        scale: scale / dpr,
-      };
+    let scale = canvas.width / VW;
+    const snapped = Math.round(scale);
+    if (snapped >= 1 && snapped * VW <= canvas.width && (canvas.width - snapped * VW) < VW * 0.06) {
+      scale = snapped;
     }
+    const destW = Math.round(VW * scale);
+    const destH = Math.round(VH * scale);
+    const destX = Math.round((canvas.width - destW) / 2);
+    let destY;
+    if (portrait) {
+      destY = Math.max(0, Math.round(padTop - destH));
+    } else {
+      destY = Math.max(0, Math.round((canvas.height - destH) / 2));
+    }
+    dest = {
+      x: destX,
+      y: destY,
+      w: destW,
+      h: destH,
+      cssW: w,
+      cssH: h,
+      cssX: destX / dpr,
+      cssY: destY / dpr,
+      cssScale: scale / dpr,
+      scale: scale / dpr,
+      deviceScale: scale,
+    };
   }
   resize();
   const ro = new ResizeObserver(resize);
@@ -109,33 +104,59 @@ export function createWorld(canvas, art) {
     g.fillText(str, Math.round(x), Math.round(y));
   }
 
-  function drawSky(sky) {
+  function skyColor(sky) {
     const night = (sky?.star ?? 1) > 0.35;
-    g.fillStyle = night ? "#0a0120" : (sky?.cssTop || "#4a90d0");
+    return night ? "#0a0120" : (sky?.cssTop || "#4a90d0");
+  }
+
+  function starCell(i, row) {
+    return {
+      x: (i * 47 + 11) % VW,
+      y: 8 + ((i * 17) % 40) - row * 48,
+    };
+  }
+
+  function drawSky(sky) {
+    g.fillStyle = skyColor(sky);
     g.fillRect(0, 0, VW, VH);
     const starA = sky?.star ?? 1;
     if (starA > 0.08) {
       g.fillStyle = "#e8e0d0";
       for (let i = 0; i < 22; i++) {
-        const x = (i * 47 + 11) % VW;
-        const y = 8 + ((i * 17) % 40);
+        const { x, y } = starCell(i, 0);
         g.fillRect(x, y, 1, 1);
       }
     }
   }
 
+  function fillExtendedSky(sky) {
+    out.fillStyle = skyColor(sky);
+    out.fillRect(0, 0, canvas.width, canvas.height);
+    const starA = sky?.star ?? 1;
+    if (starA <= 0.08 || dest.y <= 0) return;
+    const sc = dest.w / VW;
+    const extraRows = Math.ceil(dest.y / sc / 48) + 1;
+    const px = Math.max(1, Math.round(sc));
+    out.fillStyle = "#e8e0d0";
+    for (let row = 1; row <= extraRows; row++) {
+      for (let i = 0; i < 22; i++) {
+        const cell = starCell(i, row);
+        const x = dest.x + cell.x * sc;
+        const y = dest.y + cell.y * sc;
+        if (y < 0 || y >= dest.y) continue;
+        out.fillRect(Math.round(x), Math.round(y), px, px);
+      }
+    }
+  }
+
   function backdropDest() {
-    const destH = Math.max(168, Math.min(ground + 14, 204));
+    const destH = Math.max(120, Math.min(ground - 40, 210));
     const destY = ground - 26 - destH;
     return { destH, destY };
   }
 
   function bannerSafeY() {
-    const cssH = Math.max(1, dest.cssH || 1);
-    const bannerBottom = Math.round(148 * (VH / cssH));
-    const { destH, destY } = backdropDest();
-    const skylineTop = destY + destH * (50 / 168);
-    return Math.min(bannerBottom + 16, Math.round(skylineTop - 20));
+    return 18;
   }
 
   function drawSun(sky) {
@@ -549,8 +570,7 @@ export function createWorld(canvas, art) {
     }
 
     out.imageSmoothingEnabled = false;
-    out.fillStyle = state.sky?.cssTop || "#0c0120";
-    out.fillRect(0, 0, canvas.width, canvas.height);
+    fillExtendedSky(state.sky);
     if (state.shake > 0) {
       const s = state.shake * state.shake;
       out.save();
