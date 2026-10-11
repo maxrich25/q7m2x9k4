@@ -1,8 +1,8 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
   CAR_LANE_NEAR, CAR_LANE_FAR,
-} from "../../block-run-25d/js/config.js?v=52";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=52";
+} from "../../block-run-25d/js/config.js?v=53";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=53";
 
 const STREET_CROP = 168;
 const STREET_W = 398;
@@ -35,10 +35,10 @@ export function createWorld(canvas, art) {
     buf.width = VW;
     buf.height = VH;
     const portrait = h > w * 1.15;
-    const padReserve = portrait ? 198 : 8;
+    const padReserve = portrait ? 214 : 8;
     const padTop = Math.max(140, (h - padReserve) * dpr);
     if (portrait) {
-      const cropTop = 40;
+      const cropTop = 72;
       const viewH = VH - cropTop;
       const scale = padTop / viewH;
       dest = {
@@ -125,7 +125,7 @@ export function createWorld(canvas, art) {
   }
 
   function backdropDest() {
-    const destH = Math.max(120, Math.min(ground - 40, 210));
+    const destH = Math.max(168, Math.min(ground + 14, 204));
     const destY = ground - 26 - destH;
     return { destH, destY };
   }
@@ -180,8 +180,7 @@ export function createWorld(canvas, art) {
     if (!street || !(street.naturalWidth || street.width)) return;
     const sw = street.naturalWidth || street.width || STREET_W;
     const sh = Math.min(STREET_CROP, street.naturalHeight || street.height || STREET_CROP);
-    const destH = Math.max(120, Math.min(ground - 40, 210));
-    const destY = ground - 26 - destH;
+    const { destH, destY } = backdropDest();
     const shift = wrap(cam, sw);
     if (streetLayer.width !== VW || streetLayer.height !== VH) {
       streetLayer.width = VW;
