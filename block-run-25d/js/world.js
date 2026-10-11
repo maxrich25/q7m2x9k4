@@ -187,21 +187,24 @@ function glowSprite(color, size) {
 function makePalm() {
   const tex = canvasTex(64, 112, (g, w, h) => {
     g.clearRect(0, 0, w, h);
-    g.fillStyle = "#5a3824";
-    g.fillRect(29, 36, 6, 76);
+    g.fillStyle = "#6a4430";
+    g.fillRect(30, 42, 4, 70);
     g.fillStyle = "#3a2418";
-    g.fillRect(29, 36, 2, 76);
+    g.fillRect(30, 42, 1, 70);
     g.fillStyle = "#1f5a30";
-    g.beginPath(); g.ellipse(32, 30, 28, 12, 0, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(14, 38, 18, 7, -0.7, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(50, 38, 18, 7, 0.7, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(20, 22, 14, 8, -0.4, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(44, 22, 14, 8, 0.4, 0, Math.PI * 2); g.fill();
+    g.fillRect(8, 36, 24, 3);
+    g.fillRect(10, 30, 22, 3);
+    g.fillRect(14, 42, 18, 3);
+    g.fillRect(32, 36, 24, 3);
+    g.fillRect(32, 30, 22, 3);
+    g.fillRect(32, 42, 18, 3);
+    g.fillRect(28, 16, 8, 18);
     g.fillStyle = "#2f8a4a";
-    g.beginPath(); g.ellipse(32, 18, 16, 8, 0, 0, Math.PI * 2); g.fill();
+    g.fillRect(26, 28, 12, 4);
+    g.fillRect(12, 34, 10, 2);
+    g.fillRect(42, 34, 10, 2);
     g.fillStyle = "#3dff7a";
-    g.fillRect(22, 26, 3, 2);
-    g.fillRect(38, 24, 3, 2);
+    g.fillRect(30, 26, 3, 3);
   });
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -594,9 +597,9 @@ function skylineTex() {
   return canvasTex(960, 280, (g, w, h) => {
     g.clearRect(0, 0, w, h);
     const haze = g.createLinearGradient(0, h * 0.28, 0, h);
-    haze.addColorStop(0, "rgba(200,170,230,0)");
-    haze.addColorStop(0.55, "rgba(120,80,160,0.22)");
-    haze.addColorStop(1, "rgba(70,48,96,0.42)");
+    haze.addColorStop(0, "rgba(255,180,120,0)");
+    haze.addColorStop(0.45, "rgba(210,120,90,0.28)");
+    haze.addColorStop(1, "rgba(90,40,60,0.5)");
     g.fillStyle = haze;
     g.fillRect(0, 0, w, h);
 
@@ -768,8 +771,8 @@ export function createWorld(canvas, sprites) {
     depthTest: true,
   });
   const skyline = new THREE.Sprite(skylineMat);
-  skyline.scale.set(148, 34, 1);
-  skyline.position.set(0, 16.4, -58);
+  skyline.scale.set(92, 22, 1);
+  skyline.position.set(0, 11.2, -32);
   skyline.renderOrder = -8;
   scene.add(skyline);
 
@@ -807,7 +810,7 @@ export function createWorld(canvas, sprites) {
     new THREE.PlaneGeometry(230, 7),
     new THREE.MeshBasicMaterial({ map: hazeTex, transparent: true, depthWrite: false, fog: true, depthTest: true }),
   );
-  hazeBand.position.set(0, 8.2, -42);
+  hazeBand.position.set(0, 6.4, -28);
   hazeBand.renderOrder = -6;
   scene.add(hazeBand);
   const farPalms = [];
@@ -1360,8 +1363,8 @@ export function createWorld(canvas, sprites) {
 
     moon.position.set(camX - 8.4, 14.6, -28);
     moonGlow.position.copy(moon.position);
-    skyline.position.set(camX + 1.6, 16.8, -58);
-    hazeBand.position.set(camX, 8.4, -42);
+    skyline.position.set(camX + 1.2, 11.6, -32);
+    hazeBand.position.set(camX, 6.4, -28);
     sky.position.set(camX, 18, -36);
     dtla.position.set(camX + 0.8, 0, -36);
     for (const t of dtla.children) {

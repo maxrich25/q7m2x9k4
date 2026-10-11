@@ -151,7 +151,10 @@ function cleanStreet(street) {
         const b = d[i + 2];
         const lum = r + gv + b;
         const dist = Math.abs(r - 12) + Math.abs(gv - 1) + Math.abs(b - 31);
-        if (y < 92 && (dist <= 36 || (lum <= 70 && Math.abs(r - b) < 18))) {
+        const sat = Math.max(r, gv, b) - Math.min(r, gv, b);
+        const sky = dist <= 36 || (lum <= 70 && Math.abs(r - b) < 18);
+        const moon = y < 92 && lum >= 120 && sat < 55 && r > 80;
+        if (y < 92 && (sky || moon)) {
           d[i + 3] = 0;
         }
       }
