@@ -75,9 +75,9 @@ export const WALK_POSES = [
 ];
 /** Calm stride: opposite arm/leg, small bob — not a slice-shift dance. */
 export const PED_WALK_POSES = [
-  { step: 2, bob: 0 },
+  { step: 3, bob: 0 },
   { step: 0, bob: 1 },
-  { step: -2, bob: 0 },
+  { step: -3, bob: 0 },
   { step: 0, bob: 0 },
 ];
 export const TURN_POSES = [
