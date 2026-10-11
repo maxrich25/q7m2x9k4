@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
-} from "./config.js?v=56";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=56";
+} from "./config.js?v=57";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=57";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -1319,7 +1319,7 @@ export function createWorld(canvas, sprites) {
     renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    camera.fov = w > h ? 42 : 50;
+    camera.fov = w > h ? 42 : 52;
     camera.updateProjectionMatrix();
   }
   resize();
@@ -1353,25 +1353,25 @@ export function createWorld(canvas, sprites) {
     const portrait = camera.aspect < 1;
     const boardU = 1 - Math.max(0, Math.min(1, (state.boardT || 0) / 0.38));
     const carCam = state.inCar ? boardU : (1 - boardU);
-    const camZ = (portrait ? 10.4 : 12.2) + carCam * 0.4;
-    const camY = 4.4 + carCam * 0.15;
+    const camZ = (portrait ? 14.6 : 13.2) + carCam * 0.55;
+    const camY = (portrait ? 3.28 : 3.55) + carCam * 0.18;
     const wantFace = p.facing < 0 ? -1 : 1;
     if (!state.inCar && Math.abs(p.vx) > 8) lookFace = wantFace;
     else lookFace += (wantFace - lookFace) * (1 - Math.exp(-2.4 * Math.max(stepDt, 0.0001)));
     if (playing) {
-      const leadGame = state.inCar ? (portrait ? 34 : 42) : (portrait ? 12 : 16);
+      const leadGame = state.inCar ? (portrait ? 22 : 28) : (portrait ? 6 : 10);
       const lookX = nearestWorldX(wrap(px + lookFace * leadGame, WORLD), camX);
       const dx = wrapDelta(camX, lookX, STREET_LEN);
-      const follow = state.inCar ? 2.2 : 6;
+      const follow = state.inCar ? 2.4 : 6.5;
       camX = wrap(camX + dx * (1 - Math.exp(-follow * Math.max(stepDt, 0.0001) * (paused ? 0 : 1))), STREET_LEN);
-      camera.position.set(camX, camY + gameToWorldY(p.y) * 0.15, camZ);
-      tmp.set(camX + lookFace * (state.inCar ? 3.2 : 0.8), 1.15 + gameToWorldY(p.y) * 0.35, -1.4);
+      camera.position.set(camX, camY + gameToWorldY(p.y) * 0.12, camZ);
+      tmp.set(camX + lookFace * (state.inCar ? 2.4 : 0.55), 1.32 + gameToWorldY(p.y) * 0.2, 1.15 + carCam * 0.55);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
     } else {
       camX = wrap(camX + stepDt * 1.6, STREET_LEN);
-      camera.position.set(camX, 5.1, 13);
-      camera.lookAt(camX + 2, 1.4, -2);
+      camera.position.set(camX, 4.2, 14.2);
+      camera.lookAt(camX + 1.4, 1.35, 0.6);
     }
 
     function setCarLights(mesh, on) {
