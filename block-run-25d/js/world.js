@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat,
-} from "./config.js?v=52";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=52";
+} from "./config.js?v=53";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=53";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -185,45 +185,73 @@ function glowSprite(color, size) {
 }
 
 function makePalm() {
-  const tex = canvasTex(56, 160, (g) => {
-    g.clearRect(0, 0, 56, 160);
-    for (let y = 46; y < 160; y++) {
-      const t = (y - 46) / 114;
-      const x = 26 + Math.round(Math.sin(t * 1.25) * 2);
-      g.fillStyle = y % 8 === 0 ? "#5a3824" : "#7a5438";
+  const tex = canvasTex(72, 176, (g) => {
+    g.clearRect(0, 0, 72, 176);
+    // Tall thin slightly curved trunk (queen / Mexican fan).
+    for (let y = 50; y < 176; y++) {
+      const t = (y - 50) / 126;
+      const x = 34 + Math.round(Math.sin(t * 1.15) * 2.4);
+      const ring = y % 9 === 0;
+      g.fillStyle = ring ? "#5a3824" : "#7a5438";
       g.fillRect(x, y, 4, 1);
       g.fillStyle = "#4a2c1c";
       g.fillRect(x, y, 1, 1);
+      g.fillStyle = ring ? "#6a4430" : "#8a6448";
+      g.fillRect(x + 3, y, 1, 1);
     }
-    const cx = 28;
-    const cy = 34;
+    const cx = 36;
+    const cy = 42;
+    // Drooping fronds from the crown only — no stacked tiers / pine bars.
+    const fronds = [
+      { a: Math.PI, len: 24, col: "#1a4a28" },
+      { a: 3.35, len: 22, col: "#1e5a2c" },
+      { a: 3.7, len: 18, col: "#246832" },
+      { a: 4.05, len: 15, col: "#1a4a24" },
+      { a: 0, len: 24, col: "#1a4a28" },
+      { a: -0.2, len: 22, col: "#1e5a2c" },
+      { a: -0.55, len: 18, col: "#246832" },
+      { a: -0.9, len: 15, col: "#1a4a24" },
+      { a: -1.25, len: 13, col: "#2f7a40" },
+      { a: -1.57, len: 12, col: "#3a8a48" },
+      { a: -1.9, len: 13, col: "#2f7a40" },
+      { a: 2.95, len: 20, col: "#246832" },
+      { a: 0.35, len: 20, col: "#246832" },
+      { a: 2.55, len: 16, col: "#1e5a2c" },
+      { a: 0.75, len: 16, col: "#1e5a2c" },
+    ];
+    for (const f of fronds) {
+      g.fillStyle = f.col;
+      for (let i = 0; i < f.len; i++) {
+        const t = i / f.len;
+        const bend = t * t * 0.95;
+        const aa = f.a + (Math.cos(f.a) >= 0 ? bend : -bend) * 0.15 + bend * 0.55;
+        const x = cx + Math.cos(aa) * i;
+        const y = cy + Math.sin(aa) * i + t * t * 7;
+        const px = Math.round(x);
+        const py = Math.round(y);
+        g.fillRect(px, py, 2, 2);
+        if (i > 3 && i < f.len - 1) {
+          const nx = -Math.sin(aa);
+          const ny = Math.cos(aa);
+          const lw = i < f.len * 0.45 ? 2 : (i < f.len * 0.78 ? 3 : 1);
+          g.fillRect(Math.round(x + nx * lw), Math.round(y + ny * lw), 2, 1);
+          g.fillRect(Math.round(x - nx * lw), Math.round(y - ny * lw), 1, 1);
+        }
+      }
+    }
     g.fillStyle = "#1a4a28";
-    g.fillRect(cx - 22, cy + 2, 20, 2);
-    g.fillRect(cx - 20, cy + 6, 16, 2);
-    g.fillRect(cx - 16, cy + 10, 12, 2);
-    g.fillRect(cx - 18, cy - 2, 16, 2);
-    g.fillRect(cx - 12, cy - 8, 10, 2);
-    g.fillRect(cx - 6, cy - 14, 6, 3);
-    g.fillRect(cx + 2, cy + 2, 20, 2);
-    g.fillRect(cx + 4, cy + 6, 16, 2);
-    g.fillRect(cx + 6, cy + 10, 12, 2);
-    g.fillRect(cx + 2, cy - 2, 16, 2);
-    g.fillRect(cx + 2, cy - 8, 10, 2);
-    g.fillRect(cx, cy - 14, 6, 3);
-    g.fillRect(cx - 3, cy - 16, 7, 10);
+    g.fillRect(cx - 3, cy - 3, 7, 8);
     g.fillStyle = "#2f7a40";
-    g.fillRect(cx - 16, cy, 8, 2);
-    g.fillRect(cx + 8, cy, 8, 2);
-    g.fillRect(cx - 2, cy - 10, 5, 4);
+    g.fillRect(cx - 2, cy - 5, 5, 6);
     g.fillStyle = "#3a8a48";
-    g.fillRect(cx - 1, cy - 6, 3, 3);
+    g.fillRect(cx - 1, cy - 3, 3, 4);
   });
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
   const s = new THREE.Sprite(mat);
   s.center.set(0.5, 0);
-  s.scale.set(1.55, 4.55, 1);
+  s.scale.set(1.85, 5.15, 1);
   const g = new THREE.Group();
   g.add(s);
   return g;
@@ -639,11 +667,13 @@ function skylineTex() {
       const tx = Math.round(x);
       const top = h - 40 * s;
       g.fillRect(tx, top + 8 * s, 2, 32 * s);
-      g.fillRect(tx - 8 * s, top + 2 * s, 8 * s, 2);
-      g.fillRect(tx + 2, top + 2 * s, 8 * s, 2);
-      g.fillRect(tx - 6 * s, top + 6 * s, 6 * s, 2);
-      g.fillRect(tx + 2, top + 6 * s, 6 * s, 2);
-      g.fillRect(tx - 2, top - 4 * s, 5, 8 * s);
+      g.fillRect(tx - 9 * s, top + 3 * s, 9 * s, 2);
+      g.fillRect(tx + 2, top + 3 * s, 9 * s, 2);
+      g.fillRect(tx - 7 * s, top + 7 * s, 6 * s, 2);
+      g.fillRect(tx + 2, top + 7 * s, 6 * s, 2);
+      g.fillRect(tx - 4 * s, top - 1 * s, 3, 6 * s);
+      g.fillRect(tx + 2, top - 1 * s, 3, 6 * s);
+      g.fillRect(tx - 1, top - 5 * s, 4, 7 * s);
     }
 
     // mid-rise row

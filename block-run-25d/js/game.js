@@ -12,8 +12,8 @@ import {
   OUTFITS, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
   nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen, SAVE_KEY,
   HEAT_ENABLED, ORDER_T_MIN, ORDER_T_MAX, LIGHT_STOP_LEAD, PASS_MIN_SPEED,
-} from "./config.js?v=52";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=52";
+} from "./config.js?v=53";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=53";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
