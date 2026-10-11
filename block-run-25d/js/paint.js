@@ -75,9 +75,9 @@ export const WALK_POSES = [
 ];
 /** Calm stride: opposite arm/leg, small bob — not a slice-shift dance. */
 export const PED_WALK_POSES = [
-  { step: 2, bob: 0 },
+  { step: 3, bob: 0 },
   { step: 0, bob: 1 },
-  { step: -2, bob: 0 },
+  { step: -3, bob: 0 },
   { step: 0, bob: 0 },
 ];
 export const TURN_POSES = [
@@ -218,6 +218,19 @@ export function paintLook(i, pose) {
 
 export function paintWalkLook(i, poses = PED_WALK_POSES) {
   return poses.map((p) => paintLook(i, p));
+}
+
+export function paintPersonLook(look, pose) {
+  return pixelCanvas(32, 40, (g) => paintPerson(g, look, pose));
+}
+
+export function paintPlayerSet(look) {
+  return {
+    idle: IDLE_POSES.map((p) => paintPersonLook(look, p)),
+    walk: PED_WALK_POSES.map((p) => paintPersonLook(look, p)),
+    jump: JUMP_POSES.map((p) => paintPersonLook(look, p)),
+    shoot: SHOOT_POSES.map((p) => paintPersonLook(look, p)),
+  };
 }
 
 /** Subtle clothes shading only. Never touch skin/face (edge rim made it cyan). */
