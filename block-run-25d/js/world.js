@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat,
-} from "./config.js?v=53";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=53";
+} from "./config.js?v=54";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=54";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -185,12 +185,12 @@ function glowSprite(color, size) {
 }
 
 function makePalm() {
-  const tex = canvasTex(72, 176, (g) => {
-    g.clearRect(0, 0, 72, 176);
-    // Tall thin slightly curved trunk (queen / Mexican fan).
-    for (let y = 50; y < 176; y++) {
-      const t = (y - 50) / 126;
-      const x = 34 + Math.round(Math.sin(t * 1.15) * 2.4);
+  const tex = canvasTex(80, 180, (g) => {
+    g.clearRect(0, 0, 80, 180);
+    // Tall thin slightly curved trunk, rings like a queen/Mexican fan.
+    for (let y = 48; y < 180; y++) {
+      const t = (y - 48) / 132;
+      const x = 38 + Math.round(Math.sin(t * 1.05) * 2.2);
       const ring = y % 9 === 0;
       g.fillStyle = ring ? "#5a3824" : "#7a5438";
       g.fillRect(x, y, 4, 1);
@@ -199,59 +199,48 @@ function makePalm() {
       g.fillStyle = ring ? "#6a4430" : "#8a6448";
       g.fillRect(x + 3, y, 1, 1);
     }
-    const cx = 36;
-    const cy = 42;
-    // Drooping fronds from the crown only — no stacked tiers / pine bars.
-    const fronds = [
-      { a: Math.PI, len: 24, col: "#1a4a28" },
-      { a: 3.35, len: 22, col: "#1e5a2c" },
-      { a: 3.7, len: 18, col: "#246832" },
-      { a: 4.05, len: 15, col: "#1a4a24" },
-      { a: 0, len: 24, col: "#1a4a28" },
-      { a: -0.2, len: 22, col: "#1e5a2c" },
-      { a: -0.55, len: 18, col: "#246832" },
-      { a: -0.9, len: 15, col: "#1a4a24" },
-      { a: -1.25, len: 13, col: "#2f7a40" },
-      { a: -1.57, len: 12, col: "#3a8a48" },
-      { a: -1.9, len: 13, col: "#2f7a40" },
-      { a: 2.95, len: 20, col: "#246832" },
-      { a: 0.35, len: 20, col: "#246832" },
-      { a: 2.55, len: 16, col: "#1e5a2c" },
-      { a: 0.75, len: 16, col: "#1e5a2c" },
+    const cx = 40;
+    const cy = 46;
+    // Classic street.png crown: thick blades, fat at the trunk, droop at tips.
+    const blades = [
+      { a: -1.57, len: 16, w: 4.2, col: "#344830" },
+      { a: -2.15, len: 18, w: 4.0, col: "#283a28" },
+      { a: -1.00, len: 18, w: 4.0, col: "#283a28" },
+      { a: -2.65, len: 20, w: 4.2, col: "#223224" },
+      { a: -0.48, len: 20, w: 4.2, col: "#223224" },
+      { a: 3.22, len: 21, w: 3.8, col: "#1c2c20" },
+      { a: -0.02, len: 21, w: 3.8, col: "#1c2c20" },
+      { a: 2.75, len: 16, w: 3.4, col: "#283a28" },
+      { a: 0.38, len: 16, w: 3.4, col: "#283a28" },
     ];
-    for (const f of fronds) {
+    for (const f of blades) {
       g.fillStyle = f.col;
-      for (let i = 0; i < f.len; i++) {
+      for (let i = 0; i <= f.len; i++) {
         const t = i / f.len;
-        const bend = t * t * 0.95;
-        const aa = f.a + (Math.cos(f.a) >= 0 ? bend : -bend) * 0.15 + bend * 0.55;
-        const x = cx + Math.cos(aa) * i;
-        const y = cy + Math.sin(aa) * i + t * t * 7;
-        const px = Math.round(x);
-        const py = Math.round(y);
-        g.fillRect(px, py, 2, 2);
-        if (i > 3 && i < f.len - 1) {
-          const nx = -Math.sin(aa);
-          const ny = Math.cos(aa);
-          const lw = i < f.len * 0.45 ? 2 : (i < f.len * 0.78 ? 3 : 1);
-          g.fillRect(Math.round(x + nx * lw), Math.round(y + ny * lw), 2, 1);
-          g.fillRect(Math.round(x - nx * lw), Math.round(y - ny * lw), 1, 1);
+        const droop = t * t * 8.5;
+        const x = cx + Math.cos(f.a) * i;
+        const y = cy + Math.sin(f.a) * i + droop;
+        const half = Math.max(1, Math.round(f.w * (1 - t * 0.72)));
+        const nx = -Math.sin(f.a);
+        const ny = Math.cos(f.a);
+        for (let k = -half; k <= half; k++) {
+          g.fillRect(Math.round(x + nx * k * 0.55), Math.round(y + ny * k * 0.55), 2, 2);
         }
       }
     }
-    g.fillStyle = "#1a4a28";
-    g.fillRect(cx - 3, cy - 3, 7, 8);
-    g.fillStyle = "#2f7a40";
-    g.fillRect(cx - 2, cy - 5, 5, 6);
-    g.fillStyle = "#3a8a48";
-    g.fillRect(cx - 1, cy - 3, 3, 4);
+    g.fillStyle = "#2e422c";
+    for (let dy = -6; dy <= 6; dy++) {
+      for (let dx = -5; dx <= 5; dx++) {
+        if (dx * dx + dy * dy < 28) g.fillRect(cx + dx, cy + dy, 1, 1);
+      }
+    }
   });
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
   const s = new THREE.Sprite(mat);
   s.center.set(0.5, 0);
-  s.scale.set(1.85, 5.15, 1);
+  s.scale.set(2.05, 5.35, 1);
   const g = new THREE.Group();
   g.add(s);
   return g;
