@@ -1,6 +1,8 @@
 # BLOCK RUN 2.5D
 
-Night-street prototype at [`/block-run-25d/`](https://maxrich25.github.io/pixel-sandbox/block-run-25d/). Gameplay modules here are shared with classic [`block-run/`](../block-run/) (2D renderer only).
+Night-street prototype at [`./block-run-25d/`](./). Gameplay modules here are shared with classic [`../block-run/`](../block-run/) (2D renderer only).
+
+Live: [https://maxrich25.github.io/q7m2x9k4/block-run-25d/](https://maxrich25.github.io/q7m2x9k4/block-run-25d/)
 
 ## Cache bust
 

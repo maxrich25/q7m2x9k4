@@ -1,10 +1,10 @@
 import * as THREE from "three";
 import {
-  pixelCanvas, derivePose, paintLook, paintCopFig, paintPlugFig, PED_LOOKS,
+  pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, PED_WALK_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
-  remapHoodie,
-} from "./paint.js?v=48";
-import { OUTFITS } from "./config.js?v=48";
+  remapHoodie, restyleFor25d,
+} from "./paint.js?v=55";
+import { OUTFITS } from "./config.js?v=55";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -144,7 +144,8 @@ export async function loadSprites() {
   function makePlayer(hex) {
     const rec = (img) => {
       const c = img instanceof HTMLCanvasElement ? img : toCanvas(img);
-      return hex ? remapHoodie(c, hex) : c;
+      const tinted = hex ? remapHoodie(c, hex) : c;
+      return restyleFor25d(tinted);
     };
     const tintIdle = rec(idleBase);
     const tintWalk = rec(walkBase);
@@ -155,11 +156,11 @@ export async function loadSprites() {
     const playerWalk = walkOrig.length
       ? [
         walkOrig[0],
-        texPose(tintWalk, { legDx: 2, armDx: -1, bob: 1, legDy: -1 }),
-        walkOrig[1] || texPose(tintWalk, { legDx: 0 }),
-        walkOrig[2] || texPose(tintWalk, { legDx: -2, armDx: 2 }),
-        walkOrig[3] || texPose(tintWalk, { legDx: -1, bob: 1 }),
-        texPose(tintWalk, { legDx: 1, armDx: 1, bob: 0 }),
+        walkOrig[1] || walkOrig[0],
+        walkOrig[1] || walkOrig[0],
+        walkOrig[2] || walkOrig[0],
+        walkOrig[3] || walkOrig[2] || walkOrig[0],
+        walkOrig[3] || walkOrig[0],
       ]
       : walkFrom(tintWalk);
     const playerShoot = shootImgs.every(Boolean)
@@ -186,7 +187,8 @@ export async function loadSprites() {
   const cop = setFromOriginal(paintCopFig());
   const buyers = PED_LOOKS.map((_, i) => {
     const src = paintLook(i);
-    return setFromOriginal(src, { walk: PED_WALK_POSES.map((p) => texPose(src, p)) });
+    const walks = paintWalkLook(i, PED_WALK_POSES).map((c) => texturize(c, true));
+    return setFromOriginal(src, { walk: walks });
   });
   const plug = setFromOriginal(paintPlugFig());
 
