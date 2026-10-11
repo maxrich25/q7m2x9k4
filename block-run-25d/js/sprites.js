@@ -3,8 +3,8 @@ import {
   pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, PED_WALK_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
   remapHoodie, restyleFor25d,
-} from "./paint.js?v=51";
-import { OUTFITS } from "./config.js?v=51";
+} from "./paint.js?v=52";
+import { OUTFITS } from "./config.js?v=52";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
