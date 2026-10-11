@@ -1,8 +1,8 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
   CAR_LANE_NEAR, CAR_LANE_FAR,
-} from "../../block-run-25d/js/config.js?v=50";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=50";
+} from "../../block-run-25d/js/config.js?v=51";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=51";
 
 const STREET_CROP = 168;
 const STREET_W = 398;
@@ -388,11 +388,6 @@ export function createWorld(canvas, art) {
         if (Math.abs(wrapDelta(gx, PLUG_X, WORLD)) < 110) continue;
         const x = sx(gx + off);
         if (x > -30 && x < VW + 30) drawFacade(x, state.sky, i);
-      }
-      for (let i = 0; i < 8; i++) {
-        const gx = i * (WORLD / 8) + 40;
-        const x = sx(gx + off);
-        if (x > -20 && x < VW + 20) drawPalm(x);
       }
       for (let i = 0; i < 10; i++) {
         const gx = i * (WORLD / 10) + 18;
