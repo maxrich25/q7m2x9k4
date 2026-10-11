@@ -1,8 +1,8 @@
 import {
-  pixelCanvas, setFromCanvases, flipCanvas, remapHoodie, poseSheet,
-  PED_LOOKS, PED_WALK_POSES, paintPlugFig, paintLook,
-} from "../../block-run-25d/js/paint.js?v=48";
-import { OUTFITS } from "../../block-run-25d/js/config.js?v=48";
+  pixelCanvas, setFromCanvases, flipCanvas, remapHoodie,
+  PED_LOOKS, PED_WALK_POSES, paintPlugFig, paintLook, paintWalkLook,
+} from "../../block-run-25d/js/paint.js?v=49";
+import { OUTFITS } from "../../block-run-25d/js/config.js?v=49";
 
 const SPRITE_BASE = new URL("../sprites/", import.meta.url);
 
@@ -78,21 +78,14 @@ function sheetFrom(src, extras) {
 function paintBeater(cop = false) {
   return pixelCanvas(96, 30, (g) => {
     g.clearRect(0, 0, 96, 30);
-    g.fillStyle = cop ? "#d8dee8" : "#6a3a24";
-    g.fillRect(10, 12, 76, 10);
-    g.fillRect(8, 15, 80, 6);
-    g.fillStyle = cop ? "#1a2430" : "#4a2818";
-    g.fillRect(28, 6, 34, 8);
+    g.fillStyle = cop ? "#d8dee8" : "#5a3a88";
+    g.fillRect(10, 14, 76, 8);
+    g.fillRect(8, 16, 80, 6);
+    g.fillStyle = cop ? "#1a2430" : "#3a2860";
+    g.fillRect(30, 8, 32, 8);
     g.fillStyle = "#2a3848";
-    g.fillRect(32, 8, 12, 5);
-    g.fillRect(46, 8, 12, 5);
-    if (!cop) {
-      g.fillStyle = "#8a5a30";
-      g.fillRect(14, 14, 8, 3);
-      g.fillRect(58, 16, 10, 2);
-      g.fillStyle = "#3a2010";
-      g.fillRect(70, 13, 6, 4);
-    }
+    g.fillRect(34, 10, 10, 5);
+    g.fillRect(48, 10, 10, 5);
     g.fillStyle = "#111018";
     g.fillRect(18, 20, 12, 9);
     g.fillRect(64, 20, 12, 9);
@@ -113,68 +106,70 @@ function paintBeater(cop = false) {
   });
 }
 
+function tintCar(src, hex) {
+  if (!src) return src;
+  const w = src.width || src.naturalWidth || 96;
+  const h = src.height || src.naturalHeight || 30;
+  const to = parseInt(String(hex || "#5a3a88").replace("#", ""), 16);
+  const tr = (to >> 16) & 255;
+  const tg = (to >> 8) & 255;
+  const tb = to & 255;
+  return pixelCanvas(w, h, (g) => {
+    g.drawImage(src, 0, 0);
+    const img = g.getImageData(0, 0, w, h);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 8) continue;
+      const r = d[i];
+      const gv = d[i + 1];
+      const b = d[i + 2];
+      const purple = r > 40 && b > r * 0.7 && b > gv && gv < 140;
+      if (!purple) continue;
+      const lum = (r * 0.4 + gv * 0.25 + b * 0.35) / 255;
+      d[i] = Math.min(255, Math.round(tr * (0.35 + lum * 1.1)));
+      d[i + 1] = Math.min(255, Math.round(tg * (0.35 + lum * 1.1)));
+      d[i + 2] = Math.min(255, Math.round(tb * (0.35 + lum * 1.1)));
+    }
+    g.putImageData(img, 0, 0);
+  });
+}
+
 function cleanStreet(street) {
   if (!street || !street.naturalWidth) return street;
   const w = street.naturalWidth;
-  const h = 168;
+  const srcH = street.naturalHeight || 224;
+  const h = Math.min(168, srcH);
   return pixelCanvas(w, h, (g) => {
-    g.drawImage(street, 0, 0, w, Math.min(h, street.naturalHeight), 0, 0, w, h);
-    g.drawImage(street, 0, 142, 110, 6, 0, 148, 110, 20);
+    g.drawImage(street, 0, 0, w, h, 0, 0, w, h);
     const img = g.getImageData(0, 0, w, h);
     const d = img.data;
-    const pix = (x, y) => {
-      const i = (y * w + x) * 4;
-      return [d[i], d[i + 1], d[i + 2]];
-    };
-    const isOpenSky = (r, gv, b, y) => {
-      const lum = r + gv + b;
-      const dist = Math.abs(r - 12) + Math.abs(gv - 1) + Math.abs(b - 31);
-      const sat = Math.max(r, gv, b) - Math.min(r, gv, b);
-      if (dist <= 42 && lum <= 90) return true;
-      // painted moon + glow sit in the upper sky, not on the skyline
-      if (y < 88 && lum >= 130 && sat < 55 && r > 80) return true;
-      return false;
-    };
-    const tops = new Array(w);
-    for (let x = 0; x < w; x++) {
-      let top = h;
-      for (let y = 0; y < h; y++) {
-        const [r, gv, b] = pix(x, y);
-        if (isOpenSky(r, gv, b, y)) continue;
-        let run = 0;
-        for (let k = 0; k < 8 && y + k < h; k++) {
-          const p = pix(x, y + k);
-          if (!isOpenSky(p[0], p[1], p[2], y + k)) run += 1;
-        }
-        if (run >= 4) {
-          top = y;
-          break;
-        }
-      }
-      tops[x] = top;
-    }
-    for (let x = 0; x < w; x++) {
-      if (tops[x] < h) continue;
-      const left = x > 0 ? tops[x - 1] : h;
-      const right = x + 1 < w ? tops[x + 1] : h;
-      const near = Math.min(left, right);
-      tops[x] = near < h ? near : 80;
-    }
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        if (y < tops[x]) d[(y * w + x) * 4 + 3] = 0;
+        const i = (y * w + x) * 4;
+        const r = d[i];
+        const gv = d[i + 1];
+        const b = d[i + 2];
+        const lum = r + gv + b;
+        const dist = Math.abs(r - 12) + Math.abs(gv - 1) + Math.abs(b - 31);
+        if (y < 92 && (dist <= 36 || (lum <= 70 && Math.abs(r - b) < 18))) {
+          d[i + 3] = 0;
+        }
       }
     }
     g.putImageData(img, 0, 0);
   });
 }
 
-function carFrom(_img, cop = false) {
+function carFrom(img, cop = false) {
+  if (img) {
+    const base = toCanvas(img);
+    return cop ? tintCar(base, "#d8dee8") : base;
+  }
   return paintBeater(cop);
 }
 
 export async function loadArt() {
-  const [idleImgs, walkImgs, shootImgs, packImg, cashImg, dumpImg, streetImg, thugImgs, runImgs, bossImgs] = await Promise.all([
+  const [idleImgs, walkImgs, shootImgs, packImg, cashImg, dumpImg, streetImg, carImg, thugImgs, runImgs, bossImgs] = await Promise.all([
     Promise.all([1, 2, 3, 4].map((i) => loadRaw(`idle-${i}.png`))),
     Promise.all([1, 2, 3, 4].map((i) => loadRaw(`walk-${i}.png`))),
     Promise.all([1, 2, 3, 4].map((i) => loadRaw(`shoot-${i}.png`))),
@@ -182,6 +177,7 @@ export async function loadArt() {
     loadRaw("cash.png"),
     loadRaw("dumpster.png"),
     loadImage(new URL("../map/street.png", import.meta.url).href),
+    loadRaw("car.png"),
     Promise.all([1, 2, 3, 4].map((i) => loadRaw(`thug-${i}.png`))),
     Promise.all([1, 2, 3, 4].map((i) => loadRaw(`runner-${i}.png`))),
     Promise.all([1, 2, 3, 4].map((i) => loadRaw(`boss-${i}.png`))),
@@ -202,16 +198,7 @@ export async function loadArt() {
     const derived = setFromCanvases(tintWalk);
     const playerIdle = withFlip(srcIdle.map((img) => rec(img)));
     const walkOrig = srcWalk.map((img) => rec(img));
-    const playerWalk = withFlip(walkOrig.length
-      ? [
-        walkOrig[0],
-        derived.walk[1],
-        walkOrig[1] || derived.walk[2],
-        walkOrig[2] || derived.walk[3],
-        walkOrig[3] || derived.walk[4],
-        derived.walk[5],
-      ]
-      : derived.walk);
+    const playerWalk = withFlip(walkOrig.length ? walkOrig : derived.walk);
     const playerShoot = withFlip((srcShoot || derived.shoot).map((img) => rec(img)));
     return {
       idle: playerIdle,
@@ -240,7 +227,7 @@ export async function loadArt() {
   const bossSheet = sheetFromImgs(bossImgs, toCanvas(idleImgs[0] || fallback("idle")));
   const buyers = PED_LOOKS.map((_, i) => {
     const src = paintLook(i);
-    return sheetFrom(src, { walk: poseSheet(src, PED_WALK_POSES) });
+    return sheetFrom(src, { walk: paintWalkLook(i, PED_WALK_POSES) });
   });
   const plug = sheetFrom(paintPlugFig());
   const cop = thugSheet;
@@ -260,7 +247,8 @@ export async function loadArt() {
     cash: toCanvas(cashImg || fallback("cash")),
     dumpster: toCanvas(dumpImg || fallback("dumpster")),
     street: cleanStreet(streetImg),
-    car: withFlip([carFrom(null, false)])[0],
-    copCar: withFlip([carFrom(null, true)])[0],
+    car: withFlip([carFrom(carImg, false)])[0],
+    copCar: withFlip([carFrom(carImg, true)])[0],
+    trafficCar: (hex) => withFlip([tintCar(carFrom(carImg, false), hex) || paintBeater(false)])[0],
   };
 }

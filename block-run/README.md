@@ -1,6 +1,8 @@
 # BLOCK RUN (classic 2D)
 
-Flat pixel side-view at [`/block-run/`](https://maxrich25.github.io/pixel-sandbox/block-run/). Same dealing loop as [`block-run-25d/`](../block-run-25d/) — it imports shared game/config/audio/input/hud from that folder and only draws in 2D.
+Flat pixel side-view at [`./block-run/`](./). Same dealing loop as [`../block-run-25d/`](../block-run-25d/) — it imports shared game/config/audio/input/hud from that folder and only draws in 2D.
+
+Live: [https://maxrich25.github.io/q7m2x9k4/block-run/](https://maxrich25.github.io/q7m2x9k4/block-run/)
 
 The original minified cart is kept unused in [`legacy/`](legacy/).
 

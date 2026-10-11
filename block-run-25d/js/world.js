@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat,
-} from "./config.js?v=48";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=48";
+} from "./config.js?v=49";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=49";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -185,25 +185,30 @@ function glowSprite(color, size) {
 }
 
 function makePalm() {
-  const tex = canvasTex(64, 96, (g, w, h) => {
+  const tex = canvasTex(64, 112, (g, w, h) => {
     g.clearRect(0, 0, w, h);
-    g.fillStyle = "#6a4430";
-    g.fillRect(28, 40, 8, 56);
+    g.fillStyle = "#5a3824";
+    g.fillRect(29, 36, 6, 76);
+    g.fillStyle = "#3a2418";
+    g.fillRect(29, 36, 2, 76);
+    g.fillStyle = "#1f5a30";
+    g.beginPath(); g.ellipse(32, 30, 28, 12, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(14, 38, 18, 7, -0.7, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(50, 38, 18, 7, 0.7, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(20, 22, 14, 8, -0.4, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(44, 22, 14, 8, 0.4, 0, Math.PI * 2); g.fill();
     g.fillStyle = "#2f8a4a";
-    g.beginPath(); g.ellipse(32, 36, 26, 14, 0, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(18, 42, 16, 8, -0.6, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(46, 42, 16, 8, 0.6, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(32, 22, 18, 10, 0, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.ellipse(32, 18, 16, 8, 0, 0, Math.PI * 2); g.fill();
     g.fillStyle = "#3dff7a";
-    g.fillRect(20, 30, 4, 3);
-    g.fillRect(40, 28, 4, 3);
+    g.fillRect(22, 26, 3, 2);
+    g.fillRect(38, 24, 3, 2);
   });
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
   const s = new THREE.Sprite(mat);
   s.center.set(0.5, 0);
-  s.scale.set(2.1, 3.15, 1);
+  s.scale.set(2.2, 3.85, 1);
   const g = new THREE.Group();
   g.add(s);
   return g;
@@ -638,42 +643,42 @@ function skylineTex() {
     ];
     for (const [x, bw, bh] of mid) block(x, bw, bh);
 
-    // US Bank Tower — tall shaft + glass crown
+    // US Bank Tower — shaft + stepped glass crown
     const usbX = 360;
-    const usbW = 30;
-    const usbH = 188;
-    const usbY = block(usbX, usbW, usbH, "#5a4a80");
-    g.fillStyle = "#4a3a68";
-    g.fillRect(usbX - 4, usbY - 14, usbW + 8, 16);
-    g.fillStyle = "#5a4a78";
-    g.fillRect(usbX + 2, usbY - 24, usbW - 4, 12);
+    const usbW = 28;
+    const usbH = 196;
+    const usbY = block(usbX, usbW, usbH, "#4a3c70");
+    g.fillStyle = "#6a5a88";
+    g.fillRect(usbX - 6, usbY - 8, usbW + 12, 10);
+    g.fillStyle = "#8a7aa8";
+    g.fillRect(usbX - 2, usbY - 18, usbW + 4, 12);
+    g.fillStyle = "#c8b8e0";
+    g.fillRect(usbX + 4, usbY - 26, usbW - 8, 10);
     g.fillStyle = "#3de0ff";
-    g.fillRect(usbX + usbW / 2 - 1, usbY - 38, 2, 16);
-    g.fillRect(usbX + 6, usbY - 10, 4, 4);
+    g.fillRect(usbX + usbW / 2 - 1, usbY - 40, 2, 16);
     windows(usbX, usbY, usbW, usbH, true);
 
-    // Wilshire Grand — sail prow + tall thin spire
+    // Wilshire Grand — sail prow + needle
     const wgX = 500;
-    const wgW = 38;
-    const wgH = 210;
+    const wgW = 36;
+    const wgH = 218;
     const wgY = h - wgH;
+    g.fillStyle = "#3a2c58";
+    g.fillRect(wgX, wgY + 34, wgW, wgH - 34);
     g.fillStyle = "#564878";
-    g.fillRect(wgX, wgY + 28, wgW, wgH - 28);
     g.beginPath();
-    g.moveTo(wgX - 6, wgY + 36);
-    g.lineTo(wgX + wgW * 0.42, wgY - 8);
-    g.lineTo(wgX + wgW + 8, wgY + 40);
-    g.lineTo(wgX + wgW, wgY + 56);
-    g.lineTo(wgX, wgY + 56);
+    g.moveTo(wgX - 10, wgY + 44);
+    g.lineTo(wgX + wgW * 0.38, wgY - 4);
+    g.lineTo(wgX + wgW + 12, wgY + 48);
+    g.lineTo(wgX + wgW, wgY + 62);
+    g.lineTo(wgX, wgY + 62);
     g.closePath();
     g.fill();
-    g.fillStyle = "#3a3058";
-    g.fillRect(wgX + wgW / 2 - 2, wgY - 62, 4, 56);
+    g.fillStyle = "#2a2038";
+    g.fillRect(wgX + wgW / 2 - 1, wgY - 70, 3, 68);
     g.fillStyle = "#f0c430";
-    g.fillRect(wgX + wgW / 2 - 1, wgY - 70, 2, 10);
-    windows(wgX, wgY + 28, wgW, wgH - 28, false);
-    g.fillStyle = "#7ad8ff";
-    g.fillRect(wgX + 8, wgY + 10, 3, 3);
+    g.fillRect(wgX + wgW / 2 - 1, wgY - 78, 3, 10);
+    windows(wgX, wgY + 34, wgW, wgH - 34, false);
 
     // library / extra tower
     block(430, 22, 150, "#2a2038");
@@ -786,42 +791,7 @@ export function createWorld(canvas, sprites) {
     return g;
   }
   const dtla = new THREE.Group();
-  const usBank = litTower(1.5, 16.2, 1.35, 0x3a2c58);
-  const usCrown = new THREE.Mesh(
-    new THREE.BoxGeometry(1.7, 0.55, 1.4),
-    new THREE.MeshBasicMaterial({ color: 0x4a3c68, fog: false }),
-  );
-  usCrown.position.y = 16.5;
-  usBank.add(usCrown);
-  const usSpire = new THREE.Mesh(
-    new THREE.BoxGeometry(0.12, 1.4, 0.12),
-    new THREE.MeshBasicMaterial({ color: 0x3de0ff, fog: false }),
-  );
-  usSpire.position.y = 17.5;
-  usBank.add(usSpire);
-  usBank.userData.dx = -3.2;
-  const wilshire = litTower(1.9, 18.4, 1.5, 0x322850);
-  const sail = new THREE.Mesh(
-    new THREE.BoxGeometry(2.1, 1.3, 0.8),
-    new THREE.MeshBasicMaterial({ color: 0x4a3c70, fog: false }),
-  );
-  sail.position.set(0.15, 18.9, 0);
-  sail.rotation.z = -0.28;
-  wilshire.add(sail);
-  const wgSpire = new THREE.Mesh(
-    new THREE.BoxGeometry(0.1, 2.8, 0.1),
-    new THREE.MeshBasicMaterial({ color: 0xf0c430, fog: false }),
-  );
-  wgSpire.position.y = 20.6;
-  wilshire.add(wgSpire);
-  wilshire.userData.dx = 1.6;
-  const lib = litTower(1.15, 10.2, 1.1, 0x2e2448);
-  lib.userData.dx = -6.4;
-  const midA = litTower(1.4, 8.4, 1.15, 0x2a2038);
-  midA.userData.dx = 4.8;
-  const midB = litTower(1.05, 9.0, 1.05, 0x322848);
-  midB.userData.dx = -8.6;
-  for (const t of [lib, usBank, wilshire, midA, midB]) dtla.add(t);
+  dtla.visible = false;
   scene.add(dtla);
   const hazeTex = canvasTex(64, 32, (g, w, h) => {
     const grd = g.createLinearGradient(0, 0, 0, h);
@@ -1033,8 +1003,8 @@ export function createWorld(canvas, sprites) {
       city.add(graffiti);
     }
     const palms = theme.park
-      ? [[8, -2.4], [16, -5.2], [22, -2.2], [30, -5.8], [38, -2.5], [46, -5.0], [12, 3.4], [34, 3.6]]
-      : [[6.5, -2.5], [14.2, -4.8], [21.2, -2.3], [29.4, -5.1], [40.8, -2.6], [18, 3.5]];
+      ? [[8, -2.4], [16, -5.2], [22, -2.2], [30, -5.8], [38, -2.5], [46, -5.0], [12, 3.4], [34, 3.6], [4, 3.5], [42, 3.4]]
+      : [[6.5, -2.5], [14.2, -4.8], [21.2, -2.3], [29.4, -5.1], [40.8, -2.6], [18, 3.5], [2.4, 3.45], [33.6, 3.5], [48, 3.4]];
     for (const [x, z] of palms) {
       const palm = makePalm();
       palm.position.set(x + xOff, 0, z);
@@ -1054,6 +1024,12 @@ export function createWorld(canvas, sprites) {
   const blockCount = Math.round(STREET_LEN / BLOCK_LEN);
   for (let i = 0; i < blockCount; i++) {
     stampTheme(THEMES[i % THEMES.length], i * BLOCK_LEN, i === 0);
+  }
+  for (let i = 0; i < blockCount * 2; i++) {
+    const curbPalm = makePalm();
+    curbPalm.position.set((i + 0.35) * (BLOCK_LEN / 2), 0, 3.55);
+    curbPalm.scale.setScalar(0.95 + (i % 3) * 0.08);
+    city.add(curbPalm);
   }
 
   for (let i = 0; i < blockCount; i++) {

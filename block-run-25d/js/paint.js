@@ -66,18 +66,19 @@ export function flipCanvas(src) {
 }
 
 export const WALK_POSES = [
-  { legDx: 3, armDx: -2, bob: 0, legDy: 0 },
-  { legDx: 2, armDx: -1, bob: 1, legDy: -1 },
-  { legDx: 0, armDx: 0, bob: 0, legDy: 0 },
-  { legDx: -3, armDx: 2, bob: 0, legDy: 0 },
-  { legDx: -2, armDx: 1, bob: 1, legDy: -1 },
-  { legDx: 1, armDx: -1, bob: 0, legDy: 0 },
+  { step: 2, bob: 0 },
+  { step: 1, bob: 1 },
+  { step: 0, bob: 0 },
+  { step: -2, bob: 0 },
+  { step: -1, bob: 1 },
+  { step: 0, bob: 0 },
 ];
+/** Calm stride: opposite arm/leg, small bob — not a slice-shift dance. */
 export const PED_WALK_POSES = [
-  { legDx: 1, armDx: -1, bob: 0, legDy: 0 },
-  { legDx: 0, armDx: 0, bob: 1, legDy: -1 },
-  { legDx: -1, armDx: 1, bob: 0, legDy: 0 },
-  { legDx: 0, armDx: 0, bob: 0, legDy: 0 },
+  { step: 2, bob: 0 },
+  { step: 0, bob: 1 },
+  { step: -2, bob: 0 },
+  { step: 0, bob: 0 },
 ];
 export const TURN_POSES = [
   { armDx: 2, legDx: 1, bob: 0 },
@@ -122,67 +123,148 @@ export const PED_LOOKS = [
   { skin: "#e8be8a", shirt: "#e21b7a", pants: "#3a3048", hair: "#2a1a10", accent: "#f0c430", hat: "cap", shoes: "#f4f0e8" },
 ];
 
-export function paintPerson(g, look) {
+function shadeHex(hex, amt) {
+  const n = parseInt(String(hex).replace("#", ""), 16);
+  if (!Number.isFinite(n)) return hex;
+  const k = (c) => Math.max(0, Math.min(255, Math.round(c + amt)));
+  const r = k((n >> 16) & 255);
+  const g = k((n >> 8) & 255);
+  const b = k(n & 255);
+  return "#" + ((r << 16) | (g << 8) | b).toString(16).padStart(6, "0");
+}
+
+export function paintPerson(g, look, pose = {}) {
   g.clearRect(0, 0, 32, 40);
+  const bob = pose.bob || 0;
+  const step = pose.step || 0;
+  const leftLeg = step;
+  const rightLeg = -step;
+  const leftArm = -step;
+  const rightArm = step;
+  const shirtHi = shadeHex(look.shirt, 28);
+  const shirtLo = shadeHex(look.shirt, -26);
+  const pantsLo = shadeHex(look.pants, -22);
+  const skinLo = shadeHex(look.skin, -18);
+  g.fillStyle = pantsLo;
+  g.fillRect(10 + leftLeg, 26 + bob, 5, 10);
   g.fillStyle = look.pants;
-  g.fillRect(10, 26, 5, 10);
-  g.fillRect(17, 26, 5, 10);
+  g.fillRect(17 + rightLeg, 26 + bob, 5, 10);
   g.fillStyle = look.shoes;
-  g.fillRect(9, 35, 6, 4);
-  g.fillRect(17, 35, 6, 4);
+  g.fillRect(9 + leftLeg, 35 + bob, 6, 4);
+  g.fillRect(17 + rightLeg, 35 + bob, 6, 4);
+  g.fillStyle = shadeHex(look.shoes, 30);
+  g.fillRect(10 + leftLeg, 35 + bob, 3, 1);
+  g.fillRect(18 + rightLeg, 35 + bob, 3, 1);
   g.fillStyle = look.shirt;
-  g.fillRect(9, 16, 14, 11);
+  g.fillRect(9, 16 + bob, 14, 11);
+  g.fillStyle = shirtHi;
+  g.fillRect(10, 17 + bob, 5, 8);
+  g.fillStyle = shirtLo;
+  g.fillRect(20, 18 + bob, 2, 8);
   g.fillStyle = look.accent;
-  g.fillRect(9, 16, 14, 2);
+  g.fillRect(9, 16 + bob, 14, 2);
   g.fillStyle = look.skin;
-  g.fillRect(6, 17, 4, 8);
-  g.fillRect(22, 17, 4, 8);
-  g.fillRect(11, 6, 10, 10);
+  g.fillRect(6 + leftArm, 17 + bob, 4, 8);
+  g.fillRect(22 + rightArm, 17 + bob, 4, 8);
+  g.fillRect(11, 6 + bob, 10, 10);
+  g.fillStyle = skinLo;
+  g.fillRect(18, 8 + bob, 3, 7);
   g.fillStyle = "#f4f0e8";
-  g.fillRect(13, 9, 2, 2);
-  g.fillRect(17, 9, 2, 2);
+  g.fillRect(13, 9 + bob, 2, 2);
+  g.fillRect(17, 9 + bob, 2, 2);
   g.fillStyle = "#1a1210";
-  g.fillRect(14, 9, 1, 2);
-  g.fillRect(18, 9, 1, 2);
+  g.fillRect(14, 9 + bob, 1, 2);
+  g.fillRect(18, 9 + bob, 1, 2);
   g.fillStyle = look.skin;
-  g.fillRect(13, 16, 6, 2);
+  g.fillRect(13, 16 + bob, 6, 2);
   if (look.chain) {
     g.fillStyle = "#f0c430";
-    g.fillRect(13, 17, 6, 1);
-    g.fillRect(15, 18, 2, 2);
+    g.fillRect(13, 17 + bob, 6, 1);
+    g.fillRect(15, 18 + bob, 2, 2);
   }
   if (look.hat === "beanie") {
     g.fillStyle = look.hair;
-    g.fillRect(11, 4, 10, 4);
+    g.fillRect(11, 4 + bob, 10, 4);
     g.fillStyle = look.accent;
-    g.fillRect(11, 7, 10, 2);
+    g.fillRect(11, 7 + bob, 10, 2);
   } else if (look.hat === "cap") {
     g.fillStyle = "#2a4a8a";
-    g.fillRect(11, 4, 10, 4);
-    g.fillRect(20, 7, 6, 2);
+    g.fillRect(11, 4 + bob, 10, 4);
+    g.fillRect(20, 7 + bob, 6, 2);
     g.fillStyle = look.hair;
-    g.fillRect(11, 8, 3, 4);
+    g.fillRect(11, 8 + bob, 3, 4);
   } else if (look.hat === "durag") {
     g.fillStyle = "#2a1a28";
-    g.fillRect(10, 4, 12, 5);
-    g.fillRect(20, 8, 5, 2);
+    g.fillRect(10, 4 + bob, 12, 5);
+    g.fillRect(20, 8 + bob, 5, 2);
     g.fillStyle = look.accent;
-    g.fillRect(12, 5, 8, 2);
+    g.fillRect(12, 5 + bob, 8, 2);
   } else if (look.hat === "afro") {
     g.fillStyle = look.hair;
-    g.fillRect(8, 2, 16, 8);
-    g.fillRect(9, 9, 3, 4);
-    g.fillRect(20, 9, 3, 4);
+    g.fillRect(8, 2 + bob, 16, 8);
+    g.fillRect(9, 9 + bob, 3, 4);
+    g.fillRect(20, 9 + bob, 3, 4);
   } else {
     g.fillStyle = look.hair;
-    g.fillRect(11, 4, 10, 4);
-    g.fillRect(10, 7, 3, 4);
+    g.fillRect(11, 4 + bob, 10, 4);
+    g.fillRect(10, 7 + bob, 3, 4);
   }
 }
 
-export function paintLook(i) {
+export function paintLook(i, pose) {
   const look = PED_LOOKS[i % PED_LOOKS.length];
-  return pixelCanvas(32, 40, (g) => paintPerson(g, look));
+  return pixelCanvas(32, 40, (g) => paintPerson(g, look, pose));
+}
+
+export function paintWalkLook(i, poses = PED_WALK_POSES) {
+  return poses.map((p) => paintLook(i, p));
+}
+
+/** Shade the classic PNG so it sits with 2.5D peds: rim, hoodie lift, ground contact. */
+export function restyleFor25d(src) {
+  if (!src) return src;
+  const w = src.width || src.naturalWidth || 32;
+  const h = src.height || src.naturalHeight || 40;
+  return pixelCanvas(w, h, (g) => {
+    g.drawImage(src, 0, 0);
+    const img = g.getImageData(0, 0, w, h);
+    const d = img.data;
+    const at = (x, y) => {
+      if (x < 0 || y < 0 || x >= w || y >= h) return 0;
+      return d[(y * w + x) * 4 + 3];
+    };
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (d[i + 3] < 10) continue;
+        const edge = at(x - 1, y) < 10 || at(x + 1, y) < 10 || at(x, y - 1) < 10 || at(x, y + 1) < 10;
+        const r = d[i];
+        const gv = d[i + 1];
+        const b = d[i + 2];
+        if (edge) {
+          d[i] = Math.max(0, r - 28);
+          d[i + 1] = Math.max(0, gv - 28);
+          d[i + 2] = Math.max(0, b - 22);
+          continue;
+        }
+        const hoodie = r > 90 && r > gv * 1.45 && r > b * 1.4 && gv < 110;
+        if (hoodie && x < w * 0.46) {
+          d[i] = Math.min(255, r + 22);
+          d[i + 1] = Math.min(255, gv + 8);
+          d[i + 2] = Math.min(255, b + 6);
+        } else if (hoodie && x > w * 0.62) {
+          d[i] = Math.max(0, r - 18);
+          d[i + 1] = Math.max(0, gv - 14);
+          d[i + 2] = Math.max(0, b - 10);
+        } else if (y > h * 0.72 && gv < 50) {
+          d[i] = Math.min(255, r + 10);
+          d[i + 1] = Math.min(255, gv + 8);
+          d[i + 2] = Math.min(255, b + 8);
+        }
+      }
+    }
+    g.putImageData(img, 0, 0);
+  });
 }
 
 export function paintCopFig() {
