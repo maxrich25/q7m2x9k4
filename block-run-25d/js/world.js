@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
-} from "./config.js?v=57";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=57";
+} from "./config.js?v=58";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=58";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -734,7 +734,7 @@ export function createWorld(canvas, sprites) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x0a0814, 0.028);
+  scene.fog = new THREE.FogExp2(0x0a0814, 0.016);
   scene.background = new THREE.Color(0x0a0716);
 
   const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 180);
@@ -913,16 +913,16 @@ export function createWorld(canvas, sprites) {
     { id: "park", neon: ["PARK", "#3de0ff"], cols: ["#2a4a38", "#3a3a30", "#2a3840"], park: true },
   ];
   const facadeLayout = [
-    { x: 4, w: 4.2, h: 4.2, d: 2.4 },
-    { x: 9, w: 3.6, h: 3.6, d: 2.2 },
-    { x: 13.2, w: 4.6, h: 4.8, d: 2.6 },
-    { x: 18.4, w: 5.4, h: 3.3, d: 2.0 },
-    { x: 24.2, w: 3.8, h: 4.4, d: 2.3 },
-    { x: 28.6, w: 4.0, h: 3.7, d: 2.2 },
-    { x: 33.4, w: 4.4, h: 4.6, d: 2.5 },
-    { x: 38.6, w: 3.6, h: 3.5, d: 2.1 },
-    { x: 43.2, w: 4.8, h: 4.3, d: 2.4 },
-    { x: 48.4, w: 3.4, h: 3.6, d: 2.2 },
+    { x: 4, w: 4.2, h: 5.2, d: 2.4 },
+    { x: 9, w: 3.6, h: 4.4, d: 2.2 },
+    { x: 13.2, w: 4.6, h: 6.4, d: 2.6 },
+    { x: 18.4, w: 5.4, h: 3.6, d: 2.0 },
+    { x: 24.2, w: 3.8, h: 5.8, d: 2.3 },
+    { x: 28.6, w: 4.0, h: 4.8, d: 2.2 },
+    { x: 33.4, w: 4.4, h: 6.0, d: 2.5 },
+    { x: 38.6, w: 3.6, h: 4.2, d: 2.1 },
+    { x: 43.2, w: 4.8, h: 5.4, d: 2.4 },
+    { x: 48.4, w: 3.4, h: 4.6, d: 2.2 },
   ];
 
   function addNeon(text, color, x, y, z, lit = false) {
@@ -1353,19 +1353,19 @@ export function createWorld(canvas, sprites) {
     const portrait = camera.aspect < 1;
     const boardU = 1 - Math.max(0, Math.min(1, (state.boardT || 0) / 0.38));
     const carCam = state.inCar ? boardU : (1 - boardU);
-    const camZ = (portrait ? 14.6 : 13.2) + carCam * 0.55;
-    const camY = (portrait ? 3.28 : 3.55) + carCam * 0.18;
+    const camZ = (portrait ? 15.8 : 14.2) + carCam * 0.7;
+    const camY = (portrait ? 2.92 : 3.15) + carCam * 0.22;
     const wantFace = p.facing < 0 ? -1 : 1;
     if (!state.inCar && Math.abs(p.vx) > 8) lookFace = wantFace;
     else lookFace += (wantFace - lookFace) * (1 - Math.exp(-2.4 * Math.max(stepDt, 0.0001)));
     if (playing) {
-      const leadGame = state.inCar ? (portrait ? 22 : 28) : (portrait ? 6 : 10);
+      const leadGame = state.inCar ? (portrait ? 14 : 20) : (portrait ? 4 : 8);
       const lookX = nearestWorldX(wrap(px + lookFace * leadGame, WORLD), camX);
       const dx = wrapDelta(camX, lookX, STREET_LEN);
       const follow = state.inCar ? 2.4 : 6.5;
       camX = wrap(camX + dx * (1 - Math.exp(-follow * Math.max(stepDt, 0.0001) * (paused ? 0 : 1))), STREET_LEN);
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.12, camZ);
-      tmp.set(camX + lookFace * (state.inCar ? 2.4 : 0.55), 1.32 + gameToWorldY(p.y) * 0.2, 1.15 + carCam * 0.55);
+      tmp.set(camX + lookFace * (state.inCar ? 2.0 : 0.4), 1.22 + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 0.7);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
     } else {
