@@ -84,8 +84,10 @@ export const SEC_PER_HOUR = 120;
 /** Real-time seconds to reach a deal. Scaled by distance in spawnOrder. */
 export const ORDER_T_MIN = 45;
 export const ORDER_T_MAX = 75;
-/** Game-x gap from the light to the painted stop line. */
-export const LIGHT_STOP_LEAD = 26;
+/** Game-x gap from the visible intersection light to the stop. Keep tiny so stops match the pole. */
+export const LIGHT_STOP_LEAD = 6;
+/** Day-night cycle kept compiled; off so the cart stays on the a82fe09 night look. */
+export const DAY_NIGHT_ENABLED = false;
 /** Must be going at least this fast (and on gas) to swing out and pass. */
 export const PASS_MIN_SPEED = 58;
 
@@ -262,6 +264,15 @@ const SKY_KEYS = [
 ];
 
 export function skyTint(hour) {
+  if (!DAY_NIGHT_ENABLED) {
+    return {
+      top: 0x0a0716, bot: 0x0a0814, fog: 0x0a0814,
+      star: 1, moon: 1, sun: 0, light: 0.55, windows: 1, lamps: 1,
+      headlights: true, phase: "night",
+      cssTop: "#0a0716", cssBot: "#0a0814", cssFog: "#0a0814",
+      wash: "rgba(10,8,20,0.16)",
+    };
+  }
   const h = wrapHour(hour);
   let i = 0;
   while (i < SKY_KEYS.length - 1 && SKY_KEYS[i + 1].h <= h) i += 1;

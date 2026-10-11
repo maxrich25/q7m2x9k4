@@ -1,15 +1,22 @@
-# BLOCK RUN (classic 2D)
+# BLOCK RUN (classic)
 
-Flat pixel side-view at [`./block-run/`](./). Same dealing loop as [`../block-run-25d/`](../block-run-25d/) — it imports shared game/config/audio/input/hud from that folder and only draws in 2D.
+Untouched original 2D night-cart. Jump to dodge, sell packs at the dumpster, buy guns at the shop.
 
-Live: [https://maxrich25.github.io/q7m2x9k4/block-run/](https://maxrich25.github.io/q7m2x9k4/block-run/)
+This folder is standalone. It does not import `block-run-25d`.
 
-The original minified cart is kept unused in [`legacy/`](legacy/).
+**Play:** open the root launcher, or:
 
-## Cache bust
+```bash
+cd block-run
+python3 -m http.server 8080
+```
 
-Bump `?v=` together (keep every copy identical) in:
+Then open http://localhost:8080
 
-- `index.html` — `style.css?v=` and `js/main.js?v=`
-- `js/main.js`, `js/art.js`, `js/draw.js` — relative imports
-- And the shared `block-run-25d/js/*` imports (same version)
+## Controls
+
+- L / R or A D / arrows — walk
+- JUMP or W / up — dodge
+- FIRE or space / J — shoot
+- Hold FIRE in the SHOP — buy Uzi, then Shotty
+- Grab packs, walk to SELL (dumpster) for cash

@@ -1,14 +1,23 @@
-import { TICK } from "./config.js?v=55";
-import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=55";
-import { createInput } from "./input.js?v=55";
-import { createGame } from "./game.js?v=55";
-import { loadSprites } from "./sprites.js?v=55";
-import { createWorld } from "./world.js?v=55";
-import { createHud } from "./hud.js?v=55";
+import { TICK } from "./config.js?v=56";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=56";
+import { createInput } from "./input.js?v=56";
+import { createGame } from "./game.js?v=56";
+import { loadSprites } from "./sprites.js?v=56";
+import { createWorld } from "./world.js?v=56";
+import { createHud } from "./hud.js?v=56";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
 const resumeBtn = document.getElementById("btn-resume");
+
+function blockTouch(e) {
+  if (e.cancelable) e.preventDefault();
+}
+canvas?.addEventListener("touchstart", blockTouch, { passive: false });
+document.getElementById("pad")?.addEventListener("touchstart", blockTouch, { passive: false });
+document.getElementById("view")?.addEventListener("touchstart", (e) => {
+  if (e.target?.closest?.("#scene, #pad, canvas") && e.cancelable) e.preventDefault();
+}, { passive: false });
 
 bindAudioUnlock();
 

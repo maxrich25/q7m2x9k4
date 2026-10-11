@@ -16,8 +16,15 @@
 }
 
 * { box-sizing: border-box; }
+html, body, #app, #view, #scene, #hud, #pad, canvas, button, a, .sheet, .sheet-card,
+.dest-arrow, .edge-arrow, #phone, #order-strip {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
 * { -webkit-user-select: none !important; user-select: none !important; -webkit-touch-callout: none !important; }
 ::selection { background: transparent; }
+#scene, canvas, #pad { touch-action: none; }
 
 html, body {
   margin: 0;
@@ -278,6 +285,9 @@ html, body {
 .dest-arrow.hidden { display: none; }
 #dest-left { left: 8px; }
 #dest-right { right: 8px; }
+.car-arrow { top: 52%; color: var(--cyan); text-shadow: 0 0 10px #3de0ff, 0 0 4px #07060c; }
+#car-left { left: 8px; }
+#car-right { right: 8px; }
 
 #btn-phone, #btn-pause, #btn-mute {
   pointer-events: auto;

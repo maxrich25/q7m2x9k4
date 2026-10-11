@@ -2,9 +2,9 @@ import * as THREE from "three";
 import {
   pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, PED_WALK_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
-  remapHoodie, restyleFor25d,
-} from "./paint.js?v=55";
-import { OUTFITS } from "./config.js?v=55";
+  paintPlayerSet,
+} from "./paint.js?v=56";
+import { OUTFITS } from "./config.js?v=56";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -138,39 +138,22 @@ export async function loadSprites() {
     Promise.all([1, 2, 3, 4].map((i) => loadRaw(`boss-${i}.png`))),
   ]);
 
-  const idleBase = toCanvas(idleImgs[0] || fallbackFrame("idle", 0));
-  const walkBase = toCanvas(walkImgs[0] || idleBase);
-
   function makePlayer(hex) {
-    const rec = (img) => {
-      const c = img instanceof HTMLCanvasElement ? img : toCanvas(img);
-      const tinted = hex ? remapHoodie(c, hex) : c;
-      return restyleFor25d(tinted);
+    const look = {
+      skin: "#c68642",
+      shirt: hex || "#c4283a",
+      pants: "#1a1a22",
+      hair: "#1a1210",
+      accent: hex || "#8a1020",
+      hat: "beanie",
+      shoes: "#1a1a22",
     };
-    const tintIdle = rec(idleBase);
-    const tintWalk = rec(walkBase);
-    const playerIdle = idleImgs.every(Boolean)
-      ? idleImgs.map((img) => texturize(rec(img), true))
-      : idleFrom(tintIdle);
-    const walkOrig = walkImgs.filter(Boolean).map((img) => texturize(rec(img), true));
-    const playerWalk = walkOrig.length
-      ? [
-        walkOrig[0],
-        walkOrig[1] || walkOrig[0],
-        walkOrig[1] || walkOrig[0],
-        walkOrig[2] || walkOrig[0],
-        walkOrig[3] || walkOrig[2] || walkOrig[0],
-        walkOrig[3] || walkOrig[0],
-      ]
-      : walkFrom(tintWalk);
-    const playerShoot = shootImgs.every(Boolean)
-      ? shootImgs.map((img) => texturize(rec(img), true))
-      : shootFrom(tintIdle);
+    const set = paintPlayerSet(look);
     return {
-      idle: playerIdle,
-      walk: playerWalk,
-      jump: jumpFrom(tintIdle),
-      shoot: playerShoot,
+      idle: set.idle.map((c) => texturize(c, true)),
+      walk: set.walk.map((c) => texturize(c, true)),
+      jump: set.jump.map((c) => texturize(c, true)),
+      shoot: set.shoot.map((c) => texturize(c, true)),
     };
   }
 
