@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat,
-} from "./config.js?v=51";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=51";
+} from "./config.js?v=52";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=52";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -185,33 +185,45 @@ function glowSprite(color, size) {
 }
 
 function makePalm() {
-  const tex = canvasTex(64, 112, (g, w, h) => {
-    g.clearRect(0, 0, w, h);
-    g.fillStyle = "#6a4430";
-    g.fillRect(30, 42, 4, 70);
-    g.fillStyle = "#3a2418";
-    g.fillRect(30, 42, 1, 70);
-    g.fillStyle = "#1f5a30";
-    g.fillRect(8, 36, 24, 3);
-    g.fillRect(10, 30, 22, 3);
-    g.fillRect(14, 42, 18, 3);
-    g.fillRect(32, 36, 24, 3);
-    g.fillRect(32, 30, 22, 3);
-    g.fillRect(32, 42, 18, 3);
-    g.fillRect(28, 16, 8, 18);
-    g.fillStyle = "#2f8a4a";
-    g.fillRect(26, 28, 12, 4);
-    g.fillRect(12, 34, 10, 2);
-    g.fillRect(42, 34, 10, 2);
-    g.fillStyle = "#3dff7a";
-    g.fillRect(30, 26, 3, 3);
+  const tex = canvasTex(56, 160, (g) => {
+    g.clearRect(0, 0, 56, 160);
+    for (let y = 46; y < 160; y++) {
+      const t = (y - 46) / 114;
+      const x = 26 + Math.round(Math.sin(t * 1.25) * 2);
+      g.fillStyle = y % 8 === 0 ? "#5a3824" : "#7a5438";
+      g.fillRect(x, y, 4, 1);
+      g.fillStyle = "#4a2c1c";
+      g.fillRect(x, y, 1, 1);
+    }
+    const cx = 28;
+    const cy = 34;
+    g.fillStyle = "#1a4a28";
+    g.fillRect(cx - 22, cy + 2, 20, 2);
+    g.fillRect(cx - 20, cy + 6, 16, 2);
+    g.fillRect(cx - 16, cy + 10, 12, 2);
+    g.fillRect(cx - 18, cy - 2, 16, 2);
+    g.fillRect(cx - 12, cy - 8, 10, 2);
+    g.fillRect(cx - 6, cy - 14, 6, 3);
+    g.fillRect(cx + 2, cy + 2, 20, 2);
+    g.fillRect(cx + 4, cy + 6, 16, 2);
+    g.fillRect(cx + 6, cy + 10, 12, 2);
+    g.fillRect(cx + 2, cy - 2, 16, 2);
+    g.fillRect(cx + 2, cy - 8, 10, 2);
+    g.fillRect(cx, cy - 14, 6, 3);
+    g.fillRect(cx - 3, cy - 16, 7, 10);
+    g.fillStyle = "#2f7a40";
+    g.fillRect(cx - 16, cy, 8, 2);
+    g.fillRect(cx + 8, cy, 8, 2);
+    g.fillRect(cx - 2, cy - 10, 5, 4);
+    g.fillStyle = "#3a8a48";
+    g.fillRect(cx - 1, cy - 6, 3, 3);
   });
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
   const s = new THREE.Sprite(mat);
   s.center.set(0.5, 0);
-  s.scale.set(2.2, 3.85, 1);
+  s.scale.set(1.55, 4.55, 1);
   const g = new THREE.Group();
   g.add(s);
   return g;
@@ -624,16 +636,14 @@ function skylineTex() {
 
     function palmSil(x, s) {
       g.fillStyle = "#161022";
-      g.fillRect(Math.round(x) - 1, h - 34 * s, 3, 34 * s);
-      g.beginPath();
-      g.ellipse(x, h - 36 * s, 16 * s, 8 * s, 0, 0, Math.PI * 2);
-      g.fill();
-      g.beginPath();
-      g.ellipse(x - 10 * s, h - 32 * s, 10 * s, 5 * s, -0.5, 0, Math.PI * 2);
-      g.fill();
-      g.beginPath();
-      g.ellipse(x + 10 * s, h - 32 * s, 10 * s, 5 * s, 0.5, 0, Math.PI * 2);
-      g.fill();
+      const tx = Math.round(x);
+      const top = h - 40 * s;
+      g.fillRect(tx, top + 8 * s, 2, 32 * s);
+      g.fillRect(tx - 8 * s, top + 2 * s, 8 * s, 2);
+      g.fillRect(tx + 2, top + 2 * s, 8 * s, 2);
+      g.fillRect(tx - 6 * s, top + 6 * s, 6 * s, 2);
+      g.fillRect(tx + 2, top + 6 * s, 6 * s, 2);
+      g.fillRect(tx - 2, top - 4 * s, 5, 8 * s);
     }
 
     // mid-rise row

@@ -1,8 +1,8 @@
 import {
   WORLD, GROUND_Y, wrap, wrapDelta, HOME_X, PLUG_X,
   CAR_LANE_NEAR, CAR_LANE_FAR,
-} from "../../block-run-25d/js/config.js?v=51";
-import { frameAt } from "../../block-run-25d/js/paint.js?v=51";
+} from "../../block-run-25d/js/config.js?v=52";
+import { frameAt } from "../../block-run-25d/js/paint.js?v=52";
 
 const STREET_CROP = 168;
 const STREET_W = 398;
@@ -30,19 +30,45 @@ export function createWorld(canvas, art) {
     canvas.style.width = w + "px";
     canvas.style.height = h + "px";
     VW = 256;
-    VH = Math.max(224, Math.round(256 * h / Math.max(1, w)));
+    VH = 224;
     ground = VH - 36;
     buf.width = VW;
     buf.height = VH;
-    dest = {
-      x: 0,
-      y: 0,
-      w: canvas.width,
-      h: canvas.height,
-      cssW: w,
-      cssH: h,
-      scale: canvas.width / VW,
-    };
+    const portrait = h > w * 1.15;
+    const padReserve = portrait ? 198 : 8;
+    const padTop = Math.max(140, (h - padReserve) * dpr);
+    if (portrait) {
+      const cropTop = 40;
+      const viewH = VH - cropTop;
+      const scale = padTop / viewH;
+      dest = {
+        x: Math.round((canvas.width - VW * scale) / 2),
+        y: Math.round(-cropTop * scale),
+        w: Math.round(VW * scale),
+        h: Math.round(VH * scale),
+        cssW: w,
+        cssH: h,
+        cssX: (w - VW * (scale / dpr)) / 2,
+        cssY: -cropTop * (scale / dpr),
+        cssScale: scale / dpr,
+        scale: scale / dpr,
+      };
+    } else {
+      const scale = canvas.width / VW;
+      const y = Math.max(0, Math.round((canvas.height - VH * scale) / 2));
+      dest = {
+        x: 0,
+        y,
+        w: canvas.width,
+        h: Math.round(VH * scale),
+        cssW: w,
+        cssH: h,
+        cssX: 0,
+        cssY: y / dpr,
+        cssScale: scale / dpr,
+        scale: scale / dpr,
+      };
+    }
   }
   resize();
   const ro = new ResizeObserver(resize);
@@ -330,9 +356,10 @@ export function createWorld(canvas, art) {
   function project(gameX, gameY) {
     const xLog = sx(gameX);
     const yLog = sy(gameY);
+    const sc = dest.cssScale || (dest.cssW / VW);
     return {
-      x: dest.cssW / 2 + (xLog - VW / 2) * (dest.cssW / VW),
-      y: dest.cssH / 2 + (yLog - VH / 2) * (dest.cssH / VH),
+      x: (dest.cssX || 0) + xLog * sc,
+      y: (dest.cssY || 0) + yLog * sc,
       ok: xLog > -20 && xLog < VW + 20,
     };
   }

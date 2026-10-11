@@ -220,7 +220,7 @@ export function paintWalkLook(i, poses = PED_WALK_POSES) {
   return poses.map((p) => paintLook(i, p));
 }
 
-/** Shade the classic PNG so it sits with 2.5D peds: rim, hoodie lift, ground contact. */
+/** Subtle clothes shading only. Never touch skin/face (edge rim made it cyan). */
 export function restyleFor25d(src) {
   if (!src) return src;
   const w = src.width || src.naturalWidth || 32;
@@ -229,35 +229,36 @@ export function restyleFor25d(src) {
     g.drawImage(src, 0, 0);
     const img = g.getImageData(0, 0, w, h);
     const d = img.data;
-    const at = (x, y) => {
-      if (x < 0 || y < 0 || x >= w || y >= h) return 0;
-      return d[(y * w + x) * 4 + 3];
+    const isSkin = (r, gv, b) => {
+      if (r < 80 || gv < 48) return false;
+      if (r < gv) return false;
+      if (gv < b * 0.72) return false;
+      return (r - b) >= 10 && (r - gv) < 95;
     };
+    const isHoodie = (r, gv, b) => (
+      r > 90 && r > gv * 1.45 && r > b * 1.4 && gv < 110 && !isSkin(r, gv, b)
+    );
+    const isPants = (r, gv, b) => r < 50 && gv < 50 && b < 70 && (r + gv + b) < 130;
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
         if (d[i + 3] < 10) continue;
-        const edge = at(x - 1, y) < 10 || at(x + 1, y) < 10 || at(x, y - 1) < 10 || at(x, y + 1) < 10;
         const r = d[i];
         const gv = d[i + 1];
         const b = d[i + 2];
-        if (edge) {
-          d[i] = Math.max(0, r - 28);
-          d[i + 1] = Math.max(0, gv - 28);
-          d[i + 2] = Math.max(0, b - 22);
-          continue;
-        }
-        const hoodie = r > 90 && r > gv * 1.45 && r > b * 1.4 && gv < 110;
-        if (hoodie && x < w * 0.46) {
-          d[i] = Math.min(255, r + 22);
-          d[i + 1] = Math.min(255, gv + 8);
-          d[i + 2] = Math.min(255, b + 6);
-        } else if (hoodie && x > w * 0.62) {
-          d[i] = Math.max(0, r - 18);
-          d[i + 1] = Math.max(0, gv - 14);
-          d[i + 2] = Math.max(0, b - 10);
-        } else if (y > h * 0.72 && gv < 50) {
-          d[i] = Math.min(255, r + 10);
+        if (isSkin(r, gv, b)) continue;
+        if (isHoodie(r, gv, b)) {
+          if (x < w * 0.42) {
+            d[i] = Math.min(255, r + 12);
+            d[i + 1] = Math.min(255, gv + 4);
+            d[i + 2] = Math.min(255, b + 3);
+          } else if (x > w * 0.64) {
+            d[i] = Math.max(0, r - 12);
+            d[i + 1] = Math.max(0, gv - 10);
+            d[i + 2] = Math.max(0, b - 8);
+          }
+        } else if (isPants(r, gv, b) && x < w * 0.42) {
+          d[i] = Math.min(255, r + 8);
           d[i + 1] = Math.min(255, gv + 8);
           d[i + 2] = Math.min(255, b + 8);
         }
