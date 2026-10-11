@@ -1,10 +1,10 @@
-import { TICK } from "../../block-run-25d/js/config.js?v=48";
-import { bindAudioUnlock, unlockAudio, startMusic } from "../../block-run-25d/js/audio.js?v=48";
-import { createInput } from "../../block-run-25d/js/input.js?v=48";
-import { createGame } from "../../block-run-25d/js/game.js?v=48";
-import { createHud } from "../../block-run-25d/js/hud.js?v=48";
-import { loadArt } from "./art.js?v=48";
-import { createWorld } from "./draw.js?v=48";
+import { TICK } from "../../block-run-25d/js/config.js?v=55";
+import { bindAudioUnlock, unlockAudio, startMusic } from "../../block-run-25d/js/audio.js?v=55";
+import { createInput } from "../../block-run-25d/js/input.js?v=55";
+import { createGame } from "../../block-run-25d/js/game.js?v=55";
+import { createHud } from "../../block-run-25d/js/hud.js?v=55";
+import { loadArt } from "./art.js?v=55";
+import { createWorld } from "./draw.js?v=55";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -149,6 +149,10 @@ window.__br = {
   tryShift: (name, brake) => game.tryShift(name, brake),
   setPlayerX: (x) => game.setPlayerX(x),
   setFacing: (dir) => game.setFacing(dir),
+  setAnim: (t) => game.setAnim(t),
+  setCarVx: (n) => game.setCarVx(n),
+  setPassLane: (on) => game.setPassLane(on),
+  placeTrafficAhead: () => game.placeTrafficAhead(),
   getView: () => world?.getView?.() || view,
   unlockAudio,
   startMusic,

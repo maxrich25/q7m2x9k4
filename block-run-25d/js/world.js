@@ -3,8 +3,8 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat,
-} from "./config.js?v=48";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=48";
+} from "./config.js?v=55";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=55";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -185,25 +185,62 @@ function glowSprite(color, size) {
 }
 
 function makePalm() {
-  const tex = canvasTex(64, 96, (g, w, h) => {
-    g.clearRect(0, 0, w, h);
-    g.fillStyle = "#6a4430";
-    g.fillRect(28, 40, 8, 56);
-    g.fillStyle = "#2f8a4a";
-    g.beginPath(); g.ellipse(32, 36, 26, 14, 0, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(18, 42, 16, 8, -0.6, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(46, 42, 16, 8, 0.6, 0, Math.PI * 2); g.fill();
-    g.beginPath(); g.ellipse(32, 22, 18, 10, 0, 0, Math.PI * 2); g.fill();
-    g.fillStyle = "#3dff7a";
-    g.fillRect(20, 30, 4, 3);
-    g.fillRect(40, 28, 4, 3);
+  const tex = canvasTex(80, 180, (g) => {
+    g.clearRect(0, 0, 80, 180);
+    // Tall thin slightly curved trunk, rings like a queen/Mexican fan.
+    for (let y = 48; y < 180; y++) {
+      const t = (y - 48) / 132;
+      const x = 38 + Math.round(Math.sin(t * 1.05) * 2.2);
+      const ring = y % 9 === 0;
+      g.fillStyle = ring ? "#5a3824" : "#7a5438";
+      g.fillRect(x, y, 4, 1);
+      g.fillStyle = "#4a2c1c";
+      g.fillRect(x, y, 1, 1);
+      g.fillStyle = ring ? "#6a4430" : "#8a6448";
+      g.fillRect(x + 3, y, 1, 1);
+    }
+    const cx = 40;
+    const cy = 46;
+    // Classic street.png crown: thick blades, fat at the trunk, droop at tips.
+    const blades = [
+      { a: -1.57, len: 16, w: 4.2, col: "#344830" },
+      { a: -2.15, len: 18, w: 4.0, col: "#283a28" },
+      { a: -1.00, len: 18, w: 4.0, col: "#283a28" },
+      { a: -2.65, len: 20, w: 4.2, col: "#223224" },
+      { a: -0.48, len: 20, w: 4.2, col: "#223224" },
+      { a: 3.22, len: 21, w: 3.8, col: "#1c2c20" },
+      { a: -0.02, len: 21, w: 3.8, col: "#1c2c20" },
+      { a: 2.75, len: 16, w: 3.4, col: "#283a28" },
+      { a: 0.38, len: 16, w: 3.4, col: "#283a28" },
+    ];
+    for (const f of blades) {
+      g.fillStyle = f.col;
+      for (let i = 0; i <= f.len; i++) {
+        const t = i / f.len;
+        const droop = t * t * 8.5;
+        const x = cx + Math.cos(f.a) * i;
+        const y = cy + Math.sin(f.a) * i + droop;
+        const half = Math.max(1, Math.round(f.w * (1 - t * 0.72)));
+        const nx = -Math.sin(f.a);
+        const ny = Math.cos(f.a);
+        for (let k = -half; k <= half; k++) {
+          g.fillRect(Math.round(x + nx * k * 0.55), Math.round(y + ny * k * 0.55), 2, 2);
+        }
+      }
+    }
+    g.fillStyle = "#2e422c";
+    for (let dy = -6; dy <= 6; dy++) {
+      for (let dx = -5; dx <= 5; dx++) {
+        if (dx * dx + dy * dy < 28) g.fillRect(cx + dx, cy + dy, 1, 1);
+      }
+    }
   });
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
   const s = new THREE.Sprite(mat);
   s.center.set(0.5, 0);
-  s.scale.set(2.1, 3.15, 1);
+  s.scale.set(2.05, 5.35, 1);
   const g = new THREE.Group();
   g.add(s);
   return g;
@@ -589,9 +626,9 @@ function skylineTex() {
   return canvasTex(960, 280, (g, w, h) => {
     g.clearRect(0, 0, w, h);
     const haze = g.createLinearGradient(0, h * 0.28, 0, h);
-    haze.addColorStop(0, "rgba(200,170,230,0)");
-    haze.addColorStop(0.55, "rgba(120,80,160,0.22)");
-    haze.addColorStop(1, "rgba(70,48,96,0.42)");
+    haze.addColorStop(0, "rgba(255,180,120,0)");
+    haze.addColorStop(0.45, "rgba(210,120,90,0.28)");
+    haze.addColorStop(1, "rgba(90,40,60,0.5)");
     g.fillStyle = haze;
     g.fillRect(0, 0, w, h);
 
@@ -616,16 +653,16 @@ function skylineTex() {
 
     function palmSil(x, s) {
       g.fillStyle = "#161022";
-      g.fillRect(Math.round(x) - 1, h - 34 * s, 3, 34 * s);
-      g.beginPath();
-      g.ellipse(x, h - 36 * s, 16 * s, 8 * s, 0, 0, Math.PI * 2);
-      g.fill();
-      g.beginPath();
-      g.ellipse(x - 10 * s, h - 32 * s, 10 * s, 5 * s, -0.5, 0, Math.PI * 2);
-      g.fill();
-      g.beginPath();
-      g.ellipse(x + 10 * s, h - 32 * s, 10 * s, 5 * s, 0.5, 0, Math.PI * 2);
-      g.fill();
+      const tx = Math.round(x);
+      const top = h - 40 * s;
+      g.fillRect(tx, top + 8 * s, 2, 32 * s);
+      g.fillRect(tx - 9 * s, top + 3 * s, 9 * s, 2);
+      g.fillRect(tx + 2, top + 3 * s, 9 * s, 2);
+      g.fillRect(tx - 7 * s, top + 7 * s, 6 * s, 2);
+      g.fillRect(tx + 2, top + 7 * s, 6 * s, 2);
+      g.fillRect(tx - 4 * s, top - 1 * s, 3, 6 * s);
+      g.fillRect(tx + 2, top - 1 * s, 3, 6 * s);
+      g.fillRect(tx - 1, top - 5 * s, 4, 7 * s);
     }
 
     // mid-rise row
@@ -638,42 +675,42 @@ function skylineTex() {
     ];
     for (const [x, bw, bh] of mid) block(x, bw, bh);
 
-    // US Bank Tower — tall shaft + glass crown
+    // US Bank Tower — shaft + stepped glass crown
     const usbX = 360;
-    const usbW = 30;
-    const usbH = 188;
-    const usbY = block(usbX, usbW, usbH, "#5a4a80");
-    g.fillStyle = "#4a3a68";
-    g.fillRect(usbX - 4, usbY - 14, usbW + 8, 16);
-    g.fillStyle = "#5a4a78";
-    g.fillRect(usbX + 2, usbY - 24, usbW - 4, 12);
+    const usbW = 28;
+    const usbH = 196;
+    const usbY = block(usbX, usbW, usbH, "#4a3c70");
+    g.fillStyle = "#6a5a88";
+    g.fillRect(usbX - 6, usbY - 8, usbW + 12, 10);
+    g.fillStyle = "#8a7aa8";
+    g.fillRect(usbX - 2, usbY - 18, usbW + 4, 12);
+    g.fillStyle = "#c8b8e0";
+    g.fillRect(usbX + 4, usbY - 26, usbW - 8, 10);
     g.fillStyle = "#3de0ff";
-    g.fillRect(usbX + usbW / 2 - 1, usbY - 38, 2, 16);
-    g.fillRect(usbX + 6, usbY - 10, 4, 4);
+    g.fillRect(usbX + usbW / 2 - 1, usbY - 40, 2, 16);
     windows(usbX, usbY, usbW, usbH, true);
 
-    // Wilshire Grand — sail prow + tall thin spire
+    // Wilshire Grand — sail prow + needle
     const wgX = 500;
-    const wgW = 38;
-    const wgH = 210;
+    const wgW = 36;
+    const wgH = 218;
     const wgY = h - wgH;
+    g.fillStyle = "#3a2c58";
+    g.fillRect(wgX, wgY + 34, wgW, wgH - 34);
     g.fillStyle = "#564878";
-    g.fillRect(wgX, wgY + 28, wgW, wgH - 28);
     g.beginPath();
-    g.moveTo(wgX - 6, wgY + 36);
-    g.lineTo(wgX + wgW * 0.42, wgY - 8);
-    g.lineTo(wgX + wgW + 8, wgY + 40);
-    g.lineTo(wgX + wgW, wgY + 56);
-    g.lineTo(wgX, wgY + 56);
+    g.moveTo(wgX - 10, wgY + 44);
+    g.lineTo(wgX + wgW * 0.38, wgY - 4);
+    g.lineTo(wgX + wgW + 12, wgY + 48);
+    g.lineTo(wgX + wgW, wgY + 62);
+    g.lineTo(wgX, wgY + 62);
     g.closePath();
     g.fill();
-    g.fillStyle = "#3a3058";
-    g.fillRect(wgX + wgW / 2 - 2, wgY - 62, 4, 56);
+    g.fillStyle = "#2a2038";
+    g.fillRect(wgX + wgW / 2 - 1, wgY - 70, 3, 68);
     g.fillStyle = "#f0c430";
-    g.fillRect(wgX + wgW / 2 - 1, wgY - 70, 2, 10);
-    windows(wgX, wgY + 28, wgW, wgH - 28, false);
-    g.fillStyle = "#7ad8ff";
-    g.fillRect(wgX + 8, wgY + 10, 3, 3);
+    g.fillRect(wgX + wgW / 2 - 1, wgY - 78, 3, 10);
+    windows(wgX, wgY + 34, wgW, wgH - 34, false);
 
     // library / extra tower
     block(430, 22, 150, "#2a2038");
@@ -763,8 +800,8 @@ export function createWorld(canvas, sprites) {
     depthTest: true,
   });
   const skyline = new THREE.Sprite(skylineMat);
-  skyline.scale.set(148, 34, 1);
-  skyline.position.set(0, 16.4, -58);
+  skyline.scale.set(92, 22, 1);
+  skyline.position.set(0, 11.2, -32);
   skyline.renderOrder = -8;
   scene.add(skyline);
 
@@ -786,42 +823,7 @@ export function createWorld(canvas, sprites) {
     return g;
   }
   const dtla = new THREE.Group();
-  const usBank = litTower(1.5, 16.2, 1.35, 0x3a2c58);
-  const usCrown = new THREE.Mesh(
-    new THREE.BoxGeometry(1.7, 0.55, 1.4),
-    new THREE.MeshBasicMaterial({ color: 0x4a3c68, fog: false }),
-  );
-  usCrown.position.y = 16.5;
-  usBank.add(usCrown);
-  const usSpire = new THREE.Mesh(
-    new THREE.BoxGeometry(0.12, 1.4, 0.12),
-    new THREE.MeshBasicMaterial({ color: 0x3de0ff, fog: false }),
-  );
-  usSpire.position.y = 17.5;
-  usBank.add(usSpire);
-  usBank.userData.dx = -3.2;
-  const wilshire = litTower(1.9, 18.4, 1.5, 0x322850);
-  const sail = new THREE.Mesh(
-    new THREE.BoxGeometry(2.1, 1.3, 0.8),
-    new THREE.MeshBasicMaterial({ color: 0x4a3c70, fog: false }),
-  );
-  sail.position.set(0.15, 18.9, 0);
-  sail.rotation.z = -0.28;
-  wilshire.add(sail);
-  const wgSpire = new THREE.Mesh(
-    new THREE.BoxGeometry(0.1, 2.8, 0.1),
-    new THREE.MeshBasicMaterial({ color: 0xf0c430, fog: false }),
-  );
-  wgSpire.position.y = 20.6;
-  wilshire.add(wgSpire);
-  wilshire.userData.dx = 1.6;
-  const lib = litTower(1.15, 10.2, 1.1, 0x2e2448);
-  lib.userData.dx = -6.4;
-  const midA = litTower(1.4, 8.4, 1.15, 0x2a2038);
-  midA.userData.dx = 4.8;
-  const midB = litTower(1.05, 9.0, 1.05, 0x322848);
-  midB.userData.dx = -8.6;
-  for (const t of [lib, usBank, wilshire, midA, midB]) dtla.add(t);
+  dtla.visible = false;
   scene.add(dtla);
   const hazeTex = canvasTex(64, 32, (g, w, h) => {
     const grd = g.createLinearGradient(0, 0, 0, h);
@@ -837,7 +839,7 @@ export function createWorld(canvas, sprites) {
     new THREE.PlaneGeometry(230, 7),
     new THREE.MeshBasicMaterial({ map: hazeTex, transparent: true, depthWrite: false, fog: true, depthTest: true }),
   );
-  hazeBand.position.set(0, 8.2, -42);
+  hazeBand.position.set(0, 6.4, -28);
   hazeBand.renderOrder = -6;
   scene.add(hazeBand);
   const farPalms = [];
@@ -1033,8 +1035,8 @@ export function createWorld(canvas, sprites) {
       city.add(graffiti);
     }
     const palms = theme.park
-      ? [[8, -2.4], [16, -5.2], [22, -2.2], [30, -5.8], [38, -2.5], [46, -5.0], [12, 3.4], [34, 3.6]]
-      : [[6.5, -2.5], [14.2, -4.8], [21.2, -2.3], [29.4, -5.1], [40.8, -2.6], [18, 3.5]];
+      ? [[8, -2.4], [16, -5.2], [22, -2.2], [30, -5.8], [38, -2.5], [46, -5.0], [12, 3.4], [34, 3.6], [4, 3.5], [42, 3.4]]
+      : [[6.5, -2.5], [14.2, -4.8], [21.2, -2.3], [29.4, -5.1], [40.8, -2.6], [18, 3.5], [2.4, 3.45], [33.6, 3.5], [48, 3.4]];
     for (const [x, z] of palms) {
       const palm = makePalm();
       palm.position.set(x + xOff, 0, z);
@@ -1054,6 +1056,12 @@ export function createWorld(canvas, sprites) {
   const blockCount = Math.round(STREET_LEN / BLOCK_LEN);
   for (let i = 0; i < blockCount; i++) {
     stampTheme(THEMES[i % THEMES.length], i * BLOCK_LEN, i === 0);
+  }
+  for (let i = 0; i < blockCount * 2; i++) {
+    const curbPalm = makePalm();
+    curbPalm.position.set((i + 0.35) * (BLOCK_LEN / 2), 0, 3.55);
+    curbPalm.scale.setScalar(0.95 + (i % 3) * 0.08);
+    city.add(curbPalm);
   }
 
   for (let i = 0; i < blockCount; i++) {
@@ -1384,8 +1392,8 @@ export function createWorld(canvas, sprites) {
 
     moon.position.set(camX - 8.4, 14.6, -28);
     moonGlow.position.copy(moon.position);
-    skyline.position.set(camX + 1.6, 16.8, -58);
-    hazeBand.position.set(camX, 8.4, -42);
+    skyline.position.set(camX + 1.2, 11.6, -32);
+    hazeBand.position.set(camX, 6.4, -28);
     sky.position.set(camX, 18, -36);
     dtla.position.set(camX + 0.8, 0, -36);
     for (const t of dtla.children) {
