@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X } from "./config.js?v=48";
-import { isUnlocked } from "./audio.js?v=48";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=49";
+import { isUnlocked } from "./audio.js?v=49";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -76,6 +76,11 @@ export function createHud(opts = {}) {
   const phoneDeal = document.getElementById("phone-deal");
   const actionLabelEl = document.getElementById("btn-action-label");
   const bLabelEl = document.getElementById("btn-b-label");
+  const orderStrip = document.getElementById("order-strip");
+  const orderWho = document.getElementById("order-who");
+  const orderAmt = document.getElementById("order-amt");
+  const orderLeft = document.getElementById("order-left");
+  let phoneListSig = "";
 
   function pips(el, count, filled, cls) {
     if (!el) return;
@@ -124,6 +129,13 @@ export function createHud(opts = {}) {
     phoneTexts?.classList.toggle("on", textsOn);
     phoneList?.classList.toggle("hidden", textsOn);
     phoneHomeRow?.classList.toggle("hidden", textsOn);
+    const listSig = [
+      state.phoneTab || "texts",
+      (state.inbox || []).map((m) => (m.from || "") + "\t" + (m.text || "")).join("|"),
+      (state.contacts || []).map((c) => [c.id, c.name, c.kind, c.status, c.knows ? 1 : 0, c.flakes || 0].join(":")).join("|"),
+    ].join("::");
+    if (listSig === phoneListSig) return;
+    phoneListSig = listSig;
     if (phoneTexts) {
       phoneTexts.innerHTML = (state.inbox || []).map((m) => (
         `<div class="txt-row"><div class="who">${m.from || "TXT"}</div>${m.text || ""}</div>`
@@ -206,7 +218,11 @@ export function createHud(opts = {}) {
   function sync(state, project) {
     cashEl.textContent = "$" + String(state.cash).padStart(4, "0");
     if (invEl) invEl.innerHTML = invHtml(state);
-    pips(heatEl, 3, Math.min(3, Math.ceil(state.heat)), "heat");
+    const heatOn = !!(state.heatEnabled ?? HEAT_ENABLED);
+    if (heatEl) {
+      heatEl.classList.toggle("hidden", !heatOn);
+      if (heatOn) pips(heatEl, 3, Math.min(3, Math.ceil(state.heat)), "heat");
+    }
     if (repEl) repEl.textContent = "REP " + Math.round(state.rep || 0);
     if (hudTime) hudTime.textContent = state.timeLabel || "9:00 PM";
     const muted = !!state.muted;
@@ -258,6 +274,22 @@ export function createHud(opts = {}) {
       btnAction.classList.toggle("off", !actionOn);
       btnAction.classList.toggle("go", actionOn);
       btnAction.classList.toggle("pulse", showServe && label === "SERVE");
+      btnAction.classList.toggle("serve", showServe && label === "SERVE");
+    }
+    if (orderStrip) {
+      const liveOrder = state.order && (state.order.phase === "active" || state.order.phase === "nudge");
+      const showStrip = !!(liveOrder && (state.mode === "play" || state.mode === "paused") && state.ui !== "phone");
+      orderStrip.classList.toggle("hidden", !showStrip);
+      if (showStrip && state.order) {
+        if (orderWho) orderWho.textContent = state.order.name || "BUYER";
+        if (orderAmt) orderAmt.textContent = "$" + (state.order.dollars || 0);
+        if (orderLeft) {
+          const sec = Math.max(0, Math.ceil(state.order.t || 0));
+          orderLeft.textContent = sec >= 60
+            ? Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0")
+            : "0:" + String(sec).padStart(2, "0");
+        }
+      }
     }
     if (bLabelEl) bLabelEl.textContent = driving ? "—" : "RUN";
     document.getElementById("btn-b")?.classList.toggle("off", driving);
@@ -271,7 +303,8 @@ export function createHud(opts = {}) {
     btnHit?.classList.toggle("hidden", !showHit);
     const live = state.order && (state.order.phase === "active" || state.order.phase === "nudge");
     if (phone) {
-      const on = !!(state.order && (state.mode === "play" || state.mode === "paused") && state.ui !== "phone");
+      const offering = !!(state.order && (state.order.phase === "offer" || state.order.phase === "stalling"));
+      const on = !!(offering && (state.mode === "play" || state.mode === "paused") && state.ui !== "phone");
       phone.classList.toggle("hidden", !on || state.ui === "phone");
       if (on) {
         if (phoneFrom) phoneFrom.textContent = (state.order.name || "TXT") + " TXT";
