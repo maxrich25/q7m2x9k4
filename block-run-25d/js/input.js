@@ -1,4 +1,4 @@
-import { unlockAudio } from "./audio.js?v=55";
+import { unlockAudio } from "./audio.js?v=56";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyS", "KeyB", "KeyJ", "KeyK", "KeyZ", "KeyX",
@@ -153,6 +153,17 @@ export function createInput(root = document) {
     pointers.clear();
   }
 
+  function fireTap(rec) {
+    if (!rec?.tapKey) return;
+    pulseTap(rec.tapKey);
+    if (rec.tapKey === "buyTier") {
+      taps.buyProduct = rec.buyProduct || null;
+      taps.buyTierId = rec.buyTierId || null;
+    }
+    if (rec.tapKey === "pingContact") taps.pingContactId = rec.pingContactId || null;
+    if (rec.tapKey === "pick") taps.pickId = rec.pickId || null;
+  }
+
   function onPointerDown(e) {
     const role = roleOf(e.target);
     if (!role) {
@@ -170,17 +181,6 @@ export function createInput(root = document) {
       recRole = "shifter";
       gear = gearFromY(e.clientY, root) || gear;
     }
-    if (role === "buy-tier") {
-      pulseTap("buyTier");
-      taps.buyProduct = e.target.closest("[data-product]")?.dataset?.product || null;
-      taps.buyTierId = e.target.closest("[data-tier]")?.dataset?.tier || null;
-    }
-    if (role === "ping-contact") {
-      taps.pingContactId = e.target.closest("[data-id]")?.dataset?.id || null;
-    }
-    if (role === "pick") {
-      taps.pickId = e.target.closest("[data-pick]")?.dataset?.pick || null;
-    }
     if (role !== "mute" && !TAP_ROLES[role] && role !== "phone" && role !== "pause" && role !== "run") startPulse = true;
     if (role === "fire") shootPulse = true;
     if (role === "jump") jumpPulse = true;
@@ -189,10 +189,23 @@ export function createInput(root = document) {
     if (role === "gear" && gear) gearPulse = gear;
     if (role === "pause") pausePulse = true;
     if (role === "gas") recRole = "gas";
-    if (TAP_ROLES[role]) pulseTap(TAP_ROLES[role]);
     const gasAmt = role === "gas" ? gasAmtFromY(e.clientY, root) : 1;
     const brakeAmt = role === "brake" ? brakeAmtFromY(e.clientY, root) : 1;
-    pointers.set(e.pointerId, { role: recRole, gear, gasAmt, brakeAmt });
+    const rec = {
+      role: recRole,
+      gear,
+      gasAmt,
+      brakeAmt,
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: 0,
+      tapKey: TAP_ROLES[role] || (role === "buy-tier" ? "buyTier" : null),
+      buyProduct: e.target.closest("[data-product]")?.dataset?.product || null,
+      buyTierId: e.target.closest("[data-tier]")?.dataset?.tier || null,
+      pingContactId: e.target.closest("[data-id]")?.dataset?.id || null,
+      pickId: e.target.closest("[data-pick]")?.dataset?.pick || null,
+    };
+    pointers.set(e.pointerId, rec);
     try { e.target.setPointerCapture(e.pointerId); } catch {}
     const btn = e.target.closest("[data-role]");
     if (btn && recRole !== "shifter") btn.classList.add("held");
@@ -201,6 +214,7 @@ export function createInput(root = document) {
   function onPointerMove(e) {
     const rec = pointers.get(e.pointerId);
     if (!rec) return;
+    rec.moved = Math.max(rec.moved || 0, Math.hypot(e.clientX - rec.startX, e.clientY - rec.startY));
     if (rec.role === "shifter") {
       rec.gear = gearFromY(e.clientY, root) || rec.gear;
       return;
@@ -222,6 +236,7 @@ export function createInput(root = document) {
       const btn = root.querySelector(`[data-role="${role}"]`);
       if (btn) btn.classList.remove("held");
     }
+    if (rec?.tapKey && (rec.moved || 0) < 10) fireTap(rec);
   }
 
   function prevent(e) {

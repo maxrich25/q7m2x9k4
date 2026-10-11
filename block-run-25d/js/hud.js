@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=55";
-import { isUnlocked } from "./audio.js?v=55";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=56";
+import { isUnlocked } from "./audio.js?v=56";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -21,6 +21,8 @@ export function createHud(opts = {}) {
   const edgeR = document.getElementById("edge-right");
   const destL = document.getElementById("dest-left");
   const destR = document.getElementById("dest-right");
+  const carL = document.getElementById("car-left");
+  const carR = document.getElementById("car-right");
   const phone = document.getElementById("phone");
   const phoneFrom = document.getElementById("phone-from");
   const phoneMsg = document.getElementById("phone-msg");
@@ -242,6 +244,12 @@ export function createHud(opts = {}) {
     const edge = `${state.navLabel || "HOME"} ${state.dealLabel || ""}`.trim();
     if (destL) destL.textContent = "◀ " + edge;
     if (destR) destR.textContent = edge + " ▶";
+    const onFoot = !state.inCar && state.mode === "play";
+    carL?.classList.toggle("hidden", !(onFoot && state.carSide === -1));
+    carR?.classList.toggle("hidden", !(onFoot && state.carSide === 1));
+    const carEdge = `CAR ${state.carLabel || ""}`.trim();
+    if (carL) carL.textContent = "◀ " + carEdge;
+    if (carR) carR.textContent = carEdge + " ▶";
 
     const driving = !!(state.inCar && state.mode === "play");
     document.getElementById("pad")?.classList.toggle("driving", driving);

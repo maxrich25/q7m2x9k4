@@ -12,8 +12,8 @@ import {
   OUTFITS, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
   nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen, SAVE_KEY,
   HEAT_ENABLED, ORDER_T_MIN, ORDER_T_MAX, LIGHT_STOP_LEAD, PASS_MIN_SPEED,
-} from "./config.js?v=55";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=55";
+} from "./config.js?v=56";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=56";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -47,6 +47,7 @@ export function createGame() {
   let inCar = false;
   let revU = 0;
   let boughtOnce = false;
+  let textedPlug = false;
   let repTipSent = false;
   let inbox = [];
   let phoneTab = "texts";
@@ -182,6 +183,8 @@ export function createGame() {
         destSide = 0;
       } else if (plugMeet) {
         destSide = edgeSide(plugMeet.x, lastView);
+      } else {
+        destSide = edgeSide(HOME_X, lastView);
       }
     }
     const {
@@ -222,7 +225,9 @@ export function createGame() {
       turnOk: inCar && car.gear === "D" && car.turnT <= 0,
       holdLight, holdCar,
       stopped: inCar && Math.abs(car.vx) < CAR_STOP,
-      boughtOnce,
+      boughtOnce, textedPlug,
+      carSide: !inCar && car.hp > 0 && lastView ? edgeSide(car.x, lastView) : 0,
+      carLabel: !inCar && car.hp > 0 ? formatDeal(player.x, car.x) : "",
       unread: inbox.some((m) => m.unread) || !!(order && (order.phase === "offer" || order.phase === "stalling")),
       inbox: inbox.map((m) => ({ ...m })),
       phoneTab,
@@ -383,7 +388,7 @@ export function createGame() {
       return false;
     }
     const destLat = restLat(-car.facing);
-    if (laneBusyNow(destLat, car.x, 96)) {
+    if (laneBusyNow(destLat, car.x, 128)) {
       pop(car.x, 150, "WAIT");
       return false;
     }
@@ -573,6 +578,7 @@ export function createGame() {
     if (!plug) return false;
     if (!plugOpen(timeHours)) {
       const already = inbox.some((m) => m.from === (plug.name || "PLUG") && m.text === "hit me later");
+      textedPlug = true;
       if (!already) {
         inbox.unshift({
           from: plug.name || "PLUG",
@@ -587,6 +593,7 @@ export function createGame() {
       pop(player.x, 150, "LATER");
       return false;
     }
+    textedPlug = true;
     plugMeet = { x: PLUG_X, t: 90, label: "the plug" };
     plug.status = "meet";
     ui = null;
@@ -643,7 +650,7 @@ export function createGame() {
       return false;
     }
     const stocked = stockedProducts();
-    if (!boughtOnce || !stocked.length) {
+    if (!textedPlug || !boughtOnce || !stocked.length) {
       pop(player.x, 150, "RE-UP FIRST");
       return false;
     }
@@ -864,7 +871,7 @@ export function createGame() {
   function saveCrib() {
     if (mode !== "play") return false;
     const data = {
-      cash, stash, inv, stashInv, rep, outfit, timeHours, boughtOnce, packs,
+      cash, stash, inv, stashInv, rep, outfit, timeHours, boughtOnce, textedPlug, packs,
       contacts, inbox, playerX: player.x, carX: car.x, carFacing: car.facing,
       gear: car.gear, inCar,
     };
@@ -889,6 +896,7 @@ export function createGame() {
       outfit = ((Number(s.outfit) || 0) % OUTFITS.length + OUTFITS.length) % OUTFITS.length;
       timeHours = wrapHour(s.timeHours);
       boughtOnce = !!s.boughtOnce;
+      textedPlug = s.textedPlug != null ? !!s.textedPlug : boughtOnce;
       if (Array.isArray(s.contacts) && s.contacts.length) {
         contacts = s.contacts.map((c) => ({ ...c }));
         usedNames = new Set(contacts.map((c) => c.name).filter(Boolean));
@@ -995,8 +1003,8 @@ export function createGame() {
   }
 
   function reset(keepWave) {
-    player.x = 80;
-    player.px = 80;
+    player.x = wrap(HOME_X + 48, WORLD);
+    player.px = player.x;
     player.y = GROUND_Y;
     player.vx = 0;
     player.vy = 0;
@@ -1016,6 +1024,7 @@ export function createGame() {
       ui = null;
       salePop = null;
       boughtOnce = false;
+      textedPlug = false;
       repTipSent = false;
       inbox = [];
       phoneTab = "texts";
@@ -1092,7 +1101,7 @@ export function createGame() {
 
   function spawnOrder(spotId, opts = {}) {
     if (mode !== "play") return null;
-    if (!boughtOnce && !opts.force) {
+    if ((!boughtOnce || !textedPlug) && !opts.force) {
       orderCd = 8;
       return null;
     }
@@ -1281,8 +1290,11 @@ export function createGame() {
     reset(keepWave);
     const loaded = !keepWave && loadSave();
     mode = keepWave || loaded ? "play" : "intro";
-    if (keepWave) ui = null;
-    else if (loaded) ui = Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 40 ? "crib" : null;
+    ui = null;
+    if (!keepWave && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28) {
+      player.x = wrap(HOME_X + 48, WORLD);
+      player.px = player.x;
+    }
     sfx.start();
     startMusic();
   }
@@ -1687,16 +1699,23 @@ export function createGame() {
       const homeLat = restLat(t.facing);
       const otherLat = restLat(-t.facing);
       if (car.hp > 0) {
-        const sameLane = Math.abs((t.lat ?? homeLat) - (car.lat ?? restLat(car.facing))) < 1.8;
+        const playerLat = car.lat ?? restLat(car.facing);
+        const sameLane = Math.abs((t.lat ?? homeLat) - playerLat) < 1.8;
         const ahead = wrapDelta(t.x, car.x, WORLD);
         const closing = sameLane && Math.sign(t.facing || 1) === Math.sign(ahead || 1) && Math.abs(ahead) < 44;
-        if (closing) {
+        const headOn = sameLane
+          && Math.sign(t.facing || 1) !== Math.sign(car.facing || 1)
+          && Math.abs(ahead) < 110
+          && Math.sign(ahead || 1) === Math.sign(t.facing || 1);
+        if (headOn) {
+          want = 0;
+        } else if (closing) {
           const canPass = !laneBusy(otherLat, t.x, t, 88);
           if (canPass) {
             t.passT = Math.max(t.passT || 0, 1.35);
             want = cruise * 1.18;
           } else {
-            want = Math.sign(cruise) * Math.min(Math.abs(car.vx), 8);
+            want = 0;
           }
         }
       }
@@ -2061,7 +2080,7 @@ export function createGame() {
     declineOrder,
     stallOrder,
     setPhoneTab,
-    setBoughtOnce(on) { boughtOnce = !!on; },
+    setBoughtOnce(on) { boughtOnce = !!on; if (on) textedPlug = true; },
     buyPack,
     buyProduct,
     stashCash,
