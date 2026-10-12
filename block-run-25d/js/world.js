@@ -4,8 +4,8 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS,
-} from "./config.js?v=59";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=59";
+} from "./config.js?v=60";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=60";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -889,15 +889,24 @@ export function createWorld(canvas, sprites) {
     g.fillStyle = "#f0c430";
     g.fillRect(0, 1, 26, 6);
   });
-  dashTex.repeat.set(90, 1);
   dashTex.wrapS = THREE.RepeatWrapping;
-  const dashes = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN, 0.22),
-    new THREE.MeshBasicMaterial({ map: dashTex, transparent: true }),
-  );
-  dashes.rotation.x = -Math.PI / 2;
-  dashes.position.set(STREET_LEN / 2, 0.04, 7.55);
-  city.add(dashes);
+  const blockCountEarly = Math.round(STREET_LEN / BLOCK_LEN);
+  for (let i = 0; i < blockCountEarly; i++) {
+    const x0 = i * BLOCK_LEN + INTER_METERS / 2 + 0.35;
+    const x1 = (i + 1) * BLOCK_LEN - INTER_METERS / 2 - 0.35;
+    const len = x1 - x0;
+    if (len < 1) continue;
+    const tex = dashTex.clone();
+    tex.repeat.set(Math.max(1, len / 5.8), 1);
+    tex.wrapS = THREE.RepeatWrapping;
+    const seg = new THREE.Mesh(
+      new THREE.PlaneGeometry(len, 0.22),
+      new THREE.MeshBasicMaterial({ map: tex, transparent: true }),
+    );
+    seg.rotation.x = -Math.PI / 2;
+    seg.position.set((x0 + x1) / 2, 0.04, 7.55);
+    city.add(seg);
+  }
 
   const brickCache = new Map();
   function brick(col) {
@@ -1063,22 +1072,30 @@ export function createWorld(canvas, sprites) {
     city.add(curbPalm);
   }
 
-  const interMat = new THREE.MeshLambertMaterial({ color: 0x24222a });
+  const INTER_Z = 7.45;
+  const INTER_DEPTH = 8.2;
+  const interMat = new THREE.MeshLambertMaterial({ color: 0x16141c });
   const stopMat = new THREE.MeshBasicMaterial({ color: 0xf4f0e8 });
   for (let i = 0; i < blockCount; i++) {
     const x = i * BLOCK_LEN;
     const box = new THREE.Mesh(
-      new THREE.BoxGeometry(INTER_METERS, 0.05, 8.4),
+      new THREE.BoxGeometry(INTER_METERS, 0.05, INTER_DEPTH),
       interMat,
     );
-    box.position.set(x, 0.06, 6.35);
+    box.position.set(x, 0.07, INTER_Z);
     city.add(box);
-    const near = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 7.6), stopMat);
-    near.position.set(x - INTER_METERS / 2, 0.09, 6.35);
-    city.add(near);
-    const far = near.clone();
-    far.position.x = x + INTER_METERS / 2;
-    city.add(far);
+    const stopL = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.05, INTER_DEPTH - 0.3), stopMat);
+    stopL.position.set(x - INTER_METERS / 2, 0.1, INTER_Z);
+    city.add(stopL);
+    const stopR = stopL.clone();
+    stopR.position.x = x + INTER_METERS / 2;
+    city.add(stopR);
+    const edgeFar = new THREE.Mesh(new THREE.BoxGeometry(INTER_METERS, 0.05, 0.22), stopMat);
+    edgeFar.position.set(x, 0.1, INTER_Z - INTER_DEPTH / 2);
+    city.add(edgeFar);
+    const edgeNear = edgeFar.clone();
+    edgeNear.position.z = INTER_Z + INTER_DEPTH / 2;
+    city.add(edgeNear);
   }
   function makeSafeHouse() {
     const g = new THREE.Group();
@@ -1216,14 +1233,18 @@ export function createWorld(canvas, sprites) {
   for (let i = 0; i < LIGHT_COUNT; i++) {
     const g = new THREE.Group();
     const half = INTER_METERS / 2;
-    const a = makeTrafficLight();
-    a.scale.setScalar(1.55);
-    a.position.set(-half, 0, 3.2);
-    const b = makeTrafficLight();
-    b.scale.setScalar(1.55);
-    b.position.set(half, 0, 3.2);
-    g.add(a);
-    g.add(b);
+    const zFar = 0.55;
+    const zNear = 10.6;
+    function cornerLight(lx, lz, scale) {
+      const t = makeTrafficLight();
+      t.scale.setScalar(scale);
+      t.position.set(lx, 0, lz);
+      g.add(t);
+    }
+    cornerLight(-half, zFar, 1.28);
+    cornerLight(half, zFar, 1.28);
+    cornerLight(-half, zNear, 0.7);
+    cornerLight(half, zNear, 0.7);
     scene.add(g);
     lightMeshes.push(g);
   }
@@ -1275,7 +1296,9 @@ export function createWorld(canvas, sprites) {
   let buyerT = 0;
   let lookFace = 1;
 
-  const playerSprite = makeBillboard(sprites.idle[0], 2.65);
+  const playerSprite = makeBillboard(sprites.idle[0], 3.05);
+  playerSprite.material.depthTest = false;
+  playerSprite.renderOrder = 12;
   scene.add(playerSprite);
   const packHeld = makeBillboard(sprites.pack, 0.45);
   packHeld.visible = false;
@@ -1504,7 +1527,7 @@ export function createWorld(canvas, sprites) {
       playerSprite.position.x += (state.car?.facing || 1) * door * 0.35;
     }
     orientBillboard(playerSprite, camera);
-    const spinW = Math.max(0.28, Math.abs(lookFace));
+    const spinW = Math.max(0.7, Math.abs(lookFace));
     playerSprite.scale.x = (playerSprite.userData.baseW || 1) * spinW;
     playerSprite.material.color.set(p.flash > 0 ? 0xffffff : 0xffffff);
     if (p.flash > 0) playerSprite.material.color.setHex(0xffc8e8);
