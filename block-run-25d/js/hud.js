@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=60";
-import { isUnlocked } from "./audio.js?v=60";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=61";
+import { isUnlocked } from "./audio.js?v=61";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -300,8 +300,8 @@ export function createHud(opts = {}) {
         }
       }
     }
-    if (bLabelEl) bLabelEl.textContent = driving ? "—" : "RUN";
-    document.getElementById("btn-b")?.classList.toggle("off", driving);
+    if (bLabelEl) bLabelEl.textContent = driving ? "HAT" : "RUN";
+    document.getElementById("btn-b")?.classList.toggle("off", false);
     if (btnStall) btnStall.classList.add("hidden");
     phoneDeal?.classList.toggle("hidden", !showAccept);
     btnAccept?.classList.toggle("hidden", !showAccept);

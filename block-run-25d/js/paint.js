@@ -253,7 +253,7 @@ export const CLASSIC_HERO = {
   outline: "#140010",
 };
 
-/** Lift the red beanie off a classic PNG frame and fill with short hair. */
+/** Lift the red beanie off a classic PNG frame and draw short hair on the scalp only. */
 export function classicWithoutHat(src) {
   const w = src.width || src.naturalWidth || 40;
   const h = src.height || src.naturalHeight || 40;
@@ -261,7 +261,7 @@ export function classicWithoutHat(src) {
     g.drawImage(src, 0, 0, w, h);
     const img = g.getImageData(0, 0, w, h);
     const d = img.data;
-    const yHat = Math.max(8, Math.floor(h * 0.3));
+    const yHat = Math.max(10, Math.floor(h * 0.34));
     for (let y = 0; y < yHat; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
@@ -271,14 +271,42 @@ export function classicWithoutHat(src) {
         const a = d[i + 3];
         if (a < 8) continue;
         const hat = r > 80 && r > gv * 1.45 && r > b * 1.25 && gv < 110 && b < 100;
-        if (!hat) continue;
-        const k = 0.5 + (y / yHat) * 0.35;
-        d[i] = Math.round(58 * k);
-        d[i + 1] = Math.round(34 * k);
-        d[i + 2] = Math.round(24 * k);
+        if (hat) {
+          d[i] = 0;
+          d[i + 1] = 0;
+          d[i + 2] = 0;
+          d[i + 3] = 0;
+        }
+      }
+    }
+    const tops = new Array(w).fill(-1);
+    let minX = w;
+    let maxX = 0;
+    for (let y = 0; y < Math.floor(h * 0.5); y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (d[i + 3] < 16) continue;
+        if (tops[x] < 0) tops[x] = y;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
       }
     }
     g.putImageData(img, 0, 0);
+    if (maxX <= minX) return;
+    const mid = (minX + maxX) * 0.5;
+    for (let x = minX; x <= maxX; x++) {
+      const scalp = tops[x] >= 0 ? tops[x] : Math.min(...tops.filter((v) => v >= 0));
+      if (scalp < 0 || !Number.isFinite(scalp)) continue;
+      const t = (x - minX) / Math.max(1, maxX - minX);
+      const spike = 3 + Math.round(Math.abs(Math.sin((x - mid) * 0.9)) * 3);
+      const y0 = Math.max(1, scalp - spike);
+      g.fillStyle = x < mid ? "#6a4a30" : "#3a2418";
+      g.fillRect(x, y0, 1, scalp - y0 + 2);
+      if ((x + Math.round(mid)) % 3 === 0) {
+        g.fillStyle = "#8a6240";
+        g.fillRect(x, y0, 1, 2);
+      }
+    }
   });
 }
 
@@ -347,9 +375,15 @@ export function paintClassicHero(g, pose = {}, wardrobe = {}) {
     g.fillRect(16, y(2), 8, 2);
   } else {
     g.fillStyle = c.hair;
-    g.fillRect(14, y(3), 12, 6);
-    g.fillRect(15, y(2), 10, 3);
-    g.fillRect(17, y(1), 6, 2);
+    g.fillRect(15, y(5), 10, 5);
+    g.fillRect(14, y(6), 3, 6);
+    g.fillRect(23, y(6), 3, 5);
+    g.fillRect(16, y(3), 3, 5);
+    g.fillRect(19, y(2), 3, 5);
+    g.fillRect(22, y(3), 3, 4);
+    g.fillStyle = "#6a4a28";
+    g.fillRect(16, y(2), 2, 3);
+    g.fillRect(20, y(1), 2, 3);
   }
 }
 
@@ -362,51 +396,29 @@ export function paintClassicHeroSet(wardrobe = { hat: "beanie" }) {
   };
 }
 
-/** Subtle clothes shading only. Never touch skin/face (edge rim made it cyan). */
+/** 2.5D lighting pass used by peds and the hero: left fill, right shade, ground weight. */
 export function restyleFor25d(src) {
   if (!src) return src;
   const w = src.width || src.naturalWidth || 32;
   const h = src.height || src.naturalHeight || 40;
+  const clamp = (n) => Math.max(0, Math.min(255, Math.round(n)));
   return pixelCanvas(w, h, (g) => {
     g.drawImage(src, 0, 0);
     const img = g.getImageData(0, 0, w, h);
     const d = img.data;
-    const isSkin = (r, gv, b) => {
-      if (r < 70 || gv < 40) return false;
-      if (r + 6 < gv) return false;
-      if (b > r + 4) return false;
-      if (gv < b * 0.62) return false;
-      return (r - b) >= 8 && (r - gv) < 110;
-    };
-    const isHoodie = (r, gv, b) => (
-      r > 90 && r > gv * 1.45 && r > b * 1.4 && gv < 110 && !isSkin(r, gv, b)
-    );
-    const isPants = (r, gv, b) => r < 50 && gv < 50 && b < 70 && (r + gv + b) < 130;
-    const faceBottom = Math.round(h * 0.46);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
         if (d[i + 3] < 10) continue;
-        const r = d[i];
-        const gv = d[i + 1];
-        const b = d[i + 2];
-        if (isSkin(r, gv, b)) continue;
-        if (y < faceBottom && !isHoodie(r, gv, b)) continue;
-        if (isHoodie(r, gv, b) && y > h * 0.22) {
-          if (x < w * 0.42) {
-            d[i] = Math.min(255, r + 10);
-            d[i + 1] = Math.min(255, gv + 3);
-            d[i + 2] = Math.min(255, b + 2);
-          } else if (x > w * 0.64) {
-            d[i] = Math.max(0, r - 10);
-            d[i + 1] = Math.max(0, gv - 8);
-            d[i + 2] = Math.max(0, b - 8);
-          }
-        } else if (isPants(r, gv, b) && y > faceBottom && x < w * 0.42) {
-          d[i] = Math.min(255, r + 6);
-          d[i + 1] = Math.min(255, gv + 6);
-          d[i + 2] = Math.min(255, b + 6);
-        }
+        const nx = x / Math.max(1, w - 1);
+        const ny = y / Math.max(1, h - 1);
+        let lift = 0;
+        if (nx < 0.45) lift += 16 * (0.45 - nx) / 0.45;
+        else if (nx > 0.55) lift -= 20 * (nx - 0.55) / 0.45;
+        lift -= ny * 10;
+        d[i] = clamp(d[i] + lift);
+        d[i + 1] = clamp(d[i + 1] + lift * 0.92);
+        d[i + 2] = clamp(d[i + 2] + lift * 0.85);
       }
     }
     g.putImageData(img, 0, 0);

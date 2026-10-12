@@ -1006,13 +1006,20 @@ html, body {
   grid-row: 1 / span 2;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
   width: 118px;
 }
 #gb-sys {
+  position: absolute;
+  top: calc(36px + var(--sat));
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
-  gap: 6px;
+  gap: 8px;
+  z-index: 8;
+  pointer-events: auto;
+  width: auto;
 }
 .gb-sys {
   flex: 1;
@@ -1020,11 +1027,12 @@ html, body {
   font-size: 7px;
   letter-spacing: 0.4px;
   color: var(--cream);
-  background: #121018;
+  background: rgba(18, 16, 24, 0.62);
   border: 2px solid #3a3644;
   border-radius: 10px;
   min-height: 32px;
-  padding: 6px 2px;
+  min-width: 76px;
+  padding: 6px 8px;
   pointer-events: auto;
 }
 #btn-phone.unread {
@@ -1034,8 +1042,12 @@ html, body {
 #gb-ab {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  grid-template-rows: 1fr 1fr;
+  gap: 10px 14px;
+  width: 132px;
 }
+#gb-ab #btn-b { grid-column: 1; grid-row: 2; }
+#gb-ab #btn-action { grid-column: 2; grid-row: 1; }
 .gb-ab {
   font-family: var(--font);
   border-radius: 50%;
@@ -1095,10 +1107,15 @@ html, body {
     height: 100%;
     min-height: 0;
     max-height: none;
+    padding: calc(8px + var(--sat)) calc(10px + var(--sar)) calc(8px + var(--sab)) 10px;
   }
   #gb-face { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
-  #gb-btns { grid-column: 1; grid-row: 2; width: 100%; flex-direction: row; }
+  #gb-btns { grid-column: 1; grid-row: 2; width: 100%; flex-direction: row; justify-content: flex-end; }
+  #gb-ab { margin-left: auto; }
   #pad-car { grid-template-columns: 1fr 1fr; }
+  #gb-sys {
+    top: calc(10px + var(--sat));
+  }
 }
 
 /* Portrait: San Andreas-style see-through overlay. View stays full-bleed. */
@@ -1126,20 +1143,20 @@ html, body {
   }
   #pad.gb.sa #pad-foot {
     position: absolute;
-    left: 8px;
+    left: calc(8px + var(--sal));
     bottom: calc(12px + var(--sab));
-    width: min(58vw, 248px);
-    height: 156px;
+    width: min(54vw, 220px);
+    height: 148px;
     pointer-events: auto;
   }
   #pad.gb.sa #gb-dpad {
     gap: 12px;
-    height: 156px;
+    height: 148px;
   }
   #pad.gb.sa .gb-dir {
-    min-width: 110px;
-    min-height: 156px;
-    height: 156px;
+    min-width: 96px;
+    min-height: 148px;
+    height: 148px;
     font-size: 32px;
     opacity: 0.9;
     background: rgba(244, 240, 232, 0.18);
@@ -1149,37 +1166,25 @@ html, body {
   }
   #pad.gb.sa #gb-btns {
     position: absolute;
-    right: 10px;
+    right: calc(10px + var(--sar));
     bottom: calc(16px + var(--sab));
-    width: auto;
+    width: 132px;
     pointer-events: auto;
     flex-direction: column;
-    align-items: flex-end;
+    align-items: stretch;
     gap: 10px;
   }
-  #pad.gb.sa #gb-sys {
-    position: absolute;
-    top: auto;
-    bottom: calc(156px + var(--sab));
-    right: 0;
-    width: 132px;
-  }
-  #pad.gb.sa .gb-sys {
-    min-height: 34px;
-    opacity: 0.7;
-    background: rgba(18, 16, 24, 0.5);
-  }
   #pad.gb.sa .gb-ab {
-    width: 70px;
-    height: 70px;
-    min-height: 70px;
+    width: 64px;
+    height: 64px;
+    min-height: 64px;
     opacity: 0.88;
   }
   #pad.gb.sa.driving #pad-car {
     position: absolute;
-    left: 10px;
+    left: calc(10px + var(--sal));
     bottom: calc(16px + var(--sab));
-    right: 90px;
+    right: calc(148px + var(--sar));
     width: auto;
     height: 148px;
     grid-template-columns: 1fr 1fr minmax(52px, 64px) 48px;
@@ -1192,22 +1197,14 @@ html, body {
     opacity: 0.72;
     background: rgba(18, 16, 24, 0.5);
   }
-  /* RUN is unused in the car; hiding B frees the shifter at 390 and below. */
-  #pad.gb.sa.driving #btn-b {
-    display: none;
-  }
   #pad.gb.sa.driving #gb-ab {
-    display: flex;
-    justify-content: flex-end;
-    width: 70px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    width: 132px;
   }
   #pad.gb.sa.driving #gb-btns {
     bottom: calc(16px + var(--sab));
-    width: 70px;
-  }
-  #pad.gb.sa.driving #gb-sys {
-    bottom: calc(168px + var(--sab));
     width: 132px;
-    right: 0;
   }
 }

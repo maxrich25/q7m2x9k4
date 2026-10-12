@@ -16,7 +16,7 @@
   <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <!-- Cache bust: GitHub Pages max-age=600. Bump ?v= here, on js/main.js, and every relative import in js/*.js (see README). -->
-  <link rel="stylesheet" href="style.css?v=60" />
+  <link rel="stylesheet" href="style.css?v=61" />
   <script type="importmap">
   {
     "imports": {
@@ -36,6 +36,10 @@
           <span id="hud-heat" class="hidden" title="heat"></span>
           <span id="hud-rep">REP 1</span>
           <span id="hud-time">9:00 PM</span>
+        </div>
+        <div id="gb-sys">
+          <button type="button" id="btn-phone" class="gb-sys" data-role="phone">SELECT</button>
+          <button type="button" id="btn-pause" class="gb-sys" data-role="pause">START</button>
         </div>
         <div id="phone" class="hidden">
           <div id="phone-from">TXT</div>
@@ -168,7 +172,7 @@
             <p id="overlay-sub">2.5D NIGHT BLOCK</p>
             <div id="cart-picks" class="hidden">
               <a class="cart-pick" href="../block-run/?v=58&fresh=clear">CLASSIC</a>
-              <a class="cart-pick on" href="../block-run-25d/?v=60&fresh=clear">2.5D</a>
+              <a class="cart-pick on" href="../block-run-25d/?v=61&fresh=clear">2.5D</a>
             </div>
             <div id="overlay-body"></div>
             <p id="overlay-hi"></p>
@@ -209,10 +213,6 @@
           </div>
         </div>
         <div id="gb-btns">
-          <div id="gb-sys">
-            <button type="button" id="btn-phone" class="gb-sys" data-role="phone">SELECT</button>
-            <button type="button" id="btn-pause" class="gb-sys" data-role="pause">START</button>
-          </div>
           <div id="gb-ab">
             <button type="button" id="btn-b" class="gb-ab gb-b" data-role="run">
               <em>B</em><span id="btn-b-label">RUN</span>
@@ -226,6 +226,6 @@
     </div>
   </div>
   <p id="status" class="sr-only">title</p>
-  <script type="module" src="js/main.js?v=60"></script>
+  <script type="module" src="js/main.js?v=61"></script>
 </body>
 </html>
