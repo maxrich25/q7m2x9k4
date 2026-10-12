@@ -84,8 +84,11 @@ export const SEC_PER_HOUR = 120;
 /** Real-time seconds to reach a deal. Scaled by distance in spawnOrder. */
 export const ORDER_T_MIN = 45;
 export const ORDER_T_MAX = 75;
-/** Game-x gap from the visible intersection light to the stop. Keep tiny so stops match the pole. */
-export const LIGHT_STOP_LEAD = 6;
+/** Intersection box length in meters. Stop at the box edge, lights at the corners. */
+export const INTER_METERS = 9;
+export const INTER_HALF_GAME = (INTER_METERS / 2) * (WORLD / STREET_LEN);
+/** Game-x from intersection center to the stop line (box edge). */
+export const LIGHT_STOP_LEAD = INTER_HALF_GAME;
 /** Day-night cycle kept compiled; off so the cart stays on the a82fe09 night look. */
 export const DAY_NIGHT_ENABLED = false;
 /** Must be going at least this fast (and on gas) to swing out and pass. */
@@ -112,11 +115,21 @@ export const WHITE_TIERS = [
   { id: "half", label: "1/2 OZ", grams: 14, cost: 500, minRep: 3 },
   { id: "oz", label: "OZ", grams: 28, cost: 950, minRep: 5 },
 ];
+/** San Andreas-style clothes slots. Only hat on/off is live for now. */
+export const WARDROBE_SLOTS = ["hat", "top", "bottom", "shoes"];
+export const WARDROBE_ITEMS = {
+  hat: [
+    { id: "beanie", label: "HAT ON" },
+    { id: "none", label: "HAT OFF" },
+  ],
+  top: [{ id: "hoodie", label: "BLK HOOD" }],
+  bottom: [{ id: "jeans", label: "JEANS" }],
+  shoes: [{ id: "reds", label: "REDS" }],
+};
+export const DEFAULT_WARDROBE = { hat: "beanie", top: "hoodie", bottom: "jeans", shoes: "reds" };
+/** Kept so old saves that stored an outfit index still parse. */
 export const OUTFITS = [
-  { id: "red", label: "RED HOOD", hex: null, hex25: null },
-  { id: "black", label: "BLK HOOD", hex: "#2a2438", hex25: "#3a3048" },
-  { id: "teal", label: "TEAL HOOD", hex: "#1f6a68", hex25: "#3de0ff" },
-  { id: "gold", label: "GOLD HOOD", hex: "#c8a040", hex25: "#f0c430" },
+  { id: "red", label: "HAT ON" },
 ];
 
 export const STALL_LINES = [
@@ -374,6 +387,11 @@ export function formatDeal(fromX, toX) {
 export function lightGameX(index) {
   const n = Math.round(STREET_LEN / BLOCK_LEN);
   return (index % n) * (WORLD / n);
+}
+
+export function stopLineGameX(index, facing = 1) {
+  const dir = facing < 0 ? -1 : 1;
+  return wrap(lightGameX(index) - dir * LIGHT_STOP_LEAD, WORLD);
 }
 
 export function lightPhaseAt(clock, index) {

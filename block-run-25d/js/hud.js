@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=58";
-import { isUnlocked } from "./audio.js?v=58";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=60";
+import { isUnlocked } from "./audio.js?v=60";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -210,9 +210,10 @@ export function createHud(opts = {}) {
     if (cribRep) cribRep.textContent = repLine;
     else if (cribClock) cribClock.textContent = clock + "   " + repLine;
     if (cribFit) {
-      const cur = (state.outfits || [])[state.outfit | 0];
-      cribFit.textContent = cur ? cur.label : "RED HOOD";
+      cribFit.textContent = state.wardrobe?.hat === "none" ? "HAT OFF" : "HAT ON";
     }
+    const hatBtn = document.getElementById("crib-hat");
+    if (hatBtn) hatBtn.textContent = state.wardrobe?.hat === "none" ? "PUT HAT ON" : "TAKE HAT OFF";
   }
 
   let popNodes = [];

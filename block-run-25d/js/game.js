@@ -5,15 +5,15 @@ import {
   MOVE_SPEED, TELEGRAPH, BOSS_CASH_BASE, BOSS_CASH_PER_WAVE, HI_KEY,
   SHOP_X, DUMPSTER_X, CAR_X, ORDER_SPOTS, WEAPONS, wrap, wrapDelta, hitWrap,
   formatDeal, dealFeet, COMBAT, START_CASH, PACK_COST, PACK_PAY,
-  PLUG_X, HOME_X, PED_COUNT, TRAFFIC_MAX, LIGHT_COUNT, lightGameX, lightPhaseAt,
+  PLUG_X, HOME_X, PED_COUNT, TRAFFIC_MAX, LIGHT_COUNT, lightGameX, lightPhaseAt, stopLineGameX,
   PRODUCTS, HALF_OZ, SALE_AMOUNTS, FLAKE_LIMIT, CONTACT_NAMES, MORE_NAMES,
   INTRO_TEXT, SALE_POP_T, SERVE_SLOW, fmtGrams, streetGrams,
   restLat, CAR_KINDS, GREEN_TIERS, WHITE_TIERS, STALL_LINES,
-  OUTFITS, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
+  OUTFITS, DEFAULT_WARDROBE, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
   nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen, SAVE_KEY,
   HEAT_ENABLED, ORDER_T_MIN, ORDER_T_MAX, LIGHT_STOP_LEAD, PASS_MIN_SPEED,
-} from "./config.js?v=58";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=58";
+} from "./config.js?v=60";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=60";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -71,6 +71,7 @@ export function createGame() {
   let usedNames = new Set();
   let rep = 1;
   let outfit = 0;
+  let wardrobe = { ...DEFAULT_WARDROBE };
   let timeHours = START_HOUR;
   let fromCrib = false;
   let boardT = 0;
@@ -253,7 +254,8 @@ export function createGame() {
       plugOpen: plugOpen(hour),
       traffic: traffic.map((t) => ({ ...t })),
       outfit,
-      outfits: OUTFITS.map((o) => ({ id: o.id, label: o.label })),
+      wardrobe: { ...wardrobe },
+      outfits: [{ id: wardrobe.hat || "beanie", label: wardrobe.hat === "none" ? "HAT OFF" : "HAT ON" }],
       sky: skyTint(hour),
       foes: foes.map((f) => ({ ...f })),
       shots: shots.map((s) => ({ ...s })),
@@ -844,8 +846,8 @@ export function createGame() {
   }
 
   function cycleOutfit() {
-    outfit = (outfit + 1) % OUTFITS.length;
-    pop(HOME_X, 150, OUTFITS[outfit].label);
+    wardrobe.hat = wardrobe.hat === "none" ? "beanie" : "none";
+    pop(HOME_X, 150, wardrobe.hat === "none" ? "HAT OFF" : "HAT ON");
     sfx.pickup();
     return true;
   }
@@ -871,7 +873,7 @@ export function createGame() {
   function saveCrib() {
     if (mode !== "play") return false;
     const data = {
-      cash, stash, inv, stashInv, rep, outfit, timeHours, boughtOnce, textedPlug, packs,
+      cash, stash, inv, stashInv, rep, outfit, wardrobe, timeHours, boughtOnce, textedPlug, packs,
       contacts, inbox, playerX: player.x, carX: car.x, carFacing: car.facing,
       gear: car.gear, inCar,
     };
@@ -893,7 +895,10 @@ export function createGame() {
       stashInv = { GREEN: Math.max(0, Number(s.stashInv?.GREEN) || 0), WHITE: Math.max(0, Number(s.stashInv?.WHITE) || 0) };
       packs = Math.max(0, Number(s.packs) || 0);
       rep = Math.max(0, Math.min(MAX_REP, Number(s.rep) || 1));
-      outfit = ((Number(s.outfit) || 0) % OUTFITS.length + OUTFITS.length) % OUTFITS.length;
+      outfit = 0;
+      wardrobe = { ...DEFAULT_WARDROBE, ...(s.wardrobe || {}) };
+      if (s.wardrobe?.hat !== "none" && s.wardrobe?.hat !== "beanie") wardrobe.hat = "beanie";
+      if (!s.wardrobe && s.outfit) wardrobe.hat = "beanie";
       timeHours = wrapHour(s.timeHours);
       boughtOnce = !!s.boughtOnce;
       textedPlug = s.textedPlug != null ? !!s.textedPlug : boughtOnce;
@@ -1029,6 +1034,7 @@ export function createGame() {
       inbox = [];
       phoneTab = "texts";
       outfit = 0;
+      wardrobe = { ...DEFAULT_WARDROBE };
       timeHours = START_HOUR;
       fromCrib = false;
       seedContacts();
@@ -1439,7 +1445,7 @@ export function createGame() {
       const myLat = car.lat ?? homeLat;
 
       function stopLineX(index) {
-        return wrap(lightGameX(index) - Math.sign(face) * LIGHT_STOP_LEAD, WORLD);
+        return stopLineGameX(index, face);
       }
       function nearestLight(fromX, maxLook, phases) {
         let best = null;
@@ -1455,30 +1461,29 @@ export function createGame() {
       }
       const spd = Math.abs(car.vx);
       const decel = Math.max(40, accel * 1.75);
-      const stopNeed = (spd * spd) / (2 * decel) + 36;
-      const lightAhead = nearestLight(car.x, Math.max(160, stopNeed + 20), ["red", "yellow"]);
+      const stopNeed = (spd * spd) / (2 * decel) + 12;
+      const lightAhead = nearestLight(car.x, Math.max(48, stopNeed + 18), ["red", "yellow"]);
       let redHold = !!(lightAhead && (
         lightAhead.phase === "red"
-        || (lightAhead.phase === "yellow" && lightAhead.d < stopNeed + 24)
+        || (lightAhead.phase === "yellow" && lightAhead.d < stopNeed + 10)
       ));
+      if (redHold && lightAhead.d < 10) car.vx = 0;
 
       let aheadCar = null;
       let aheadDist = Infinity;
       for (const t of traffic) {
+        if (Math.sign(t.facing || 1) !== Math.sign(face)) continue;
         const tHome = restLat(t.facing);
-        const same = Math.abs((t.lat ?? tHome) - homeLat) < 1.8;
+        const same = Math.abs((t.lat ?? tHome) - myLat) < 1.6;
         const ahead = wrapDelta(car.x, t.x, WORLD);
-        if (same && Math.sign(ahead || 1) === Math.sign(face) && Math.abs(ahead) < 80) {
+        if (same && Math.sign(ahead || 1) === Math.sign(face) && Math.abs(ahead) < 48) {
           if (Math.abs(ahead) < aheadDist) {
             aheadDist = Math.abs(ahead);
             aheadCar = t;
           }
         }
       }
-      const carClose = !!(aheadCar && aheadDist < 38);
-      const aheadAtRed = !!(aheadCar && Math.abs(aheadCar.vx) < 16
-        && nearestLight(aheadCar.x, 56, ["red"]));
-      const redSoon = !!(lightAhead && lightAhead.phase === "red" && lightAhead.d < 110);
+      const carClose = !!(aheadCar && aheadDist < 28 && Math.abs(aheadCar.vx) < Math.abs(car.vx) + 12);
 
       function passLaneClear() {
         for (const t of traffic) {
@@ -1495,10 +1500,10 @@ export function createGame() {
       }
 
       const canPass = !!(aheadCar && car.gear === "D" && car.turnT <= 0
-        && spd >= PASS_MIN_SPEED && gas && !redHold && !aheadAtRed && !redSoon
+        && spd >= PASS_MIN_SPEED && gas && !redHold
         && passLaneClear());
       if (canPass) car.passT = Math.max(car.passT || 0, 1.05);
-      if (redHold || aheadAtRed || redSoon) car.passT = 0;
+      if (redHold) car.passT = 0;
 
       let carHold = carClose && !canPass && !((car.passT || 0) > 0);
       if ((redHold || carHold) && car.gear !== "P") {
@@ -1692,8 +1697,9 @@ export function createGame() {
       let redAhead = false;
       for (let i = 0; i < LIGHT_COUNT; i++) {
         if (lightPhaseAt(clock, i) !== "red") continue;
-        const d = wrapDelta(t.x, lightGameX(i), WORLD);
-        if (Math.sign(d) === Math.sign(t.facing || 1) && Math.abs(d) < 42) redAhead = true;
+        const line = stopLineGameX(i, t.facing || 1);
+        const d = wrapDelta(t.x, line, WORLD);
+        if (Math.sign(d) === Math.sign(t.facing || 1) && Math.abs(d) < 28) redAhead = true;
       }
       if (redAhead) want = 0;
       const homeLat = restLat(t.facing);
@@ -2072,9 +2078,9 @@ export function createGame() {
     setStash(n) { stash = Math.max(0, n | 0); maybeHi(); },
     setClock(t) { clock = Math.max(0, Number(t) || 0); },
     setTimeHours(h) { timeHours = wrapHour(h); },
-    setOutfit(i) {
-      const n = OUTFITS.length;
-      outfit = ((Number(i) || 0) % n + n) % n;
+    setOutfit() { wardrobe.hat = wardrobe.hat === "none" ? "beanie" : "none"; },
+    setWardrobe(slot, id) {
+      if (slot === "hat") wardrobe.hat = id === "none" ? "none" : "beanie";
     },
     acceptOrder,
     declineOrder,

@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=58";
-import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=58";
-import { createInput } from "./input.js?v=58";
-import { createGame } from "./game.js?v=58";
-import { loadSprites } from "./sprites.js?v=58";
-import { createWorld } from "./world.js?v=58";
-import { createHud } from "./hud.js?v=58";
+import { TICK } from "./config.js?v=60";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=60";
+import { createInput } from "./input.js?v=60";
+import { createGame } from "./game.js?v=60";
+import { loadSprites } from "./sprites.js?v=60";
+import { createWorld } from "./world.js?v=60";
+import { createHud } from "./hud.js?v=60";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -145,6 +145,7 @@ window.__br = {
   doAction: () => game.doAction(),
   setTimeHours: (h) => game.setTimeHours(h),
   setOutfit: (i) => game.setOutfit(i),
+  setWardrobe: (slot, id) => game.setWardrobe?.(slot, id),
   useGate: () => game.useGate(),
   doUTurn: () => game.doUTurn(),
   addContact: (n, look) => game.addContact(n, look),

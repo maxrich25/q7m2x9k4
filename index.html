@@ -5,7 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>BLOCK RUN</title>
   <meta name="theme-color" content="#07060c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BLOCK RUN" />
   <meta name="description" content="BLOCK RUN arcade. Classic 2D cart or the 2.5D night-street prototype." />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="apple-touch-icon" href="./block-run-25d/apple-touch-icon.png" />
   <link rel="icon" type="image/svg+xml" href="./block-run/favicon.svg" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <style>
@@ -24,12 +30,15 @@
       background: var(--bg);
       color: var(--cream);
       font-family: "Press Start 2P", ui-monospace, monospace;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
     }
     body {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: calc(20px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));
+      padding: calc(20px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
       background:
         radial-gradient(ellipse at 20% 0%, rgba(226, 27, 122, 0.22), transparent 46%),
         radial-gradient(ellipse at 90% 100%, rgba(61, 224, 255, 0.16), transparent 42%),
@@ -115,7 +124,7 @@
         <strong>BLOCK RUN<br>(CLASSIC)</strong>
         <em>2D PIXEL SIDE-VIEW</em>
       </a>
-      <a class="pick plus" href="./block-run-25d/?v=58&fresh=clear">
+      <a class="pick plus" href="./block-run-25d/?v=60&fresh=clear">
         <strong>BLOCK RUN 2.5D</strong>
         <em>DRIVE DEALS ON THE NIGHT BLOCK</em>
       </a>
@@ -123,7 +132,7 @@
     <footer>TAP A MODE TO START</footer>
   </main>
   <script type="module">
-    import { bindAudioUnlock, unlockAudio, startMusic } from "./block-run-25d/js/audio.js?v=58";
+    import { bindAudioUnlock, unlockAudio, startMusic } from "./block-run-25d/js/audio.js?v=60";
     bindAudioUnlock();
     const go = () => {
       unlockAudio();

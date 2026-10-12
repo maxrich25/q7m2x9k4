@@ -76,7 +76,7 @@ html, body {
   align-items: center;
   flex-wrap: nowrap;
   gap: 6px;
-  padding: calc(8px + var(--sat)) 8px 8px calc(8px + var(--sal));
+  padding: calc(8px + var(--sat)) calc(8px + var(--sar)) 8px calc(8px + var(--sal));
   background: linear-gradient(to bottom, rgba(7, 6, 12, 0.82), rgba(7, 6, 12, 0));
   font-size: 8px;
   line-height: 1;
@@ -283,11 +283,11 @@ html, body {
   padding: 4px 6px;
 }
 .dest-arrow.hidden { display: none; }
-#dest-left { left: 8px; }
-#dest-right { right: 8px; }
+#dest-left { left: calc(8px + var(--sal)); }
+#dest-right { right: calc(8px + var(--sar)); }
 .car-arrow { top: 52%; color: var(--cyan); text-shadow: 0 0 10px #3de0ff, 0 0 4px #07060c; }
-#car-left { left: 8px; }
-#car-right { right: 8px; }
+#car-left { left: calc(8px + var(--sal)); }
+#car-right { right: calc(8px + var(--sar)); }
 
 #btn-phone, #btn-pause, #btn-mute {
   pointer-events: auto;
@@ -881,7 +881,7 @@ html, body {
 }
 
 @media (max-width: 400px) {
-  #hud-top { gap: 5px; padding-left: calc(6px + var(--sal)); padding-right: 6px; }
+  #hud-top { gap: 5px; padding-left: calc(6px + var(--sal)); padding-right: calc(6px + var(--sar)); }
   #btn-pause, #btn-phone, #btn-mute { min-width: 30px; padding: 5px; }
 }
 
@@ -966,7 +966,7 @@ html, body {
   max-height: 212px;
   background: #1c1a24;
   border-top: 4px solid #3a3644;
-  padding: 8px 10px calc(10px + var(--sab));
+  padding: 8px calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
   gap: 6px;
 }
 #pad.gb.driving {
