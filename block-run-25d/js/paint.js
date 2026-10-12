@@ -253,7 +253,7 @@ export const CLASSIC_HERO = {
   outline: "#140010",
 };
 
-/** Lift the red beanie off a classic PNG frame and draw real hair, not a hat blob. */
+/** Lift the red beanie off a classic PNG frame and draw short hair on the scalp only. */
 export function classicWithoutHat(src) {
   const w = src.width || src.naturalWidth || 40;
   const h = src.height || src.naturalHeight || 40;
@@ -271,43 +271,42 @@ export function classicWithoutHat(src) {
         const a = d[i + 3];
         if (a < 8) continue;
         const hat = r > 80 && r > gv * 1.45 && r > b * 1.25 && gv < 110 && b < 100;
-        if (hat) d[i + 3] = 0;
+        if (hat) {
+          d[i] = 0;
+          d[i + 1] = 0;
+          d[i + 2] = 0;
+          d[i + 3] = 0;
+        }
       }
     }
+    const tops = new Array(w).fill(-1);
     let minX = w;
     let maxX = 0;
-    let topY = h;
-    for (let y = 0; y < Math.floor(h * 0.52); y++) {
+    for (let y = 0; y < Math.floor(h * 0.5); y++) {
       for (let x = 0; x < w; x++) {
-        if (d[(y * w + x) * 4 + 3] < 12) continue;
+        const i = (y * w + x) * 4;
+        if (d[i + 3] < 16) continue;
+        if (tops[x] < 0) tops[x] = y;
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
-        if (y < topY) topY = y;
       }
     }
     g.putImageData(img, 0, 0);
     if (maxX <= minX) return;
-    const cx = (minX + maxX) * 0.5;
-    const hairTop = Math.max(1, topY - 6);
-    g.fillStyle = "#241610";
-    g.fillRect(minX, hairTop + 3, maxX - minX + 1, Math.max(4, topY - hairTop + 3));
-    g.fillStyle = "#3a2418";
-    g.fillRect(minX + 1, hairTop + 2, Math.max(4, maxX - minX - 1), 5);
-    const spikes = [
-      [minX - 1, hairTop + 1, 3, 6],
-      [minX + 2, hairTop - 1, 3, 7],
-      [cx - 3, hairTop - 2, 3, 7],
-      [cx, hairTop - 1, 3, 6],
-      [maxX - 3, hairTop, 3, 6],
-      [maxX - 1, hairTop + 2, 2, 5],
-    ];
-    g.fillStyle = "#4a3020";
-    for (const [sx, sy, sw, sh] of spikes) {
-      g.fillRect(Math.round(sx), Math.round(sy), sw, sh);
+    const mid = (minX + maxX) * 0.5;
+    for (let x = minX; x <= maxX; x++) {
+      const scalp = tops[x] >= 0 ? tops[x] : Math.min(...tops.filter((v) => v >= 0));
+      if (scalp < 0 || !Number.isFinite(scalp)) continue;
+      const t = (x - minX) / Math.max(1, maxX - minX);
+      const spike = 3 + Math.round(Math.abs(Math.sin((x - mid) * 0.9)) * 3);
+      const y0 = Math.max(1, scalp - spike);
+      g.fillStyle = x < mid ? "#6a4a30" : "#3a2418";
+      g.fillRect(x, y0, 1, scalp - y0 + 2);
+      if ((x + Math.round(mid)) % 3 === 0) {
+        g.fillStyle = "#8a6240";
+        g.fillRect(x, y0, 1, 2);
+      }
     }
-    g.fillStyle = "#6a4a28";
-    g.fillRect(Math.round(cx - 4), hairTop, 2, 3);
-    g.fillRect(Math.round(minX + 2), hairTop + 1, 2, 2);
   });
 }
 
