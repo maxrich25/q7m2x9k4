@@ -73,12 +73,19 @@ export const WALK_POSES = [
   { step: -1, bob: 1 },
   { step: 0, bob: 0 },
 ];
-/** Calm stride: opposite arm/leg, small bob — not a slice-shift dance. */
+/** Planted stride: one foot stays on the canvas floor, the other lifts. */
 export const PED_WALK_POSES = [
-  { step: 3, bob: 0 },
-  { step: 0, bob: 1 },
-  { step: -3, bob: 0 },
-  { step: 0, bob: 0 },
+  { step: 4, bob: 1 },
+  { step: 1, bob: 0 },
+  { step: -4, bob: 1 },
+  { step: -1, bob: 0 },
+];
+/** PNG stride from an idle frame: planted foot, opposite arm, slight torso bob. */
+export const STRIDE_POSES = [
+  { leftDx: 3, leftDy: 0, rightDx: -2, rightDy: -5, bob: 0, arm: 2 },
+  { leftDx: 2, leftDy: 0, rightDx: 0, rightDy: -2, bob: 1, arm: 1 },
+  { leftDx: -2, leftDy: -5, rightDx: 3, rightDy: 0, bob: 0, arm: -2 },
+  { leftDx: 0, leftDy: -2, rightDx: 2, rightDy: 0, bob: 1, arm: -1 },
 ];
 export const TURN_POSES = [
   { armDx: 2, legDx: 1, bob: 0 },
@@ -137,77 +144,100 @@ export function paintPerson(g, look, pose = {}) {
   g.clearRect(0, 0, 32, 40);
   const bob = pose.bob || 0;
   const step = pose.step || 0;
-  const leftLeg = step;
-  const rightLeg = -step;
-  const leftArm = -step;
-  const rightArm = step;
-  const shirtHi = shadeHex(look.shirt, 28);
-  const shirtLo = shadeHex(look.shirt, -26);
-  const pantsLo = shadeHex(look.pants, -22);
-  const skinLo = shadeHex(look.skin, -18);
+  const leftLeg = Math.round(step);
+  const rightLeg = -Math.round(step);
+  const leftArm = -Math.round(step * 0.7);
+  const rightArm = Math.round(step * 0.7);
+  const leftLift = step >= 0 ? 0 : Math.min(4, Math.abs(step));
+  const rightLift = step <= 0 ? 0 : Math.min(4, Math.abs(step));
+  const shirtHi = shadeHex(look.shirt, 32);
+  const shirtLo = shadeHex(look.shirt, -30);
+  const shirtMid = shadeHex(look.shirt, -8);
+  const pantsLo = shadeHex(look.pants, -24);
+  const pantsHi = shadeHex(look.pants, 18);
+  const skinLo = shadeHex(look.skin, -20);
+  const skinHi = shadeHex(look.skin, 16);
+  const hairLo = shadeHex(look.hair, -18);
   g.fillStyle = pantsLo;
-  g.fillRect(10 + leftLeg, 26 + bob, 5, 10);
+  g.fillRect(11 + leftLeg, 25 + bob - leftLift, 4, 12 + leftLift);
   g.fillStyle = look.pants;
-  g.fillRect(17 + rightLeg, 26 + bob, 5, 10);
+  g.fillRect(17 + rightLeg, 25 + bob - rightLift, 4, 12 + rightLift);
+  g.fillStyle = pantsHi;
+  g.fillRect(12 + leftLeg, 26 + bob - leftLift, 1, 8);
+  g.fillRect(18 + rightLeg, 26 + bob - rightLift, 1, 8);
   g.fillStyle = look.shoes;
-  g.fillRect(9 + leftLeg, 35 + bob, 6, 4);
-  g.fillRect(17 + rightLeg, 35 + bob, 6, 4);
-  g.fillStyle = shadeHex(look.shoes, 30);
-  g.fillRect(10 + leftLeg, 35 + bob, 3, 1);
-  g.fillRect(18 + rightLeg, 35 + bob, 3, 1);
+  g.fillRect(10 + leftLeg, 36 - leftLift, 6, 4);
+  g.fillRect(16 + rightLeg, 36 - rightLift, 6, 4);
+  g.fillStyle = shadeHex(look.shoes, 36);
+  g.fillRect(11 + leftLeg, 36 - leftLift, 3, 1);
+  g.fillRect(17 + rightLeg, 36 - rightLift, 3, 1);
   g.fillStyle = look.shirt;
-  g.fillRect(9, 16 + bob, 14, 11);
+  g.fillRect(10, 15 + bob, 12, 11);
   g.fillStyle = shirtHi;
-  g.fillRect(10, 17 + bob, 5, 8);
+  g.fillRect(11, 16 + bob, 4, 8);
+  g.fillStyle = shirtMid;
+  g.fillRect(15, 17 + bob, 3, 8);
   g.fillStyle = shirtLo;
-  g.fillRect(20, 18 + bob, 2, 8);
+  g.fillRect(19, 16 + bob, 2, 9);
   g.fillStyle = look.accent;
-  g.fillRect(9, 16 + bob, 14, 2);
+  g.fillRect(10, 15 + bob, 12, 2);
+  g.fillStyle = shirtLo;
+  g.fillRect(10, 25 + bob, 12, 1);
   g.fillStyle = look.skin;
-  g.fillRect(6 + leftArm, 17 + bob, 4, 8);
-  g.fillRect(22 + rightArm, 17 + bob, 4, 8);
-  g.fillRect(11, 6 + bob, 10, 10);
+  g.fillRect(7 + leftArm, 16 + bob, 3, 8);
+  g.fillRect(22 + rightArm, 16 + bob, 3, 8);
+  g.fillStyle = shirtMid;
+  g.fillRect(7 + leftArm, 16 + bob, 3, 2);
+  g.fillRect(22 + rightArm, 16 + bob, 3, 2);
+  g.fillStyle = look.skin;
+  g.fillRect(12, 5 + bob, 8, 9);
+  g.fillStyle = skinHi;
+  g.fillRect(13, 6 + bob, 3, 6);
   g.fillStyle = skinLo;
-  g.fillRect(18, 8 + bob, 3, 7);
+  g.fillRect(17, 7 + bob, 2, 6);
   g.fillStyle = "#f4f0e8";
-  g.fillRect(13, 9 + bob, 2, 2);
-  g.fillRect(17, 9 + bob, 2, 2);
+  g.fillRect(13, 8 + bob, 2, 2);
+  g.fillRect(17, 8 + bob, 2, 2);
   g.fillStyle = "#1a1210";
-  g.fillRect(14, 9 + bob, 1, 2);
-  g.fillRect(18, 9 + bob, 1, 2);
+  g.fillRect(14, 8 + bob, 1, 2);
+  g.fillRect(18, 8 + bob, 1, 2);
   g.fillStyle = look.skin;
-  g.fillRect(13, 16 + bob, 6, 2);
+  g.fillRect(14, 14 + bob, 4, 2);
   if (look.chain) {
     g.fillStyle = "#f0c430";
-    g.fillRect(13, 17 + bob, 6, 1);
-    g.fillRect(15, 18 + bob, 2, 2);
+    g.fillRect(13, 16 + bob, 6, 1);
+    g.fillRect(15, 17 + bob, 2, 2);
   }
   if (look.hat === "beanie") {
     g.fillStyle = look.hair;
-    g.fillRect(11, 4 + bob, 10, 4);
+    g.fillRect(12, 4 + bob, 8, 3);
     g.fillStyle = look.accent;
-    g.fillRect(11, 7 + bob, 10, 2);
+    g.fillRect(12, 6 + bob, 8, 2);
   } else if (look.hat === "cap") {
     g.fillStyle = "#2a4a8a";
-    g.fillRect(11, 4 + bob, 10, 4);
-    g.fillRect(20, 7 + bob, 6, 2);
+    g.fillRect(12, 3 + bob, 8, 4);
+    g.fillRect(19, 6 + bob, 5, 2);
     g.fillStyle = look.hair;
-    g.fillRect(11, 8 + bob, 3, 4);
+    g.fillRect(12, 7 + bob, 2, 3);
   } else if (look.hat === "durag") {
     g.fillStyle = "#2a1a28";
-    g.fillRect(10, 4 + bob, 12, 5);
-    g.fillRect(20, 8 + bob, 5, 2);
+    g.fillRect(11, 3 + bob, 10, 5);
+    g.fillRect(19, 7 + bob, 4, 2);
     g.fillStyle = look.accent;
-    g.fillRect(12, 5 + bob, 8, 2);
+    g.fillRect(13, 4 + bob, 6, 2);
   } else if (look.hat === "afro") {
     g.fillStyle = look.hair;
-    g.fillRect(8, 2 + bob, 16, 8);
-    g.fillRect(9, 9 + bob, 3, 4);
-    g.fillRect(20, 9 + bob, 3, 4);
+    g.fillRect(9, 2 + bob, 14, 7);
+    g.fillRect(10, 8 + bob, 3, 3);
+    g.fillRect(19, 8 + bob, 3, 3);
   } else {
     g.fillStyle = look.hair;
-    g.fillRect(11, 4 + bob, 10, 4);
-    g.fillRect(10, 7 + bob, 3, 4);
+    g.fillRect(13, 3 + bob, 6, 3);
+    g.fillStyle = hairLo;
+    g.fillRect(12, 5 + bob, 2, 4);
+    g.fillRect(18, 5 + bob, 2, 4);
+    g.fillStyle = look.hair;
+    g.fillRect(12, 4 + bob, 8, 3);
   }
 }
 
@@ -253,7 +283,7 @@ export const CLASSIC_HERO = {
   outline: "#140010",
 };
 
-/** Lift the red beanie off a classic PNG frame and draw short hair on the scalp only. */
+/** Lift the red beanie off a classic PNG frame and draw a short fade/crop on the scalp. */
 export function classicWithoutHat(src) {
   const w = src.width || src.naturalWidth || 40;
   const h = src.height || src.naturalHeight || 40;
@@ -261,15 +291,14 @@ export function classicWithoutHat(src) {
     g.drawImage(src, 0, 0, w, h);
     const img = g.getImageData(0, 0, w, h);
     const d = img.data;
-    const yHat = Math.max(10, Math.floor(h * 0.34));
+    const yHat = Math.max(10, Math.floor(h * 0.36));
     for (let y = 0; y < yHat; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
+        if (d[i + 3] < 8) continue;
         const r = d[i];
         const gv = d[i + 1];
         const b = d[i + 2];
-        const a = d[i + 3];
-        if (a < 8) continue;
         const hat = r > 80 && r > gv * 1.45 && r > b * 1.25 && gv < 110 && b < 100;
         if (hat) {
           d[i] = 0;
@@ -279,33 +308,74 @@ export function classicWithoutHat(src) {
         }
       }
     }
-    const tops = new Array(w).fill(-1);
     let minX = w;
     let maxX = 0;
-    for (let y = 0; y < Math.floor(h * 0.5); y++) {
+    let browY = h;
+    for (let y = 0; y < Math.floor(h * 0.52); y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
         if (d[i + 3] < 16) continue;
-        if (tops[x] < 0) tops[x] = y;
+        const r = d[i];
+        const gv = d[i + 1];
+        const b = d[i + 2];
+        const skin = r > 140 && gv > 78 && gv < 210 && b < 150 && r > b + 8;
+        if (!skin) continue;
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
+        if (y < browY) browY = y;
       }
     }
     g.putImageData(img, 0, 0);
-    if (maxX <= minX) return;
+    if (maxX <= minX || browY >= h) return;
     const mid = (minX + maxX) * 0.5;
-    for (let x = minX; x <= maxX; x++) {
-      const scalp = tops[x] >= 0 ? tops[x] : Math.min(...tops.filter((v) => v >= 0));
-      if (scalp < 0 || !Number.isFinite(scalp)) continue;
-      const t = (x - minX) / Math.max(1, maxX - minX);
-      const spike = 3 + Math.round(Math.abs(Math.sin((x - mid) * 0.9)) * 3);
-      const y0 = Math.max(1, scalp - spike);
-      g.fillStyle = x < mid ? "#6a4a30" : "#3a2418";
-      g.fillRect(x, y0, 1, scalp - y0 + 2);
-      if ((x + Math.round(mid)) % 3 === 0) {
-        g.fillStyle = "#8a6240";
-        g.fillRect(x, y0, 1, 2);
+    const hw = Math.max(1.4, (maxX - minX) * 0.5);
+    for (let x = minX - 1; x <= maxX + 1; x++) {
+      const nx = (x - mid) / (hw + 0.35);
+      if (nx * nx > 1.02) continue;
+      const rise = 2 + Math.round((1 - nx * nx) * 1.2);
+      const y0 = Math.max(1, browY - rise);
+      const temple = Math.abs(nx) > 0.62 ? 3 : 1;
+      g.fillStyle = Math.abs(nx) > 0.55 ? "#2a1810" : "#3a2418";
+      g.fillRect(x, y0, 1, browY + temple - y0);
+    }
+    g.fillStyle = "#4a3224";
+    g.fillRect(Math.round(mid - 2), Math.max(1, browY - 2), 4, 1);
+  });
+}
+
+/** Slice an idle frame into a planted stride: stance foot stays on the canvas floor. */
+export function plantStride(src, pose = {}) {
+  const w = src.width || src.naturalWidth || 32;
+  const h = src.height || src.naturalHeight || 40;
+  const waist = Math.round(h * 0.58);
+  const mid = Math.round(w * 0.5);
+  const bob = pose.bob || 0;
+  const arm = pose.arm || 0;
+  const arm0 = Math.round(h * 0.34);
+  return pixelCanvas(w, h, (g) => {
+    g.clearRect(0, 0, w, h);
+    g.drawImage(src, 0, 0, w, arm0, arm, bob, w, arm0);
+    g.drawImage(src, 0, arm0, w, waist - arm0, 0, bob + arm0, w, waist - arm0);
+    g.drawImage(src, 0, waist, mid, h - waist, pose.leftDx || 0, waist + (pose.leftDy || 0), mid, h - waist);
+    g.drawImage(src, mid, waist, w - mid, h - waist, mid + (pose.rightDx || 0), waist + (pose.rightDy || 0), w - mid, h - waist);
+    const img = g.getImageData(0, 0, w, h);
+    let lowest = 0;
+    const d = img.data;
+    for (let y = h - 1; y >= 0; y--) {
+      let hit = false;
+      for (let x = 0; x < w; x++) {
+        if (d[(y * w + x) * 4 + 3] > 16) {
+          hit = true;
+          break;
+        }
       }
+      if (hit) {
+        lowest = y;
+        break;
+      }
+    }
+    if (lowest < h - 1 && lowest > 4) {
+      g.putImageData(img, 0, (h - 1) - lowest);
     }
   });
 }
@@ -325,19 +395,22 @@ export function paintClassicHero(g, pose = {}, wardrobe = {}) {
   g.fillStyle = c.outline;
   g.fillRect(13, y(3), 14, 34);
 
+  const lLift = step >= 0 ? 0 : Math.min(4, Math.abs(lLeg));
+  const rLift = step <= 0 ? 0 : Math.min(4, Math.abs(rLeg));
+
   g.fillStyle = c.jeansLo;
-  g.fillRect(13 + lLeg, y(26), 6, 9);
+  g.fillRect(13 + lLeg, y(26) - lLift, 6, 10 + lLift);
   g.fillStyle = c.jeans;
-  g.fillRect(21 + rLeg, y(26), 6, 9);
+  g.fillRect(21 + rLeg, y(26) - rLift, 6, 10 + rLift);
   g.fillStyle = c.jeans;
   g.fillRect(15, y(25), 10, 4);
 
   g.fillStyle = c.shoe;
-  g.fillRect(12 + lLeg, y(34), 7, 4);
-  g.fillRect(21 + rLeg, y(34), 7, 4);
+  g.fillRect(12 + lLeg, 36 - lLift, 7, 4);
+  g.fillRect(21 + rLeg, 36 - rLift, 7, 4);
   g.fillStyle = c.shoeRed;
-  g.fillRect(12 + lLeg, y(34), 3, 2);
-  g.fillRect(21 + rLeg, y(34), 3, 2);
+  g.fillRect(12 + lLeg, 36 - lLift, 3, 2);
+  g.fillRect(21 + rLeg, 36 - rLift, 3, 2);
 
   g.fillStyle = c.hoodie;
   g.fillRect(13, y(16), 14, 11);
@@ -375,15 +448,13 @@ export function paintClassicHero(g, pose = {}, wardrobe = {}) {
     g.fillRect(16, y(2), 8, 2);
   } else {
     g.fillStyle = c.hair;
-    g.fillRect(15, y(5), 10, 5);
-    g.fillRect(14, y(6), 3, 6);
-    g.fillRect(23, y(6), 3, 5);
-    g.fillRect(16, y(3), 3, 5);
-    g.fillRect(19, y(2), 3, 5);
-    g.fillRect(22, y(3), 3, 4);
-    g.fillStyle = "#6a4a28";
-    g.fillRect(16, y(2), 2, 3);
-    g.fillRect(20, y(1), 2, 3);
+    g.fillRect(16, y(5), 8, 4);
+    g.fillRect(15, y(6), 10, 3);
+    g.fillStyle = "#2a1810";
+    g.fillRect(14, y(7), 2, 4);
+    g.fillRect(24, y(7), 2, 4);
+    g.fillStyle = "#4a3224";
+    g.fillRect(17, y(5), 4, 1);
   }
 }
 
