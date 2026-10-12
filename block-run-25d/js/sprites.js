@@ -2,9 +2,8 @@ import * as THREE from "three";
 import {
   pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, PED_WALK_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
-  paintPlayerSet,
-} from "./paint.js?v=58";
-import { OUTFITS } from "./config.js?v=58";
+  paintClassicHeroSet, classicWithoutHat,
+} from "./paint.js?v=60";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -138,17 +137,7 @@ export async function loadSprites() {
     Promise.all([1, 2, 3, 4].map((i) => loadRaw(`boss-${i}.png`))),
   ]);
 
-  function makePlayer(hex) {
-    const look = {
-      skin: "#c68642",
-      shirt: hex || "#c4283a",
-      pants: "#1a1a22",
-      hair: "#1a1210",
-      accent: hex || "#8a1020",
-      hat: "beanie",
-      shoes: "#1a1a22",
-    };
-    const set = paintPlayerSet(look);
+  function finishSet(set) {
     return {
       idle: set.idle.map((c) => texturize(c, true)),
       walk: set.walk.map((c) => texturize(c, true)),
@@ -157,8 +146,35 @@ export async function loadSprites() {
     };
   }
 
-  const player = makePlayer(null);
-  const outfits = OUTFITS.map((o) => (o.hex25 ? makePlayer(o.hex25) : player));
+  const idleSrc = idleImgs.filter(Boolean);
+  const walkSrc = walkImgs.filter(Boolean);
+  const shootSrc = shootImgs.filter(Boolean);
+  let playerHat;
+  let playerBare;
+  if (idleSrc.length) {
+    const idleC = idleSrc.map(toCanvas);
+    const walkC = (walkSrc.length ? walkSrc : idleSrc).map(toCanvas);
+    const shootC = (shootSrc.length ? shootSrc : idleSrc).map(toCanvas);
+    const frames = (canvases, hatOn) => canvases.map((c) => texturize(hatOn ? c : classicWithoutHat(c), true));
+    playerHat = {
+      idle: frames(idleC, true),
+      walk: frames(walkC, true),
+      jump: JUMP_POSES.map((p) => texturize(derivePose(idleC[0], p), true)),
+      shoot: frames(shootC, true),
+    };
+    playerBare = {
+      idle: frames(idleC, false),
+      walk: frames(walkC, false),
+      jump: JUMP_POSES.map((p) => texturize(derivePose(classicWithoutHat(idleC[0]), p), true)),
+      shoot: frames(shootC, false),
+    };
+  } else {
+    playerHat = finishSet(paintClassicHeroSet({ hat: "beanie", top: "hoodie", bottom: "jeans", shoes: "reds" }));
+    playerBare = finishSet(paintClassicHeroSet({ hat: "none", top: "hoodie", bottom: "jeans", shoes: "reds" }));
+  }
+  const player = playerHat;
+  const outfits = [playerHat];
+  const hero = { beanie: playerHat, none: playerBare };
 
   const thugBase = toCanvas(thugImgs[0] || fallbackFrame("thug", 0));
   const runnerBase = toCanvas(runnerImgs[0] || fallbackFrame("runner", 0));
@@ -195,6 +211,7 @@ export async function loadSprites() {
     jump: player.jump,
     shoot: player.shoot,
     player,
+    hero,
     outfits,
     thug,
     runner,
