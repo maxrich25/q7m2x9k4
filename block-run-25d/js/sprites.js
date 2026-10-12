@@ -2,8 +2,8 @@ import * as THREE from "three";
 import {
   pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, PED_WALK_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
-  paintClassicHeroSet, classicWithoutHat,
-} from "./paint.js?v=60";
+  paintClassicHeroSet, classicWithoutHat, restyleFor25d,
+} from "./paint.js?v=61";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -139,10 +139,10 @@ export async function loadSprites() {
 
   function finishSet(set) {
     return {
-      idle: set.idle.map((c) => texturize(c, true)),
-      walk: set.walk.map((c) => texturize(c, true)),
-      jump: set.jump.map((c) => texturize(c, true)),
-      shoot: set.shoot.map((c) => texturize(c, true)),
+      idle: set.idle.map((c) => texturize(restyleFor25d(c), true)),
+      walk: set.walk.map((c) => texturize(restyleFor25d(c), true)),
+      jump: set.jump.map((c) => texturize(restyleFor25d(c), true)),
+      shoot: set.shoot.map((c) => texturize(restyleFor25d(c), true)),
     };
   }
 
@@ -155,17 +155,19 @@ export async function loadSprites() {
     const idleC = idleSrc.map(toCanvas);
     const walkC = (walkSrc.length ? walkSrc : idleSrc).map(toCanvas);
     const shootC = (shootSrc.length ? shootSrc : idleSrc).map(toCanvas);
-    const frames = (canvases, hatOn) => canvases.map((c) => texturize(hatOn ? c : classicWithoutHat(c), true));
+    const frames = (canvases, hatOn) => canvases.map((c) => (
+      texturize(restyleFor25d(hatOn ? c : classicWithoutHat(c)), true)
+    ));
     playerHat = {
       idle: frames(idleC, true),
       walk: frames(walkC, true),
-      jump: JUMP_POSES.map((p) => texturize(derivePose(idleC[0], p), true)),
+      jump: JUMP_POSES.map((p) => texturize(restyleFor25d(derivePose(idleC[0], p)), true)),
       shoot: frames(shootC, true),
     };
     playerBare = {
       idle: frames(idleC, false),
       walk: frames(walkC, false),
-      jump: JUMP_POSES.map((p) => texturize(derivePose(classicWithoutHat(idleC[0]), p), true)),
+      jump: JUMP_POSES.map((p) => texturize(restyleFor25d(derivePose(classicWithoutHat(idleC[0]), p)), true)),
       shoot: frames(shootC, false),
     };
   } else {
