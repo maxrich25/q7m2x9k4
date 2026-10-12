@@ -233,6 +233,112 @@ export function paintPlayerSet(look) {
   };
 }
 
+/** Classic Block Run runner: red beanie, gold-tip spikes, black hoodie, blue jeans, reds. Side view. */
+export const CLASSIC_HERO = {
+  skin: "#8d4a24",
+  skinHi: "#c68642",
+  hat: "#c4283a",
+  hatHi: "#e21b7a",
+  hair: "#d47820",
+  hairTip: "#f0c430",
+  hoodie: "#16151c",
+  hoodieHi: "#2a2a34",
+  jeans: "#2a4a88",
+  jeansLo: "#1a3060",
+  shoes: "#c4283a",
+  shoeHi: "#e84868",
+};
+
+export function paintClassicHero(g, pose = {}, wardrobe = {}) {
+  g.clearRect(0, 0, 32, 40);
+  const bob = pose.bob || 0;
+  const step = pose.step || 0;
+  const hatOn = (wardrobe.hat ?? "beanie") !== "none";
+  const c = CLASSIC_HERO;
+  const y = (n) => n + bob;
+  const backLeg = step;
+  const frontLeg = -step;
+  const arm = -Math.round(step * 0.7);
+
+  g.fillStyle = c.jeansLo;
+  g.fillRect(11 + backLeg, y(26), 6, 10);
+  g.fillStyle = c.jeans;
+  g.fillRect(16 + frontLeg, y(26), 6, 10);
+  g.fillStyle = c.shoes;
+  g.fillRect(10 + backLeg, y(35), 7, 4);
+  g.fillRect(16 + frontLeg, y(35), 7, 4);
+  g.fillStyle = c.shoeHi;
+  g.fillRect(14 + backLeg, y(35), 3, 1);
+  g.fillRect(20 + frontLeg, y(35), 3, 1);
+
+  g.fillStyle = c.hoodie;
+  g.fillRect(10, y(15), 14, 12);
+  g.fillStyle = c.hoodieHi;
+  g.fillRect(12, y(16), 5, 8);
+  g.fillStyle = c.hoodie;
+  g.fillRect(9, y(15), 3, 5);
+  g.fillRect(22, y(15), 3, 4);
+  g.fillStyle = c.skin;
+  g.fillRect(22 + arm, y(17), 4, 8);
+  g.fillStyle = c.skinHi;
+  g.fillRect(23 + arm, y(17), 2, 2);
+  g.fillStyle = c.hoodie;
+  g.fillRect(21 + arm, y(16), 5, 3);
+
+  g.fillStyle = c.skin;
+  g.fillRect(13, y(7), 11, 9);
+  g.fillStyle = c.skinHi;
+  g.fillRect(14, y(8), 4, 6);
+  g.fillStyle = "#f4f0e8";
+  g.fillRect(20, y(10), 3, 2);
+  g.fillStyle = "#1a1210";
+  g.fillRect(21, y(10), 2, 2);
+  g.fillStyle = c.skin;
+  g.fillRect(18, y(15), 5, 2);
+
+  g.fillStyle = c.hair;
+  g.fillRect(8, y(6), 6, 6);
+  g.fillRect(7, y(4), 4, 5);
+  g.fillRect(6, y(2), 3, 4);
+  g.fillRect(10, y(1), 3, 4);
+  g.fillStyle = c.hairTip;
+  g.fillRect(6, y(1), 3, 2);
+  g.fillRect(10, y(0), 3, 2);
+  g.fillRect(8, y(3), 2, 1);
+
+  if (hatOn) {
+    g.fillStyle = c.hat;
+    g.fillRect(12, y(3), 13, 6);
+    g.fillRect(13, y(2), 11, 2);
+    g.fillRect(22, y(7), 5, 2);
+    g.fillStyle = c.hatHi;
+    g.fillRect(14, y(3), 8, 2);
+    g.fillStyle = c.hair;
+    g.fillRect(8, y(6), 5, 5);
+    g.fillRect(7, y(3), 3, 4);
+    g.fillStyle = c.hairTip;
+    g.fillRect(7, y(2), 3, 2);
+  } else {
+    g.fillStyle = c.hair;
+    g.fillRect(12, y(2), 12, 6);
+    g.fillRect(14, y(1), 8, 3);
+    g.fillRect(18, y(0), 4, 3);
+    g.fillStyle = c.hairTip;
+    g.fillRect(14, y(0), 3, 2);
+    g.fillRect(19, y(0), 3, 2);
+    g.fillRect(11, y(2), 2, 2);
+  }
+}
+
+export function paintClassicHeroSet(wardrobe = { hat: "beanie" }) {
+  return {
+    idle: IDLE_POSES.map((p) => pixelCanvas(32, 40, (g) => paintClassicHero(g, p, wardrobe))),
+    walk: PED_WALK_POSES.map((p) => pixelCanvas(32, 40, (g) => paintClassicHero(g, p, wardrobe))),
+    jump: JUMP_POSES.map((p) => pixelCanvas(32, 40, (g) => paintClassicHero(g, p, wardrobe))),
+    shoot: SHOOT_POSES.map((p) => pixelCanvas(32, 40, (g) => paintClassicHero(g, p, wardrobe))),
+  };
+}
+
 /** Subtle clothes shading only. Never touch skin/face (edge rim made it cyan). */
 export function restyleFor25d(src) {
   if (!src) return src;
