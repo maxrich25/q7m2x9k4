@@ -38,6 +38,8 @@ export const PACK_PAY = 46;
 export const PLUG_X = 1480;
 export const HOME_X = 240;
 export const PED_COUNT = 10;
+/** On-foot personal space, game units. */
+export const PED_SPACE = 18;
 export const TRAFFIC_MAX = 7;
 export const CONTACT_NAMES = ["DEZ", "MARI", "KILO", "NIA", "JUNO"];
 export const MORE_NAMES = ["ACE", "BREE", "CAM", "DRE", "EZ", "FAY", "GIO", "HANA", "IZZY", "JAY"];

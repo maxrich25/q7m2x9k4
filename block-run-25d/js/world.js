@@ -4,8 +4,8 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS,
-} from "./config.js?v=60";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=60";
+} from "./config.js?v=61";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=61";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -162,15 +162,29 @@ function neonTex(text, color) {
   });
 }
 
+function hexRgba(hex, a) {
+  const n = parseInt(String(hex).replace("#", ""), 16);
+  if (!Number.isFinite(n)) return `rgba(255,255,255,${a})`;
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r},${g},${b},${a})`;
+}
+
 function glowSprite(color, size) {
   const tex = canvasTex(64, 64, (g, w, h) => {
-    const grd = g.createRadialGradient(32, 32, 2, 32, 32, 30);
-    grd.addColorStop(0, color);
-    grd.addColorStop(0.4, color + "99");
-    grd.addColorStop(1, color + "00");
+    g.clearRect(0, 0, w, h);
+    const grd = g.createRadialGradient(32, 32, 1, 32, 32, 30);
+    grd.addColorStop(0, hexRgba(color, 1));
+    grd.addColorStop(0.28, hexRgba(color, 0.72));
+    grd.addColorStop(0.55, hexRgba(color, 0.22));
+    grd.addColorStop(1, hexRgba(color, 0));
     g.fillStyle = grd;
     g.fillRect(0, 0, w, h);
   });
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false;
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   const mat = new THREE.SpriteMaterial({
@@ -178,10 +192,12 @@ function glowSprite(color, size) {
     transparent: true,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
-    opacity: 0.85,
+    depthTest: false,
+    opacity: 0.9,
   });
   const s = new THREE.Sprite(mat);
   s.scale.set(size, size, 1);
+  s.renderOrder = 4;
   return s;
 }
 
@@ -454,8 +470,8 @@ function makeTrafficLight() {
   g.add(head);
   const mk = (name, y, hex) => {
     const m = new THREE.Mesh(
-      new THREE.CircleGeometry(0.07, 8),
-      new THREE.MeshBasicMaterial({ color: hex }),
+      new THREE.CircleGeometry(0.08, 24),
+      new THREE.MeshBasicMaterial({ color: hex, depthWrite: false }),
     );
     m.name = name;
     m.position.set(0, y, 0.22);
@@ -466,9 +482,9 @@ function makeTrafficLight() {
   mk("bulbRed", 3.26, 0x3a1018);
   mk("bulbYellow", 3.05, 0x3a3010);
   mk("bulbGreen", 2.84, 0x103a18);
-  const glow = glowSprite("#ff2a3a", 1.8);
+  const glow = glowSprite("#ff2a3a", 1.55);
   glow.name = "lightHalo";
-  glow.position.set(0, 3.15, 0.28);
+  glow.position.set(0, 3.26, 0.32);
   g.add(glow);
   return g;
 }
@@ -1295,6 +1311,9 @@ export function createWorld(canvas, sprites) {
   scene.add(plugGlow);
   let buyerT = 0;
   let lookFace = 1;
+  let camV = 0;
+  let lookAim = 0;
+  let lookAimV = 0;
 
   const playerSprite = makeBillboard(sprites.idle[0], 3.05);
   playerSprite.material.depthTest = false;
@@ -1403,29 +1422,41 @@ export function createWorld(canvas, sprites) {
     const camZ = (portrait ? 15.8 : 14.2) + carCam * 0.7;
     const camY = (portrait ? 2.92 : 3.15) + carCam * 0.22;
     const wantFace = p.facing < 0 ? -1 : 1;
-    lookFace += (wantFace - lookFace) * (1 - Math.exp(-Math.max(stepDt, 0.0001) / 0.12));
+    if (state.inCar) lookFace = wantFace;
+    else lookFace += (wantFace - lookFace) * (1 - Math.exp(-Math.max(stepDt, 0.0001) / 0.12));
     if (playing) {
-      const leadGame = state.inCar ? (portrait ? 4 : 8) : (portrait ? 3 : 6);
-      const lookX = nearestWorldX(wrap(px + lookFace * leadGame, WORLD), camX);
-      const dx = wrapDelta(camX, lookX, STREET_LEN);
-      const follow = state.inCar ? 3.4 : 6.5;
-      camX = wrap(camX + dx * (1 - Math.exp(-follow * Math.max(stepDt, 0.0001) * (paused ? 0 : 1))), STREET_LEN);
-      camera.position.set(camX, camY + gameToWorldY(p.y) * 0.12, camZ);
-      tmp.set(camX + lookFace * (state.inCar ? (portrait ? 1.4 : 2.4) : 0.35), 1.22 + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 0.7);
-      camera.lookAt(tmp);
-      camera.rotation.z += camTilt;
-      if (state.inCar && state.car) {
-        const carScr = project(state.car.x, GROUND_Y, camX);
-        const vw = canvas.clientWidth || 1;
-        const nx = carScr.x / vw;
-        const lo = portrait ? 0.22 : 0.18;
-        const hi = portrait ? 0.78 : 0.82;
-        if (nx < lo || nx > hi) {
-          const pull = nearestWorldX(px, camX);
-          camX = wrap(camX + wrapDelta(camX, pull, STREET_LEN) * 0.55, STREET_LEN);
-          camera.position.x = camX;
-        }
+      const dampDt = Math.min(1 / 30, Math.max(0, stepDt));
+      const vFov = THREE.MathUtils.degToRad(camera.fov);
+      const hFov = 2 * Math.atan(Math.tan(vFov / 2) * Math.max(0.01, camera.aspect));
+      const dist = Math.max(0.8, camZ - 2.15);
+      const halfWorld = dist * Math.tan(hFov / 2);
+      const trail = state.inCar ? (portrait ? 0.34 : 0.38) : (portrait ? 0.42 : 0.44);
+      const leadWorld = Math.min(halfWorld * 0.72, (0.5 - trail) * 2 * halfWorld);
+      const face = lookFace < 0 ? -1 : 1;
+      const carW = nearestWorldX(px, camX);
+      let targetCam = wrap(carW + face * leadWorld, STREET_LEN);
+      const err = wrapDelta(camX, targetCam, STREET_LEN);
+      if (Math.abs(err) > halfWorld * 2.4) {
+        camX = targetCam;
+        camV = 0;
+      } else if (dampDt > 0) {
+        const freq = state.inCar ? 1.65 : 2.6;
+        const omega = 2 * Math.PI * freq;
+        const accX = omega * omega * err - 2 * omega * camV;
+        camV += accX * dampDt;
+        camX = wrap(camX + camV * dampDt, STREET_LEN);
       }
+      const lookLeadWant = state.inCar ? (portrait ? 0.85 : 1.45) : 0.35;
+      if (dampDt > 0) {
+        const o2 = 2 * Math.PI * 2.1;
+        const lErr = lookLeadWant - lookAim;
+        lookAimV += (o2 * o2 * lErr - 2 * o2 * lookAimV) * dampDt;
+        lookAim += lookAimV * dampDt;
+      }
+      camera.position.set(camX, camY + gameToWorldY(p.y) * 0.12, camZ);
+      tmp.set(camX + face * lookAim, 1.22 + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 0.7);
+      camera.lookAt(tmp);
+      camera.rotation.z += camTilt * 0.25;
     } else {
       camX = wrap(camX + stepDt * 1.6, STREET_LEN);
       camera.position.set(camX, 4.2, 14.2);
@@ -1561,7 +1592,7 @@ export function createWorld(canvas, sprites) {
         beam.material.opacity = skyInfo && skyInfo.headlights ? 0.28 : 0;
       }
       youLabel.visible = false;
-      carMarker.visible = state.car.hp > 0;
+      carMarker.visible = state.car.hp > 0 && !state.inCar;
       const bob = Math.sin(performance.now() * 0.004) * 0.12;
       carMarker.position.set(playerCar.position.x, 2.35 + bob, playerCar.position.z);
       carMarker.rotation.y = camera.rotation.y;
@@ -1907,8 +1938,13 @@ export function createWorld(canvas, sprites) {
     const h = canvas.clientHeight || 1;
     const spriteH = playerSprite.userData.height || 1.75;
     const playerPx = (spriteH / dist) / (2 * Math.tan(vFov / 2)) * h;
-    return { camGameX, halfWidth: halfGame, playerPx, dist };
+    return { camGameX, halfWidth: halfGame, playerPx, dist, camV, lookAim };
   }
 
-  return { sync, resize, getView, renderer, camera, scene };
+  function resetCam() {
+    camV = 0;
+    lookAimV = 0;
+  }
+
+  return { sync, resize, getView, resetCam, renderer, camera, scene };
 }

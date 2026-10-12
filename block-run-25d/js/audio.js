@@ -338,7 +338,7 @@ export function startMusic() {
       musicTimer = window.setTimeout(bar, 200);
       return;
     }
-    if (muted) {
+    if (muted || document.hidden) {
       musicTimer = window.setTimeout(bar, 200);
       return;
     }
