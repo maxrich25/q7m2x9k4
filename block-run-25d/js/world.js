@@ -3,8 +3,9 @@ import {
   WORLD, GROUND_Y, STREET_LEN, SHOP_X, DUMPSTER_X, COLORS,
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
-} from "./config.js?v=58";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=58";
+  INTER_METERS,
+} from "./config.js?v=59";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=59";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -1062,16 +1063,22 @@ export function createWorld(canvas, sprites) {
     city.add(curbPalm);
   }
 
+  const interMat = new THREE.MeshLambertMaterial({ color: 0x24222a });
+  const stopMat = new THREE.MeshBasicMaterial({ color: 0xf4f0e8 });
   for (let i = 0; i < blockCount; i++) {
     const x = i * BLOCK_LEN;
-    for (let s = 0; s < 6; s++) {
-      const stripe = new THREE.Mesh(
-        new THREE.BoxGeometry(0.55, 0.025, 3.8),
-        new THREE.MeshBasicMaterial({ color: 0xf4f0e8 }),
-      );
-      stripe.position.set(x + (s - 2.5) * 0.72, 0.05, 5.5);
-      city.add(stripe);
-    }
+    const box = new THREE.Mesh(
+      new THREE.BoxGeometry(INTER_METERS, 0.05, 8.4),
+      interMat,
+    );
+    box.position.set(x, 0.06, 6.35);
+    city.add(box);
+    const near = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 7.6), stopMat);
+    near.position.set(x - INTER_METERS / 2, 0.09, 6.35);
+    city.add(near);
+    const far = near.clone();
+    far.position.x = x + INTER_METERS / 2;
+    city.add(far);
   }
   function makeSafeHouse() {
     const g = new THREE.Group();
@@ -1176,12 +1183,21 @@ export function createWorld(canvas, sprites) {
   );
   rustB.position.set(1.4, 0.38, -0.66);
   playerCar.add(rustB);
-  const youLight = new THREE.Mesh(
-    new THREE.BoxGeometry(0.22, 0.14, 0.22),
+  const carMarker = new THREE.Group();
+  const markStem = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.03, 0.35, 6),
     new THREE.MeshBasicMaterial({ color: 0x3de0ff }),
   );
-  youLight.position.set(0.05, 1.12, 0);
-  playerCar.add(youLight);
+  markStem.position.y = 0.22;
+  carMarker.add(markStem);
+  const markHead = new THREE.Mesh(
+    new THREE.ConeGeometry(0.22, 0.38, 4),
+    new THREE.MeshBasicMaterial({ color: 0x3de0ff }),
+  );
+  markHead.rotation.x = Math.PI;
+  markHead.position.y = -0.08;
+  carMarker.add(markHead);
+  scene.add(carMarker);
   const headBeam = new THREE.Mesh(
     new THREE.PlaneGeometry(4.8, 1.6),
     new THREE.MeshBasicMaterial({
@@ -1198,10 +1214,18 @@ export function createWorld(canvas, sprites) {
   scene.add(playerCar);
   const lightMeshes = [];
   for (let i = 0; i < LIGHT_COUNT; i++) {
-    const m = makeTrafficLight();
-    m.scale.setScalar(1.7);
-    scene.add(m);
-    lightMeshes.push(m);
+    const g = new THREE.Group();
+    const half = INTER_METERS / 2;
+    const a = makeTrafficLight();
+    a.scale.setScalar(1.55);
+    a.position.set(-half, 0, 3.2);
+    const b = makeTrafficLight();
+    b.scale.setScalar(1.55);
+    b.position.set(half, 0, 3.2);
+    g.add(a);
+    g.add(b);
+    scene.add(g);
+    lightMeshes.push(g);
   }
   const pedPool = [];
   const speedStreaks = [];
@@ -1356,18 +1380,29 @@ export function createWorld(canvas, sprites) {
     const camZ = (portrait ? 15.8 : 14.2) + carCam * 0.7;
     const camY = (portrait ? 2.92 : 3.15) + carCam * 0.22;
     const wantFace = p.facing < 0 ? -1 : 1;
-    if (!state.inCar && Math.abs(p.vx) > 8) lookFace = wantFace;
-    else lookFace += (wantFace - lookFace) * (1 - Math.exp(-2.4 * Math.max(stepDt, 0.0001)));
+    lookFace += (wantFace - lookFace) * (1 - Math.exp(-Math.max(stepDt, 0.0001) / 0.12));
     if (playing) {
-      const leadGame = state.inCar ? (portrait ? 14 : 20) : (portrait ? 4 : 8);
+      const leadGame = state.inCar ? (portrait ? 4 : 8) : (portrait ? 3 : 6);
       const lookX = nearestWorldX(wrap(px + lookFace * leadGame, WORLD), camX);
       const dx = wrapDelta(camX, lookX, STREET_LEN);
-      const follow = state.inCar ? 2.4 : 6.5;
+      const follow = state.inCar ? 3.4 : 6.5;
       camX = wrap(camX + dx * (1 - Math.exp(-follow * Math.max(stepDt, 0.0001) * (paused ? 0 : 1))), STREET_LEN);
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.12, camZ);
-      tmp.set(camX + lookFace * (state.inCar ? 2.0 : 0.4), 1.22 + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 0.7);
+      tmp.set(camX + lookFace * (state.inCar ? (portrait ? 1.4 : 2.4) : 0.35), 1.22 + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 0.7);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt;
+      if (state.inCar && state.car) {
+        const carScr = project(state.car.x, GROUND_Y, camX);
+        const vw = canvas.clientWidth || 1;
+        const nx = carScr.x / vw;
+        const lo = portrait ? 0.22 : 0.18;
+        const hi = portrait ? 0.78 : 0.82;
+        if (nx < lo || nx > hi) {
+          const pull = nearestWorldX(px, camX);
+          camX = wrap(camX + wrapDelta(camX, pull, STREET_LEN) * 0.55, STREET_LEN);
+          camera.position.x = camX;
+        }
+      }
     } else {
       camX = wrap(camX + stepDt * 1.6, STREET_LEN);
       camera.position.set(camX, 4.2, 14.2);
@@ -1451,7 +1486,8 @@ export function createWorld(canvas, sprites) {
     if (boarding) playerAlpha = state.inCar ? (1 - boardU) : boardU;
     playerSprite.material.opacity = playerAlpha;
     const airborne = p.y < 197.2;
-    const fit = (sprites.outfits && sprites.outfits[state.outfit | 0]) || sprites;
+    const hatId = state.wardrobe?.hat === "none" ? "none" : "beanie";
+    const fit = (sprites.hero && sprites.hero[hatId]) || sprites.player || sprites;
     const walking = Math.abs(p.vx) > 8;
     const animSet = state.muzzle > 0 ? fit.shoot
       : airborne ? fit.jump
@@ -1459,7 +1495,7 @@ export function createWorld(canvas, sprites) {
       : fit.idle;
     const running = Math.abs(p.vx) > 55;
     const rate = state.muzzle > 0 ? 14 : airborne ? 8 : running ? 10 : walking ? 8 : 3;
-    const sprFace = (state.inCar ? (state.car?.facing || 1) : p.facing) < 0 ? -1 : 1;
+    const sprFace = lookFace < 0 ? -1 : 1;
     setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate), sprFace);
     place(playerSprite, px, GROUND_Y, camX, 1.15);
     playerSprite.position.y = boarding ? (state.inCar ? -boardU * 0.35 : (1 - boardU) * 0.28) : 0;
@@ -1468,6 +1504,8 @@ export function createWorld(canvas, sprites) {
       playerSprite.position.x += (state.car?.facing || 1) * door * 0.35;
     }
     orientBillboard(playerSprite, camera);
+    const spinW = Math.max(0.28, Math.abs(lookFace));
+    playerSprite.scale.x = (playerSprite.userData.baseW || 1) * spinW;
     playerSprite.material.color.set(p.flash > 0 ? 0xffffff : 0xffffff);
     if (p.flash > 0) playerSprite.material.color.setHex(0xffc8e8);
     else playerSprite.material.color.setHex(0xffffff);
@@ -1477,7 +1515,10 @@ export function createWorld(canvas, sprites) {
     playerShadow.position.z = 1.15;
     playerShadow.scale.setScalar(p.y < 198 ? 0.7 : 1);
 
-    if (!state.car) youLabel.visible = false;
+    if (!state.car) {
+      youLabel.visible = false;
+      carMarker.visible = false;
+    }
     if (state.car) {
       const cx = renderGameX(state.car, alpha);
       playerCar.visible = true;
@@ -1496,8 +1537,11 @@ export function createWorld(canvas, sprites) {
         beam.visible = !!(skyInfo && skyInfo.headlights);
         beam.material.opacity = skyInfo && skyInfo.headlights ? 0.28 : 0;
       }
-      youLabel.visible = true;
-      youLabel.position.set(playerCar.position.x, 1.85, playerCar.position.z);
+      youLabel.visible = false;
+      carMarker.visible = state.car.hp > 0;
+      const bob = Math.sin(performance.now() * 0.004) * 0.12;
+      carMarker.position.set(playerCar.position.x, 2.35 + bob, playerCar.position.z);
+      carMarker.rotation.y = camera.rotation.y;
       const speed = Math.min(1, Math.abs(state.car.vx) / 180);
       speedStreaks.forEach((streak, i) => {
         const on = state.inCar && speed > 0.35;
@@ -1665,19 +1709,17 @@ export function createWorld(canvas, sprites) {
     (state.lights || []).forEach((L, i) => {
       const m = lightMeshes[i];
       if (!m) return;
-      place(m, L.x, GROUND_Y, camX, 0.72);
+      place(m, L.x, GROUND_Y, camX, 0);
       m.position.y = 0;
-      const red = m.getObjectByName("bulbRed");
-      const yel = m.getObjectByName("bulbYellow");
-      const grn = m.getObjectByName("bulbGreen");
-      const halo = m.getObjectByName("lightHalo");
-      if (red) red.material.color.setHex(L.phase === "red" ? 0xff2a3a : 0x3a1018);
-      if (yel) yel.material.color.setHex(L.phase === "yellow" ? 0xf0c430 : 0x3a3010);
-      if (grn) grn.material.color.setHex(L.phase === "green" ? 0x3dff7a : 0x103a18);
-      if (halo) {
-        halo.visible = L.phase === "red" || L.phase === "yellow";
-        halo.material.color.setHex(L.phase === "red" ? 0xff2a3a : 0xf0c430);
-      }
+      m.traverse((o) => {
+        if (o.name === "bulbRed") o.material.color.setHex(L.phase === "red" ? 0xff2a3a : 0x3a1018);
+        if (o.name === "bulbYellow") o.material.color.setHex(L.phase === "yellow" ? 0xf0c430 : 0x3a3010);
+        if (o.name === "bulbGreen") o.material.color.setHex(L.phase === "green" ? 0x3dff7a : 0x103a18);
+        if (o.name === "lightHalo") {
+          o.visible = L.phase === "red" || L.phase === "yellow";
+          o.material.color.setHex(L.phase === "red" ? 0xff2a3a : 0xf0c430);
+        }
+      });
     });
 
     let fi = 0;
