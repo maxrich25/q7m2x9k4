@@ -12,8 +12,9 @@ import {
   OUTFITS, DEFAULT_WARDROBE, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
   nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen, SAVE_KEY,
   HEAT_ENABLED, ORDER_T_MIN, ORDER_T_MAX, LIGHT_STOP_LEAD, PASS_MIN_SPEED,
-} from "./config.js?v=61";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=61";
+  BOARD_T, ZOOM_KEY, CAM_ZOOM_MUL,
+} from "./config.js?v=62";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=62";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -75,6 +76,11 @@ export function createGame() {
   let timeHours = START_HOUR;
   let fromCrib = false;
   let boardT = 0;
+  let camZoom = 1;
+  try {
+    const z = Number(localStorage.getItem(ZOOM_KEY));
+    if (Number.isFinite(z)) camZoom = Math.max(0, Math.min(CAM_ZOOM_MUL.length - 1, z | 0));
+  } catch {}
   let holdLight = false;
   let holdCar = false;
   let runHeld = false;
@@ -265,7 +271,7 @@ export function createGame() {
       bits: bits.map((b) => ({ ...b })),
       booms: booms.map((b) => ({ ...b })),
       boss: boss ? { ...boss } : null,
-      shake, muzzle, invuln, boardT,
+      shake, muzzle, invuln, boardT, camZoom,
       edgeL, edgeR, viewHalf: lastView?.halfWidth || 0,
     };
   }
@@ -319,9 +325,19 @@ export function createGame() {
     copCar = null;
   }
 
+  function persistZoom() {
+    try { localStorage.setItem(ZOOM_KEY, String(camZoom)); } catch {}
+  }
+
+  function cycleZoom() {
+    camZoom = (camZoom + 1) % CAM_ZOOM_MUL.length;
+    persistZoom();
+    return camZoom;
+  }
+
   function enterCar() {
     inCar = true;
-    boardT = 0.38;
+    boardT = BOARD_T;
     revU = 0;
     car.gear = "P";
     car.vx = 0;
@@ -339,7 +355,7 @@ export function createGame() {
 
   function leaveCar() {
     inCar = false;
-    boardT = 0.38;
+    boardT = BOARD_T;
     player.x = car.x;
     player.vx = 0;
     player.y = GROUND_Y;
@@ -418,6 +434,8 @@ export function createGame() {
       speed: 9 + Math.random() * 8,
       hitCd: 0,
       vx: 0,
+      side: 0,
+      pushed: 0,
     };
   }
 
@@ -877,7 +895,7 @@ export function createGame() {
     const data = {
       cash, stash, inv, stashInv, rep, outfit, wardrobe, timeHours, boughtOnce, textedPlug, packs,
       contacts, inbox, playerX: player.x, carX: car.x, carFacing: car.facing,
-      gear: car.gear, inCar,
+      gear: car.gear, inCar, camZoom,
     };
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch {}
     pop(HOME_X, 150, "SAVED");
@@ -923,6 +941,10 @@ export function createGame() {
       if (s.inCar && car.hp > 0) enterCar();
       else if (inCar) leaveCar();
       if (GEARS.includes(s.gear)) car.gear = s.gear;
+      if (Number.isFinite(Number(s.camZoom))) {
+        camZoom = Math.max(0, Math.min(CAM_ZOOM_MUL.length - 1, s.camZoom | 0));
+        persistZoom();
+      }
       syncCrowd();
       return true;
     } catch {
@@ -1318,13 +1340,19 @@ export function createGame() {
     for (const ped of crowd) {
       const d = wrapDelta(pl.x, ped.x, WORLD);
       const ad = Math.abs(d);
-      if (ad >= gap || ad < 0.001) continue;
-      const push = (gap - ad) * 0.5;
-      const dir = Math.sign(d);
-      pl.x = wrap(pl.x - dir * push * 0.6, WORLD);
-      ped.x = wrap(ped.x + dir * push * 0.4, WORLD);
-      if (Math.sign(pl.vx || 0) === dir) pl.vx = 0;
-      if (Math.sign(ped.vx || 0) === -dir) ped.vx = 0;
+      if (ad >= gap || ad < 0.001) {
+        ped.side = (ped.side || 0) * 0.86;
+        continue;
+      }
+      const dir = Math.sign(d) || 1;
+      const push = gap - ad;
+      ped.x = wrap(ped.x + dir * push * 0.92, WORLD);
+      const away = Math.max(Math.abs(ped.vx), ped.speed || 12, 16);
+      ped.vx = dir * away;
+      ped.facing = dir;
+      ped.wait = 0;
+      ped.pushed = 0.35;
+      ped.side = Math.min(0.9, (ped.side || 0) + 0.16);
     }
   }
 
@@ -1358,6 +1386,7 @@ export function createGame() {
     if (input.invClose) ui = null;
     if (input.buyTier && input.buyProduct) buyProduct(input.buyProduct, input.buyTierId);
     if (input.mute) setMuted(!isMuted());
+    if (input.zoom) cycleZoom();
     if (input.pause) {
       if (mode === "play") mode = "paused";
       else if (mode === "paused") mode = "play";
@@ -1731,8 +1760,14 @@ export function createGame() {
 
     for (const ped of peds) {
       ped.hitCd = Math.max(0, ped.hitCd - dt);
+      ped.pushed = Math.max(0, (ped.pushed || 0) - dt);
+      ped.side = (ped.side || 0) * Math.exp(-dt * 2.8);
       ped.anim += dt;
-      if (ped.wait > 0) {
+      if (ped.pushed > 0) {
+        ped.wait = 0;
+        if (Math.abs(ped.vx) < 10) ped.vx = ped.facing * Math.max(ped.speed || 12, 16);
+        ped.x = wrap(ped.x + ped.vx * dt, WORLD);
+      } else if (ped.wait > 0) {
         ped.wait -= dt;
         ped.vx = 0;
       } else {
@@ -2173,6 +2208,7 @@ export function createGame() {
     openStash,
     openCrib,
     cycleOutfit,
+    cycleZoom,
     sleepCrib,
     waitCrib,
     saveCrib,
