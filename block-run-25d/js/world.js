@@ -1577,7 +1577,7 @@ export function createWorld(canvas, sprites) {
         lookAim += lookAimV * dampDt;
       }
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.12, camZ);
-      tmp.set(camX + face * lookAim, 1.22 + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 0.7);
+      tmp.set(camX + face * lookAim, 1.22 + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 2.15);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt * 0.25;
     } else {

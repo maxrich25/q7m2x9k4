@@ -308,6 +308,7 @@ export function classicWithoutHat(src) {
         }
       }
     }
+    const isSkin = (r, gv, b) => r > 140 && gv > 78 && gv < 210 && b < 150 && r > b + 8;
     let minX = w;
     let maxX = 0;
     let browY = h;
@@ -315,28 +316,40 @@ export function classicWithoutHat(src) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
         if (d[i + 3] < 16) continue;
-        const r = d[i];
-        const gv = d[i + 1];
-        const b = d[i + 2];
-        const skin = r > 140 && gv > 78 && gv < 210 && b < 150 && r > b + 8;
-        if (!skin) continue;
+        if (!isSkin(d[i], d[i + 1], d[i + 2])) continue;
         if (x < minX) minX = x;
         if (x > maxX) maxX = x;
         if (y < browY) browY = y;
       }
     }
+    if (maxX <= minX || browY >= h) {
+      g.putImageData(img, 0, 0);
+      return;
+    }
+    const hairCeil = Math.min(h, browY + 6);
+    for (let y = 0; y < hairCeil; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (d[i + 3] < 8) continue;
+        const face = isSkin(d[i], d[i + 1], d[i + 2]) && x >= minX && x <= maxX && y >= browY;
+        if (face) continue;
+        d[i] = 0;
+        d[i + 1] = 0;
+        d[i + 2] = 0;
+        d[i + 3] = 0;
+      }
+    }
     g.putImageData(img, 0, 0);
-    if (maxX <= minX || browY >= h) return;
     const mid = (minX + maxX) * 0.5;
     const hw = Math.max(1.4, (maxX - minX) * 0.5);
-    for (let x = minX - 1; x <= maxX + 1; x++) {
-      const nx = (x - mid) / (hw + 0.35);
-      if (nx * nx > 1.02) continue;
-      const rise = 2 + Math.round((1 - nx * nx) * 1.2);
+    for (let x = minX; x <= maxX; x++) {
+      const nx = (x - mid) / (hw + 0.2);
+      if (nx * nx > 1) continue;
+      const rise = 2 + Math.round((1 - nx * nx) * 1.1);
       const y0 = Math.max(1, browY - rise);
-      const temple = Math.abs(nx) > 0.62 ? 3 : 1;
-      g.fillStyle = Math.abs(nx) > 0.55 ? "#2a1810" : "#3a2418";
-      g.fillRect(x, y0, 1, browY + temple - y0);
+      const down = Math.abs(nx) > 0.7 ? 3 : 1;
+      g.fillStyle = Math.abs(nx) > 0.58 ? "#241410" : "#3a2418";
+      g.fillRect(x, y0, 1, browY + down - y0);
     }
     g.fillStyle = "#4a3224";
     g.fillRect(Math.round(mid - 2), Math.max(1, browY - 2), 4, 1);
