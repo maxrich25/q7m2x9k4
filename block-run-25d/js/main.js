@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=60";
-import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=60";
-import { createInput } from "./input.js?v=60";
-import { createGame } from "./game.js?v=60";
-import { loadSprites } from "./sprites.js?v=60";
-import { createWorld } from "./world.js?v=60";
-import { createHud } from "./hud.js?v=60";
+import { TICK } from "./config.js?v=61";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=61";
+import { createInput } from "./input.js?v=61";
+import { createGame } from "./game.js?v=61";
+import { loadSprites } from "./sprites.js?v=61";
+import { createWorld } from "./world.js?v=61";
+import { createHud } from "./hud.js?v=61";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -43,7 +43,13 @@ resumeBtn?.addEventListener("pointerdown", (e) => {
 });
 
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) game.pause();
+  if (document.hidden) {
+    game.pause();
+    return;
+  }
+  last = performance.now();
+  acc = 0;
+  world?.resetCam?.();
 });
 
 let world = null;
@@ -75,21 +81,23 @@ const PULSE_KEYS = [
 
 function frame(now) {
   if (!running) return;
-  const dt = Math.min(0.1, (now - last) / 1000);
+  const raw = (now - last) / 1000;
+  const dt = Math.min(1 / 30, Number.isFinite(raw) && raw >= 0 ? raw : 0);
   last = now;
-  acc += dt;
+  acc = Math.min(TICK * 4, acc + dt);
   const inp = input.poll();
   let first = true;
+  let state = null;
   while (acc >= TICK) {
     const step = first ? inp : Object.fromEntries(Object.entries(inp).map(([k, v]) => {
       if (PULSE_KEYS.includes(k)) return [k, k === "gearTap" || k === "shiftStep" ? (k === "gearTap" ? null : 0) : false];
       return [k, v];
     }));
-    game.tick(TICK, step, view);
+    state = game.tick(TICK, step, view);
     acc -= TICK;
     first = false;
   }
-  const state = game.getState();
+  if (!state) state = game.getState();
   const alpha = state.mode === "paused" ? 1 : Math.max(0, Math.min(1, acc / TICK));
   if (world) {
     const info = world.sync(state, dt, alpha);
@@ -164,6 +172,7 @@ window.__br = {
   setPassLane: (on) => game.setPassLane(on),
   placeTrafficAhead: () => game.placeTrafficAhead(),
   getView: () => world?.getView?.() || view,
+  resetCam: () => world?.resetCam?.(),
   unlockAudio,
   startMusic,
   setMuted: (on) => game.setMuted(on),
