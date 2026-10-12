@@ -1,4 +1,4 @@
-import { unlockAudio } from "./audio.js?v=61";
+import { unlockAudio } from "./audio.js?v=62";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyS", "KeyB", "KeyJ", "KeyK", "KeyZ", "KeyX",
@@ -7,6 +7,7 @@ const KEYS = new Set([
   "Digit1", "Digit2", "Digit3", "Digit4",
   "Space", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
   "KeyM", "Escape", "KeyP", "KeyY", "KeyN",
+  "BracketRight", "Equal",
 ]);
 
 const GEAR_KEYS = {
@@ -52,6 +53,7 @@ const TAP_ROLES = {
   "ping-contact": "pingContact",
   "pick-close": "pickClose",
   pick: "pick",
+  zoom: "zoom",
 };
 
 function gearFromY(clientY, root) {
@@ -139,6 +141,7 @@ export function createInput(root = document) {
     if (e.code === "KeyC" || e.code === "KeyT") pulseTap("phone");
     if (e.code === "KeyM") mutePulse = true;
     if (e.code === "Escape" || e.code === "KeyP") pausePulse = true;
+    if (e.code === "BracketRight" || e.code === "Equal") pulseTap("zoom");
     if (e.code === "KeyY") acceptPulse = true;
     if (e.code === "KeyN") declinePulse = true;
     if (GEAR_KEYS[e.code]) gearPulse = GEAR_KEYS[e.code];
@@ -433,6 +436,7 @@ export function createInput(root = document) {
       invClose: take("invClose"),
       phoneTab: take("tabTexts") ? "texts" : take("tabContacts") ? "contacts" : null,
       pickClose: take("pickClose"),
+      zoom: take("zoom"),
       pickId,
       stashClose: take("stashClose"),
       cribClose: take("cribClose"),

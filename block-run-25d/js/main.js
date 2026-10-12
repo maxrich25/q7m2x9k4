@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=61";
-import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=61";
-import { createInput } from "./input.js?v=61";
-import { createGame } from "./game.js?v=61";
-import { loadSprites } from "./sprites.js?v=61";
-import { createWorld } from "./world.js?v=61";
-import { createHud } from "./hud.js?v=61";
+import { TICK } from "./config.js?v=62";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=62";
+import { createInput } from "./input.js?v=62";
+import { createGame } from "./game.js?v=62";
+import { loadSprites } from "./sprites.js?v=62";
+import { createWorld } from "./world.js?v=62";
+import { createHud } from "./hud.js?v=62";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -76,7 +76,7 @@ const PULSE_KEYS = [
   "stashInCash", "stashOutCash", "stashInGreen", "stashOutGreen",
   "stashInWhite", "stashOutWhite",
   "cribClose", "cribClothes", "cribSleep", "cribWait", "cribSave", "cribStash",
-  "pickClose", "pickId",
+  "pickClose", "pickId", "zoom",
 ];
 
 function frame(now) {
@@ -147,6 +147,7 @@ window.__br = {
   openStash: () => game.openStash(),
   openCrib: () => game.openCrib(),
   cycleOutfit: () => game.cycleOutfit(),
+  cycleZoom: () => game.cycleZoom?.(),
   sleepCrib: () => game.sleepCrib(),
   waitCrib: () => game.waitCrib(),
   saveCrib: () => game.saveCrib(),

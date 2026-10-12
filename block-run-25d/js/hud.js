@@ -1,5 +1,5 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=61";
-import { isUnlocked } from "./audio.js?v=61";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=62";
+import { isUnlocked } from "./audio.js?v=62";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -218,9 +218,63 @@ export function createHud(opts = {}) {
 
   let popNodes = [];
 
+  function paintHudTop(state) {
+    const host = document.getElementById("hud-top");
+    if (!host) return;
+    let c = document.getElementById("hud-top-canvas");
+    if (!c) {
+      c = document.createElement("canvas");
+      c.id = "hud-top-canvas";
+      c.setAttribute("aria-hidden", "true");
+      host.insertBefore(c, host.firstChild);
+    }
+    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    const w = Math.max(1, host.clientWidth);
+    const h = 22;
+    const bw = Math.round(w * dpr);
+    const bh = Math.round(h * dpr);
+    if (c.width !== bw || c.height !== bh) {
+      c.width = bw;
+      c.height = bh;
+      c.style.width = w + "px";
+      c.style.height = h + "px";
+    }
+    const g = c.getContext("2d");
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.imageSmoothingEnabled = false;
+    g.clearRect(0, 0, bw, bh);
+    const fs = Math.round(8 * dpr);
+    g.font = fs + 'px "Press Start 2P", ui-monospace, monospace';
+    g.textBaseline = "top";
+    g.textAlign = "left";
+    const y = Math.round(4 * dpr);
+    const cash = "$" + String(state.cash).padStart(4, "0");
+    const inv = state.inv || {};
+    const grn = "GRN " + fmtGrams(inv.GREEN);
+    const wht = "WHT " + fmtGrams(inv.WHITE);
+    const rep = "REP " + Math.round(state.rep || 0);
+    const time = state.timeLabel || "9:00 PM";
+    let x = Math.round(2 * dpr);
+    const gap = Math.round(8 * dpr);
+    g.fillStyle = "#f0c430";
+    g.fillText(cash, x, y);
+    x += g.measureText(cash).width + gap;
+    g.fillStyle = "#3dff7a";
+    g.fillText(grn, x, y);
+    x += g.measureText(grn).width + gap;
+    g.fillStyle = "#f4f0e8";
+    g.fillText(wht, x, y);
+    g.textAlign = "right";
+    g.fillStyle = "#f4f0e8";
+    g.fillText(time, bw - Math.round(2 * dpr), y);
+    g.fillStyle = "#8a8696";
+    g.fillText(rep, bw - Math.round(2 * dpr) - g.measureText(time).width - gap, y);
+  }
+
   function sync(state, project) {
     cashEl.textContent = "$" + String(state.cash).padStart(4, "0");
     if (invEl) invEl.innerHTML = invHtml(state);
+    paintHudTop(state);
     const heatOn = !!(state.heatEnabled ?? HEAT_ENABLED);
     if (heatEl) {
       heatEl.classList.toggle("hidden", !heatOn);
