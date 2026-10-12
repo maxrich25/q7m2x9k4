@@ -13,9 +13,15 @@ export const CAR_TURN_TIME = 1.0;
 export const CAR_TURN_MAX = 28;
 export const CAR_TURN_ARC = 3.9;
 export const CAR_STOP = 8;
-/** US right-hand traffic: +X uses the camera-side (near) lane. */
-export const CAR_LANE_NEAR = 3.9;
-export const CAR_LANE_FAR = 0;
+/** US right-hand traffic: +X uses the camera-side (near) lane.
+ *  Road: curb z=2.95, dashes z=7.55, near edge ~12.15. Centers sit mid-lane. */
+export const CAR_LANE_NEAR = 4.9;
+export const CAR_LANE_FAR = 0.3;
+/** Door-open + step-in/out clip length, seconds. */
+export const BOARD_T = 0.62;
+/** GTA-style camera distances: close / mid / far multipliers on the base camZ. */
+export const CAM_ZOOM_MUL = [0.76, 1, 1.34];
+export const ZOOM_KEY = "block-run-25d-zoom";
 export const CAR_KINDS = {
   beater: { accel: 160, max: 142, creep: 18, color: 0x6a3a24 },
   luxury: { accel: 260, max: 220, creep: 23, color: 0x121214 },

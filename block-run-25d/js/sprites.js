@@ -2,8 +2,8 @@ import * as THREE from "three";
 import {
   pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, PED_WALK_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
-  paintClassicHeroSet, classicWithoutHat, restyleFor25d,
-} from "./paint.js?v=61";
+  STRIDE_POSES, plantStride, paintClassicHeroSet, classicWithoutHat, restyleFor25d,
+} from "./paint.js?v=62";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -158,15 +158,19 @@ export async function loadSprites() {
     const frames = (canvases, hatOn) => canvases.map((c) => (
       texturize(restyleFor25d(hatOn ? c : classicWithoutHat(c)), true)
     ));
+    const stride = (src, hatOn) => {
+      const base = hatOn ? src : classicWithoutHat(src);
+      return STRIDE_POSES.map((p) => texturize(restyleFor25d(plantStride(base, p)), true));
+    };
     playerHat = {
       idle: frames(idleC, true),
-      walk: frames(walkC, true),
+      walk: stride(idleC[0] || walkC[0], true),
       jump: JUMP_POSES.map((p) => texturize(restyleFor25d(derivePose(idleC[0], p)), true)),
       shoot: frames(shootC, true),
     };
     playerBare = {
       idle: frames(idleC, false),
-      walk: frames(walkC, false),
+      walk: stride(idleC[0] || walkC[0], false),
       jump: JUMP_POSES.map((p) => texturize(restyleFor25d(derivePose(classicWithoutHat(idleC[0]), p)), true)),
       shoot: frames(shootC, false),
     };
@@ -187,9 +191,10 @@ export async function loadSprites() {
 
   const cop = setFromOriginal(paintCopFig());
   const buyers = PED_LOOKS.map((_, i) => {
-    const src = paintLook(i);
-    const walks = paintWalkLook(i, PED_WALK_POSES).map((c) => texturize(c, true));
-    return setFromOriginal(src, { walk: walks });
+    const src = restyleFor25d(paintLook(i));
+    const walks = paintWalkLook(i, PED_WALK_POSES).map((c) => texturize(restyleFor25d(c), true));
+    const idles = IDLE_POSES.map((p) => texturize(restyleFor25d(paintLook(i, p)), true));
+    return setFromOriginal(src, { walk: walks, idle: idles });
   });
   const plug = setFromOriginal(paintPlugFig());
 
