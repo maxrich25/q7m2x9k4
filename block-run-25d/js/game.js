@@ -12,9 +12,9 @@ import {
   OUTFITS, DEFAULT_WARDROBE, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
   nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen, SAVE_KEY,
   HEAT_ENABLED, ORDER_T_MIN, ORDER_T_MAX, LIGHT_STOP_LEAD, PASS_MIN_SPEED,
-  BOARD_T, ZOOM_KEY, ZOOM_MED_KEY, CAM_ZOOM_MUL,
-} from "./config.js?v=63";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=63";
+  BOARD_T, ZOOM_KEY, ZOOM_MED_KEY, CAM_ZOOM_MUL, STREET_LEN,
+} from "./config.js?v=64";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=64";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -46,6 +46,8 @@ export function createGame() {
     kind: "beater",
   };
   let inCar = false;
+  let inCrib = false;
+  let cribX = -3.0;
   let revU = 0;
   let boughtOnce = false;
   let textedPlug = false;
@@ -123,11 +125,13 @@ export function createGame() {
   const reduced = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function sense() {
-    const nearCar = !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && player.y >= 197.5;
-    const nearPlug = Math.abs(wrapDelta(player.x, plugMeet?.x ?? PLUG_X, WORLD)) < 28;
-    const nearHome = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && player.y >= 197.5;
-    const nearPed = !inCar && peds.some((p) => Math.abs(wrapDelta(player.x, p.x, WORLD)) < 18);
-    const exitOk = inCar && car.gear === "P";
+    const nearCar = !inCrib && !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && player.y >= 197.5;
+    const nearPlug = !inCrib && Math.abs(wrapDelta(player.x, plugMeet?.x ?? PLUG_X, WORLD)) < 28;
+    const nearHome = !inCrib && !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && player.y >= 197.5;
+    const nearPed = !inCrib && !inCar && peds.some((p) => Math.abs(wrapDelta(player.x, p.x, WORLD)) < 18);
+    const nearCribDoor = !!(inCrib && cribX < -2.55);
+    const nearWardrobe = !!(inCrib && cribX > 2.15);
+    const exitOk = (inCar && car.gear === "P") || nearCribDoor;
     const liveDeal = !!(order && (order.phase === "active" || order.phase === "nudge"));
     const nearDeal = !!(liveDeal && !inCar && Math.abs(wrapDelta(player.x, order.x, WORLD)) < 36);
     const slowEnough = Math.abs(player.vx) < SERVE_SLOW * 1.6;
@@ -137,7 +141,8 @@ export function createGame() {
     let prompt = "";
     let gate = "";
     if (mode === "play" && !ui) {
-      if (exitOk) gate = "EXIT";
+      if (inCrib && nearWardrobe) gate = "CLOTHES";
+      else if (exitOk) gate = "EXIT";
       else if (nearCar && nearHome) {
         const dCar = Math.abs(wrapDelta(player.x, car.x, WORLD));
         const dHome = Math.abs(wrapDelta(player.x, HOME_X, WORLD));
@@ -151,15 +156,20 @@ export function createGame() {
       else if (nearPed && !nearCar && !nearHome) prompt = "HIT UP";
     }
     const picks = [];
-    if (mode === "play" && ui !== "crib" && ui !== "buy" && ui !== "stash" && ui !== "inv") {
-      if (canServe) picks.push({ id: "serve", label: "SERVE" });
-      if (!canServe && exitOk) picks.push({ id: "exit", label: "EXIT" });
-      if (!canServe && nearCar) picks.push({ id: "car", label: "ENTER CAR" });
-      if (!canServe && nearHome) picks.push({ id: "crib", label: "ENTER CRIB" });
-      if (!canServe && canBuy) picks.push({ id: "buy", label: "BUY" });
-      if (!canServe && nearPlug && !plugMeet) picks.push({ id: "text", label: "TEXT" });
-      if (!canServe && nearPed && !nearCar && !nearHome && !canBuy) {
-        picks.push({ id: "talk", label: "HIT UP" });
+    if (mode === "play" && ui !== "crib" && ui !== "buy" && ui !== "stash" && ui !== "inv" && ui !== "outfit") {
+      if (inCrib) {
+        if (nearWardrobe) picks.push({ id: "clothes", label: "CLOTHES" });
+        if (nearCribDoor) picks.push({ id: "exit", label: "EXIT" });
+      } else {
+        if (canServe) picks.push({ id: "serve", label: "SERVE" });
+        if (!canServe && exitOk) picks.push({ id: "exit", label: "EXIT" });
+        if (!canServe && nearCar) picks.push({ id: "car", label: "ENTER CAR" });
+        if (!canServe && nearHome) picks.push({ id: "crib", label: "ENTER CRIB" });
+        if (!canServe && canBuy) picks.push({ id: "buy", label: "BUY" });
+        if (!canServe && nearPlug && !plugMeet) picks.push({ id: "text", label: "TEXT" });
+        if (!canServe && nearPed && !nearCar && !nearHome && !canBuy) {
+          picks.push({ id: "talk", label: "HIT UP" });
+        }
       }
     }
     let actionLabel = "ACTION";
@@ -175,7 +185,7 @@ export function createGame() {
       actionKind = "pick";
     }
     return {
-      nearCar, nearPlug, nearHome, nearPed, exitOk, liveDeal, nearDeal, slowEnough,
+      nearCar, nearPlug, nearHome, nearPed, nearCribDoor, nearWardrobe, exitOk, liveDeal, nearDeal, slowEnough,
       canServe, canBuy, offer, prompt, gate, actionLabel, actionOk, actionKind, picks,
     };
   }
@@ -206,7 +216,7 @@ export function createGame() {
       }
     }
     const {
-      nearCar, nearPlug, nearHome, nearPed, exitOk, liveDeal, nearDeal, slowEnough,
+      nearCar, nearPlug, nearHome, nearPed, nearCribDoor, nearWardrobe, exitOk, liveDeal, nearDeal, slowEnough,
       canServe, canBuy, offer, prompt, gate, actionLabel, actionOk, actionKind, picks,
     } = sense();
     const hour = wrapHour(timeHours);
@@ -228,7 +238,7 @@ export function createGame() {
       heat: HEAT_ENABLED ? heat : 0, heatEnabled: HEAT_ENABLED, muted: isMuted(), combat: COMBAT,
       player: { ...player },
       car: { ...car },
-      inCar, atHome,
+      inCar, inCrib, cribX, atHome, nearCribDoor, nearWardrobe,
       order: order ? { ...order } : null,
       peds: peds.map((p) => ({ ...p })),
       lights,
@@ -330,6 +340,8 @@ export function createGame() {
     car.turnLatFrom = 0;
     car.turnLatTo = 0;
     inCar = false;
+    inCrib = false;
+    cribX = -3.0;
     revU = 0;
     wreckT = 0;
     copCar = null;
@@ -875,16 +887,46 @@ export function createGame() {
     return true;
   }
 
-  function openCrib() {
-    ui = "crib";
+  function enterCrib() {
+    inCrib = true;
+    cribX = -3.0;
+    player.vx = 0;
+    player.vy = 0;
+    player.y = GROUND_Y;
+    player.facing = 1;
+    ui = null;
     fromCrib = false;
     return true;
   }
 
+  function leaveCrib() {
+    inCrib = false;
+    cribX = -3.0;
+    ui = null;
+    fromCrib = false;
+    player.x = wrap(HOME_X + 18, WORLD);
+    player.px = player.x;
+    player.vx = 0;
+    player.y = GROUND_Y;
+    player.vy = 0;
+    player.facing = 1;
+    return true;
+  }
+
+  function openCrib() {
+    return enterCrib();
+  }
+
+  function openOutfit() {
+    if (!inCrib) return false;
+    ui = "outfit";
+    return true;
+  }
+
   function cycleOutfit() {
-    if (!inCar && ui !== "crib") return false;
+    if (ui !== "outfit" && ui !== "crib") return false;
     wardrobe.hat = wardrobe.hat === "none" ? "beanie" : "none";
-    pop(inCar ? car.x : HOME_X, 150, wardrobe.hat === "none" ? "HAT OFF" : "HAT ON");
+    pop(HOME_X, 150, wardrobe.hat === "none" ? "HAT OFF" : "HAT ON");
     sfx.pickup();
     return true;
   }
@@ -972,6 +1014,7 @@ export function createGame() {
   function runPick(id) {
     ui = null;
     if (id === "serve") return serve();
+    if (id === "clothes") return openOutfit();
     if (id === "exit" || id === "car" || id === "crib" || id === "buy" || id === "gate") return useGatePick(id);
     if (id === "text") return textPlug();
     if (id === "talk") return solicit();
@@ -987,6 +1030,7 @@ export function createGame() {
     }
     if (a.actionKind === "accept") return acceptOrder();
     if (a.actionKind === "serve") return serve();
+    if (a.actionKind === "clothes") return openOutfit();
     if (a.actionKind === "gate" || a.actionKind === "exit" || a.actionKind === "car" || a.actionKind === "crib" || a.actionKind === "buy") {
       return useGatePick(a.actionKind);
     }
@@ -997,17 +1041,18 @@ export function createGame() {
 
   function useGatePick(id) {
     if (id === "exit") {
+      if (inCrib) { leaveCrib(); return true; }
       if (inCar && car.gear === "P") { leaveCar(); return true; }
       if (inCar) { pop(car.x, 150, "PARK"); return false; }
     }
     if (id === "car") {
-      if (!inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && onGround()) {
+      if (!inCrib && !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && onGround()) {
         enterCar();
         return true;
       }
     }
     if (id === "crib") {
-      if (!inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && onGround()) {
+      if (!inCrib && !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && onGround()) {
         openCrib();
         return true;
       }
@@ -1025,6 +1070,17 @@ export function createGame() {
     const nearCarNow = !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && onGround();
     const nearHomeNow = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && onGround();
     const nearPlugNow = Math.abs(wrapDelta(player.x, plugMeet?.x ?? PLUG_X, WORLD)) < 28;
+    if (inCrib) {
+      if (cribX < -2.55) {
+        leaveCrib();
+        return true;
+      }
+      if (cribX > 2.15) {
+        openOutfit();
+        return true;
+      }
+      return false;
+    }
     if (inCar) {
       if (car.gear === "P") {
         leaveCar();
@@ -1358,32 +1414,22 @@ export function createGame() {
       const d = wrapDelta(pl.x, ped.x, WORLD);
       const ad = Math.abs(d);
       if (ad >= gap || ad < 0.001) {
-        ped.side = (ped.side || 0) * 0.86;
+        ped.side = (ped.side || 0) * 0.82;
         continue;
       }
-      const dir = Math.sign(d) || 1;
-      const push = gap - ad;
-      ped.x = wrap(ped.x + dir * push * 0.92, WORLD);
-      const away = Math.max(Math.abs(ped.vx), ped.speed || 12, 16);
-      ped.vx = dir * away;
-      ped.facing = dir;
-      ped.wait = 0;
-      ped.pushed = 0.35;
-      ped.side = Math.min(0.9, (ped.side || 0) + 0.16);
+      ped.side = Math.min(0.38, (ped.side || 0) + 0.1);
     }
   }
 
   function separatePeds(crowd) {
-    const gap = PED_SPACE;
+    const gap = PED_SPACE * 0.55;
     for (let i = 0; i < crowd.length; i++) {
       for (let j = i + 1; j < crowd.length; j++) {
         const d = wrapDelta(crowd[i].x, crowd[j].x, WORLD);
         const ad = Math.abs(d);
         if (ad >= gap || ad < 0.001) continue;
-        const push = (gap - ad) * 0.5;
-        const dir = Math.sign(d);
-        crowd[i].x = wrap(crowd[i].x - dir * push, WORLD);
-        crowd[j].x = wrap(crowd[j].x + dir * push, WORLD);
+        crowd[i].side = Math.min(0.28, (crowd[i].side || 0) + 0.04);
+        crowd[j].side = Math.min(0.28, (crowd[j].side || 0) - 0.04);
       }
     }
   }
@@ -1456,9 +1502,8 @@ export function createGame() {
     if (input.buyGreen) buyProduct("GREEN");
     if (input.buyWhite) buyProduct("WHITE");
     if (input.buyClose) ui = null;
-    if (input.cribClose) { ui = null; fromCrib = false; }
-    if (input.cribClothes) cycleOutfit();
-    if (inCar && input.run && !runHeld) cycleOutfit();
+    if (input.cribClose || input.outfitClose) { ui = ui === "outfit" || ui === "crib" ? null : ui; fromCrib = false; }
+    if (input.cribClothes || input.outfitHat) cycleOutfit();
     runHeld = !!input.run;
     if (input.cribSleep) sleepCrib();
     if (input.cribWait) waitCrib();
@@ -1489,7 +1534,9 @@ export function createGame() {
     }
 
     let usedJump = false;
-    if (inCar) {
+    if (inCrib) {
+      if (input.gate || input.exit) useGate();
+    } else if (inCar) {
       const want = input.gearTap || input.shiftGear;
       if (want) tryShift(want, !!input.brake);
       if (input.shiftStep) {
@@ -1683,6 +1730,17 @@ export function createGame() {
       player.y = GROUND_Y;
       player.vy = 0;
       player.anim += dt;
+    } else if (inCrib) {
+      holdLight = false;
+      holdCar = false;
+      setEngine("off");
+      if (input.moveX < 0) player.facing = -1;
+      if (input.moveX > 0) player.facing = 1;
+      player.vx = input.moveX * MOVE_SPEED * (input.run ? 1.55 : 1);
+      cribX = Math.max(-3.55, Math.min(3.55, cribX + player.vx * dt * (STREET_LEN / WORLD)));
+      player.y = GROUND_Y;
+      player.vy = 0;
+      player.anim += dt;
     } else {
       holdLight = false;
       holdCar = false;
@@ -1781,11 +1839,7 @@ export function createGame() {
       ped.pushed = Math.max(0, (ped.pushed || 0) - dt);
       ped.side = (ped.side || 0) * Math.exp(-dt * 2.8);
       ped.anim += dt;
-      if (ped.pushed > 0) {
-        ped.wait = 0;
-        if (Math.abs(ped.vx) < 10) ped.vx = ped.facing * Math.max(ped.speed || 12, 16);
-        ped.x = wrap(ped.x + ped.vx * dt, WORLD);
-      } else if (ped.wait > 0) {
+      if (ped.wait > 0) {
         ped.wait -= dt;
         ped.vx = 0;
       } else {
@@ -2225,6 +2279,9 @@ export function createGame() {
     openBuy,
     openStash,
     openCrib,
+    enterCrib,
+    leaveCrib,
+    openOutfit,
     cycleOutfit,
     cycleZoom,
     nudgeZoom,
@@ -2259,6 +2316,13 @@ export function createGame() {
     setInCar(on) {
       if (on && car.hp > 0) enterCar();
       else if (inCar) leaveCar();
+    },
+    setInCrib(on) {
+      if (on) enterCrib();
+      else if (inCrib) leaveCrib();
+    },
+    setCribX(x) {
+      cribX = Math.max(-3.55, Math.min(3.55, Number(x) || 0));
     },
     setGear(name) {
       const g = String(name || "").toUpperCase();

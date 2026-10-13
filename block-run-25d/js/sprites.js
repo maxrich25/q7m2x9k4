@@ -3,7 +3,7 @@ import {
   pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, PED_WALK_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
   STRIDE_POSES, TURN_POSES, plantStride, threeQuarter, paintClassicHeroSet, classicWithoutHat, restyleFor25d,
-} from "./paint.js?v=63";
+} from "./paint.js?v=64";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
