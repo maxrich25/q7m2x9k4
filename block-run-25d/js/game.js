@@ -14,8 +14,9 @@ import {
   HEAT_ENABLED, ORDER_T_MIN, ORDER_T_MAX, LIGHT_STOP_LEAD, PASS_MIN_SPEED,
   BOARD_T, ENTER_LOCK, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN,
-} from "./config.js?v=65";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=65";
+  CAR_NOSE_GAME,
+} from "./config.js?v=67";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=67";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -39,7 +40,7 @@ export function createGame() {
   let mode = "title";
   const player = {
     x: 80, px: 80, y: GROUND_Y, vx: 0, vy: 0, facing: 1,
-    hp: MAX_HP, anim: 0, flash: 0,
+    hp: MAX_HP, anim: 0, stride: 0, flash: 0,
   };
   const car = {
     x: CAR_X, px: CAR_X, vx: 0, facing: 1, hp: CAR_HP,
@@ -79,6 +80,7 @@ export function createGame() {
   let timeHours = START_HOUR;
   let fromCrib = false;
   let boardT = 0;
+  let frozen = false;
   let enterLock = 0;
   let camZoom = CAM_ZOOM_MED;
   let zoomMigratedNow = false;
@@ -410,8 +412,8 @@ export function createGame() {
     inCar = false;
     boardT = BOARD_T;
     enterLock = ENTER_LOCK;
-    const side = car.facing < 0 ? 1 : -1;
-    player.x = wrap(car.x + side * 10, WORLD);
+    player.x = car.x;
+    player.px = car.x;
     player.vx = 0;
     player.y = GROUND_Y;
     player.vy = 0;
@@ -490,6 +492,8 @@ export function createGame() {
       hitCd: 0,
       vx: 0,
       side: 0,
+      lane: ((i ?? 0) % 5) * 0.22 - 0.18,
+      stride: Math.random() * 8,
       pushed: 0,
     };
   }
@@ -1140,6 +1144,7 @@ export function createGame() {
     player.facing = 1;
     player.hp = MAX_HP;
     player.anim = 0;
+    player.stride = 0;
     player.flash = 0;
     invuln = 2.8;
     shootCd = 0;
@@ -1482,7 +1487,7 @@ export function createGame() {
       else if (mode === "paused") mode = "play";
     }
 
-    if (mode === "paused") {
+    if (mode === "paused" || frozen) {
       setEngine("off");
       return snapshot();
     }
@@ -1601,12 +1606,19 @@ export function createGame() {
       function stopLineX(index) {
         return stopLineGameX(index, face);
       }
+      function bumperX(fromX = car.x) {
+        return wrap(fromX + face * CAR_NOSE_GAME, WORLD);
+      }
+      function snapBumperTo(line) {
+        car.x = wrap(line - face * CAR_NOSE_GAME, WORLD);
+        car.vx = 0;
+      }
       function nearestLight(fromX, maxLook, phases) {
         let best = null;
         for (let i = 0; i < LIGHT_COUNT; i++) {
           const ph = lightPhaseAt(clock, i);
           if (phases && !phases.includes(ph)) continue;
-          const d = wrapDelta(fromX, stopLineX(i), WORLD);
+          const d = wrapDelta(bumperX(fromX), stopLineX(i), WORLD);
           if (Math.sign(d || 1) !== Math.sign(face)) continue;
           const ad = Math.abs(d);
           if (ad < maxLook && (!best || ad < best.d)) best = { d: ad, phase: ph, i };
@@ -1616,7 +1628,6 @@ export function createGame() {
       const spd = Math.abs(car.vx);
       const decel = Math.max(40, accel * 1.75);
       const stopNeed = (spd * spd) / (2 * decel) + 14;
-      const STOP_BEFORE = 3;
       const lightAhead = nearestLight(car.x, Math.max(56, stopNeed + 22), ["red", "yellow"]);
       let redHold = !!(lightAhead && (
         lightAhead.phase === "red"
@@ -1624,14 +1635,12 @@ export function createGame() {
       ));
       if (redHold && lightAhead) {
         const line = stopLineX(lightAhead.i);
-        const toLine = wrapDelta(car.x, line, WORLD);
+        const toLine = wrapDelta(bumperX(), line, WORLD);
         const going = Math.sign(car.vx || face) === Math.sign(face);
-        if (going && toLine * face <= STOP_BEFORE) {
-          car.x = wrap(line - face * STOP_BEFORE, WORLD);
-          car.vx = 0;
-        } else if (going && Math.abs(toLine) < Math.abs(car.vx) * dt + STOP_BEFORE) {
-          car.x = wrap(line - face * STOP_BEFORE, WORLD);
-          car.vx = 0;
+        if (going && toLine * face <= 0.2) {
+          snapBumperTo(line);
+        } else if (going && Math.abs(toLine) < Math.abs(car.vx) * dt + 0.35) {
+          snapBumperTo(line);
         } else if (lightAhead.d < 8) {
           car.vx = 0;
         }
@@ -1727,17 +1736,13 @@ export function createGame() {
         }
         if (Math.abs(car.vx) > vmax) car.vx = Math.sign(car.vx) * vmax;
         if (redHold && lightAhead && Math.abs(car.vx) * dt >= lightAhead.d) {
-          car.x = wrap(stopLineX(lightAhead.i) - face * STOP_BEFORE, WORLD);
-          car.vx = 0;
+          snapBumperTo(stopLineX(lightAhead.i));
         } else {
           car.x = wrap(car.x + car.vx * dt, WORLD);
         }
         if (redHold && lightAhead) {
-          const toLine = wrapDelta(car.x, stopLineX(lightAhead.i), WORLD);
-          if (toLine * face <= 0.5) {
-            car.x = wrap(stopLineX(lightAhead.i) - face * STOP_BEFORE, WORLD);
-            car.vx = 0;
-          }
+          const toLine = wrapDelta(bumperX(), stopLineX(lightAhead.i), WORLD);
+          if (toLine * face <= 0.2) snapBumperTo(stopLineX(lightAhead.i));
         }
       }
       if (gas && (car.gear === "P" || car.gear === "N")) {
@@ -1756,6 +1761,7 @@ export function createGame() {
       player.y = GROUND_Y;
       player.vy = 0;
       player.anim += dt;
+      if (Math.abs(player.vx) > 8) player.stride = (player.stride || 0) + Math.abs(player.vx) * dt;
     } else if (inCrib) {
       holdLight = false;
       holdCar = false;
@@ -1767,6 +1773,7 @@ export function createGame() {
       player.y = GROUND_Y;
       player.vy = 0;
       player.anim += dt;
+      if (Math.abs(player.vx) > 8) player.stride = (player.stride || 0) + Math.abs(player.vx) * dt;
     } else {
       holdLight = false;
       holdCar = false;
@@ -1792,6 +1799,7 @@ export function createGame() {
         player.vy = 0;
       }
       player.anim += dt;
+      if (Math.abs(player.vx) > 8) player.stride = (player.stride || 0) + Math.abs(player.vx) * dt;
       if (car.hp > 0) car.vx = 0;
     }
 
@@ -1822,7 +1830,13 @@ export function createGame() {
     invuln = Math.max(0, invuln - dt);
     player.flash = Math.max(0, player.flash - dt);
     clock += dt;
+    const boardingNow = boardT > 0;
     boardT = Math.max(0, boardT - dt);
+    if (boardingNow && boardT === 0 && !inCar) {
+      const side = car.facing < 0 ? 1 : -1;
+      player.x = wrap(car.x + side * 10, WORLD);
+      player.px = player.x;
+    }
     enterLock = Math.max(0, enterLock - dt);
     atHome = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28;
     heat = Math.max(0, heat - dt * (atHome ? 0.2 : 0.04));
@@ -1866,6 +1880,7 @@ export function createGame() {
       ped.pushed = Math.max(0, (ped.pushed || 0) - dt);
       ped.side = (ped.side || 0) * Math.exp(-dt * 2.8);
       ped.anim += dt;
+      if (Math.abs(ped.vx || 0) > 2) ped.stride = (ped.stride || 0) + Math.abs(ped.vx) * dt;
       if (ped.wait > 0) {
         ped.wait -= dt;
         ped.vx = 0;
@@ -2263,6 +2278,7 @@ export function createGame() {
     finishIntro,
     pause() { if (mode === "play") mode = "paused"; },
     resume() { if (mode === "paused") mode = "play"; },
+    setHold(on) { frozen = !!on; },
     restart() { beginPlay(false); },
     setMuted,
     toggleMute: () => setMuted(!isMuted()),
@@ -2341,6 +2357,12 @@ export function createGame() {
         peds[i].vx = 0;
       }
     },
+    setPedLane(i, lane) {
+      if (peds[i]) peds[i].lane = Number(lane) || 0;
+    },
+    setPedStride(i, n) {
+      if (peds[i]) peds[i].stride = Number(n) || 0;
+    },
     spawnOrder,
     setInCar(on) {
       if (on && car.hp > 0) {
@@ -2387,6 +2409,7 @@ export function createGame() {
       }
     },
     setAnim(t) { player.anim = t; },
+    setStride(t) { player.stride = Number(t) || 0; },
     setCarVx(n) {
       car.vx = Number(n) || 0;
       player.vx = car.vx;
