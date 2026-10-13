@@ -17,8 +17,8 @@ export const CAR_STOP = 8;
  *  Road: curb z=2.95, dashes z=7.55, near edge ~12.15. Centers sit mid-lane. */
 export const CAR_LANE_NEAR = 4.9;
 export const CAR_LANE_FAR = 0.3;
-/** Door-open + duck-in/out clip length, seconds. */
-export const BOARD_T = 0.88;
+/** Door-open + walk-turn-sit clip length, seconds. */
+export const BOARD_T = 1.12;
 /** Seconds after EXIT before the player can enter the car again. */
 export const ENTER_LOCK = 1.05;
 /** Continuous camera zoom: close / mid / far multipliers on the base camZ. */
@@ -81,6 +81,9 @@ export const COP_CAR_HP = 3;
 
 /** 3D street length in meters. Game x maps onto this wrapping strip. */
 export const STREET_LEN = 520;
+/** Front bumper offset from car.x (center), game units. Beater nose is 2.23m. */
+export const CAR_NOSE_M = 2.23;
+export const CAR_NOSE_GAME = CAR_NOSE_M * WORLD / STREET_LEN;
 export const BLOCK_LEN = 52;
 export const LIGHT_COUNT = Math.round(STREET_LEN / BLOCK_LEN);
 
