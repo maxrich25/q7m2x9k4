@@ -1,6 +1,6 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=65";
-import { paintClassicHero } from "./paint.js?v=65";
-import { isUnlocked } from "./audio.js?v=65";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=67";
+import { paintClassicHero } from "./paint.js?v=67";
+import { isUnlocked } from "./audio.js?v=67";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -251,7 +251,7 @@ export function createHud(opts = {}) {
     }
     const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
     const w = Math.max(1, host.clientWidth);
-    const h = 22;
+    const h = 48;
     const bw = Math.round(w * dpr);
     const bh = Math.round(h * dpr);
     if (c.width !== bw || c.height !== bh) {
@@ -264,32 +264,37 @@ export function createHud(opts = {}) {
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.imageSmoothingEnabled = false;
     g.clearRect(0, 0, bw, bh);
-    const fs = Math.round(8 * dpr);
-    g.font = fs + 'px "Press Start 2P", ui-monospace, monospace';
-    g.textBaseline = "top";
-    g.textAlign = "left";
-    const y = Math.round(4 * dpr);
     const cash = "$" + String(state.cash).padStart(4, "0");
     const inv = state.inv || {};
     const grn = "GRN " + fmtGrams(inv.GREEN);
     const wht = "WHT " + fmtGrams(inv.WHITE);
     const rep = "REP " + Math.round(state.rep || 0);
-    const time = state.timeLabel || "9:00 PM";
-    let x = Math.round(2 * dpr);
-    const gap = Math.round(8 * dpr);
+    const gap0 = Math.round(10 * dpr);
+    let fs = Math.round(16 * dpr);
+    const minFs = Math.round(13 * dpr);
+    function layout(size, gap) {
+      g.font = size + 'px "Press Start 2P", ui-monospace, monospace';
+      return g.measureText(cash).width + g.measureText(grn).width + g.measureText(wht).width
+        + g.measureText(rep).width + gap * 3;
+    }
+    while (fs > minFs && layout(fs, gap0) > bw - Math.round(10 * dpr)) fs -= 1;
+    const gap = layout(fs, gap0) > bw - Math.round(8 * dpr) ? Math.round(6 * dpr) : gap0;
+    g.font = fs + 'px "Press Start 2P", ui-monospace, monospace';
+    g.textBaseline = "top";
+    g.textAlign = "left";
+    const y = Math.round(12 * dpr);
+    let x = Math.round(4 * dpr);
     g.fillStyle = "#f0c430";
     g.fillText(cash, x, y);
-    x += g.measureText(cash).width + gap;
+    x += Math.round(g.measureText(cash).width) + gap;
     g.fillStyle = "#3dff7a";
     g.fillText(grn, x, y);
-    x += g.measureText(grn).width + gap;
+    x += Math.round(g.measureText(grn).width) + gap;
     g.fillStyle = "#f4f0e8";
     g.fillText(wht, x, y);
     g.textAlign = "right";
-    g.fillStyle = "#f4f0e8";
-    g.fillText(time, bw - Math.round(2 * dpr), y);
     g.fillStyle = "#8a8696";
-    g.fillText(rep, bw - Math.round(2 * dpr) - g.measureText(time).width - gap, y);
+    g.fillText(rep, bw - Math.round(4 * dpr), y);
   }
 
   function sync(state, project) {
@@ -302,7 +307,7 @@ export function createHud(opts = {}) {
       if (heatOn) pips(heatEl, 3, Math.min(3, Math.ceil(state.heat)), "heat");
     }
     if (repEl) repEl.textContent = "REP " + Math.round(state.rep || 0);
-    if (hudTime) hudTime.textContent = state.timeLabel || "9:00 PM";
+    if (hudTime) hudTime.textContent = "";
     const muted = !!state.muted;
     btnMute?.classList.toggle("off", muted);
     if (btnMute) {

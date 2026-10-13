@@ -79,16 +79,16 @@ html, body {
   gap: 6px;
   padding: calc(8px + var(--sat)) calc(8px + var(--sar)) 8px calc(8px + var(--sal));
   background: linear-gradient(to bottom, rgba(7, 6, 12, 0.82), rgba(7, 6, 12, 0));
-  font-size: 8px;
+  font-size: 16px;
   line-height: 1;
   text-shadow: none;
   min-width: 0;
-  min-height: calc(30px + var(--sat));
+  min-height: calc(56px + var(--sat));
 }
 #hud-top-canvas {
   display: block;
   width: 100%;
-  height: 22px;
+  height: 48px;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   pointer-events: none;
@@ -114,7 +114,7 @@ html, body {
 .g-grn { color: #3dff7a; }
 .g-wht { color: #f4f0e8; }
 #hud-rep { color: var(--muted); flex: 0 0 auto; white-space: nowrap; }
-#hud-time { color: var(--cream); flex: 0 0 auto; white-space: nowrap; }
+#hud-time { display: none; }
 #hud-heat, #hud-hp {
   display: flex;
   gap: 3px;
@@ -543,7 +543,7 @@ html, body {
 }
 #pad-car {
   display: grid;
-  grid-template-columns: 56px 1fr 1fr 64px;
+  grid-template-columns: 96px 0.72fr 0.72fr 64px;
   grid-template-areas: "uturn brake gas shifter";
   gap: 8px;
   width: 100%;
@@ -944,7 +944,7 @@ html, body {
 }
 
 @media (orientation: landscape) and (max-height: 430px) {
-  #hud-top { font-size: 8px; }
+  #hud-top { font-size: 11px; }
   #overlay-title { font-size: 16px; }
   #pad { width: 150px; min-width: 150px; }
 }
@@ -1055,7 +1055,7 @@ html, body {
   min-height: 0;
 }
 #pad-car {
-  grid-template-columns: 56px 1fr 1fr 56px;
+  grid-template-columns: 96px 0.72fr 0.72fr 60px;
   grid-template-areas: "uturn brake gas shifter";
   min-height: 0;
   height: 100%;
@@ -1266,7 +1266,7 @@ html, body {
     right: calc(8px + var(--sar));
     width: auto;
     height: 148px;
-    grid-template-columns: 58px 1fr 1fr 72px;
+    grid-template-columns: 114px 0.68fr 0.68fr 66px;
     grid-template-areas: "uturn brake gas shifter";
     pointer-events: auto;
     background: transparent;
