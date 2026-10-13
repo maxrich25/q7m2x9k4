@@ -261,6 +261,7 @@ function makePalm() {
   trunk.center.set(0.5, 0);
   trunk.scale.set(1.15, 4.15, 1);
   const crownHold = new THREE.Group();
+  crownHold.name = "palmCrown";
   crownHold.position.y = 4.05;
   const crown = new THREE.Sprite(new THREE.SpriteMaterial({ map: crownTex, transparent: true, depthWrite: false }));
   crown.center.set(0.5, 0.52);
@@ -270,7 +271,6 @@ function makePalm() {
   g.add(trunk);
   g.add(crownHold);
   g.userData.palm = true;
-  g.userData.crown = crownHold;
   g.userData.palmPhase = Math.random() * Math.PI * 2;
   return g;
 }
@@ -1788,8 +1788,8 @@ export function createWorld(canvas, sprites) {
     function swayPalm(o, amp = 1) {
       const s = Math.sin(swayT * 1.18 + (o.userData.palmPhase || 0));
       o.rotation.z = s * 0.09 * amp;
-      const crown = o.userData.crown;
-      if (crown) {
+      const crown = o.getObjectByName?.("palmCrown");
+      if (crown?.rotation && crown?.position) {
         crown.rotation.z = s * 0.26 * amp;
         crown.position.x = s * 0.18 * amp;
       }
