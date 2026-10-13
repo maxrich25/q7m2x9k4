@@ -73,16 +73,31 @@ export const WALK_POSES = [
   { step: -1, bob: 1 },
   { step: 0, bob: 0 },
 ];
-/** Planted stride: visible step, opposite arm, heel on the floor. */
-export const PED_WALK_POSES = [
-  { step: 3, bob: 0 },
-  { step: 2, bob: 1 },
-  { step: 0, bob: 0 },
-  { step: -3, bob: 0 },
-  { step: -2, bob: 1 },
-  { step: 0, bob: 0 },
+/**
+ * 8-frame gait: contact, down, passing, up (each side).
+ * Planted foot stays on the canvas floor and travels backward so it does
+ * not slide when the sprite origin moves at MOVE_SPEED.
+ * Opposite arm: +arm swings the left arm forward.
+ */
+export const WALK_CYCLE_POSES = [
+  { rFoot: 10, lFoot: -7, rLift: 0, lLift: 4, arm: 6, bob: 0 },
+  { rFoot: 4, lFoot: -2, rLift: 0, lLift: 8, arm: 5, bob: 2 },
+  { rFoot: -2, lFoot: 5, rLift: 0, lLift: 10, arm: 2, bob: 0 },
+  { rFoot: -9, lFoot: 10, rLift: 2, lLift: 3, arm: -4, bob: 0 },
+  { lFoot: 10, rFoot: -7, lLift: 0, rLift: 4, arm: -6, bob: 0 },
+  { lFoot: 4, rFoot: -2, lLift: 0, rLift: 8, arm: -5, bob: 2 },
+  { lFoot: -2, rFoot: 5, lLift: 0, rLift: 10, arm: -2, bob: 0 },
+  { lFoot: -9, rFoot: 10, lLift: 2, rLift: 3, arm: 4, bob: 0 },
 ];
-/** PNG stride: one foot forward, one back, planted heel, opposite arm. */
+export const PED_WALK_POSES = WALK_CYCLE_POSES;
+/**
+ * Game-x of one full gait cycle (both feet).
+ * 20px planted-foot travel on a 40px / 3.05m billboard = 1.525m
+ * = 1.525 * WORLD/STREET_LEN ≈ 11.7 game units. Keep in lockstep so
+ * the planted shoe does not slide on the pavement.
+ */
+export const STRIDE_CYCLE = 12;
+/** PNG stride leftover — kept for older sheets. */
 export const STRIDE_POSES = [
   { leftDx: 6, leftDy: 0, rightDx: -5, rightDy: -2, bob: 0, arm: 4 },
   { leftDx: 4, leftDy: 0, rightDx: -3, rightDy: -1, bob: 1, arm: 2 },
@@ -94,6 +109,10 @@ export const STRIDE_POSES = [
 export const TURN_POSES = [
   { threeQ: true, bob: 0 },
   { threeQ: true, bob: 1 },
+];
+export const SIT_POSES = [
+  { sit: true, bob: 0 },
+  { sit: true, bob: 1 },
 ];
 export const IDLE_POSES = [
   { bob: 0 },
@@ -148,138 +167,196 @@ function shadeHex(hex, amt) {
   return "#" + ((r << 16) | (g << 8) | b).toString(16).padStart(6, "0");
 }
 
+function gaitFromPose(pose = {}) {
+  const step = Math.round(pose.step || 0);
+  const lFoot = pose.lFoot != null ? Math.round(pose.lFoot) : step;
+  const rFoot = pose.rFoot != null ? Math.round(pose.rFoot) : -step;
+  const lLift = pose.lLift != null ? pose.lLift : (step >= 0 ? 0 : Math.min(4, Math.abs(step) + 1));
+  const rLift = pose.rLift != null ? pose.rLift : (step <= 0 ? 0 : Math.min(4, Math.abs(step) + 1));
+  const arm = pose.arm != null ? Math.round(pose.arm) : -Math.round(step * 0.7);
+  return {
+    lFoot,
+    rFoot,
+    lLift,
+    rLift,
+    lArm: pose.lArm != null ? Math.round(pose.lArm) : arm,
+    rArm: pose.rArm != null ? Math.round(pose.rArm) : -arm,
+  };
+}
+
+/** Shared SNES-volume figure used by the hero and every pedestrian. */
 export function paintPerson(g, look, pose = {}) {
   g.clearRect(0, 0, 40, 40);
+  const sit = !!pose.sit;
+  const threeQ = !!pose.threeQ;
   const bob = pose.bob || 0;
-  const step = pose.step || 0;
-  const y = (n) => n + bob;
-  const lLeg = Math.round(step);
-  const rLeg = -Math.round(step);
-  const lArm = -Math.round(step * 0.7);
-  const rArm = Math.round(step * 0.7);
-  const lLift = step >= 0 ? 0 : Math.min(4, Math.abs(step) + 1);
-  const rLift = step <= 0 ? 0 : Math.min(4, Math.abs(step) + 1);
-  const shirtHi = shadeHex(look.shirt, 28);
-  const shirtLo = shadeHex(look.shirt, -32);
-  const pantsLo = shadeHex(look.pants, -24);
-  const pantsHi = shadeHex(look.pants, 18);
-  const skinLo = shadeHex(look.skin, -22);
-  const skinHi = shadeHex(look.skin, 16);
+  const ox = threeQ ? 2 : (sit ? 1 : 0);
+  const y = (n) => n + bob + (sit ? 4 : 0);
+  const gait = gaitFromPose(pose);
+  const shirtHi = look.hoodieHi || shadeHex(look.shirt, 32);
+  const shirtLo = shadeHex(look.shirt, -34);
+  const pantsLo = look.jeansLo || shadeHex(look.pants, -26);
+  const pantsHi = shadeHex(look.pants, 20);
+  const skinLo = look.skinLo || shadeHex(look.skin, -24);
+  const skinHi = shadeHex(look.skin, 18);
   const hairLo = shadeHex(look.hair, -18);
   const outline = "#140010";
+  const bodyW = threeQ || sit ? 12 : 14;
 
   g.fillStyle = outline;
-  g.fillRect(13, y(3), 14, 34);
+  g.fillRect(13 + ox, y(sit ? 6 : 3), bodyW, sit ? 22 : 34);
 
-  g.fillStyle = pantsLo;
-  g.fillRect(15 + lLeg, y(26) - lLift, 5, 10 + lLift);
-  g.fillStyle = look.pants;
-  g.fillRect(20 + rLeg, y(26) - rLift, 5, 10 + rLift);
-  g.fillStyle = pantsHi;
-  g.fillRect(16 + lLeg, y(27) - lLift, 1, 7);
-  g.fillRect(21 + rLeg, y(27) - rLift, 1, 7);
-  g.fillStyle = look.pants;
-  g.fillRect(16, y(25), 8, 4);
+  if (sit) {
+    g.fillStyle = look.pants;
+    g.fillRect(11 + ox, y(20), 17, 6);
+    g.fillStyle = pantsHi;
+    g.fillRect(12 + ox, y(20), 6, 3);
+    g.fillStyle = pantsLo;
+    g.fillRect(12 + ox, y(25), 5, 6);
+    g.fillRect(23 + ox, y(25), 5, 6);
+    g.fillStyle = look.shoes;
+    g.fillRect(11 + ox, y(30), 7, 4);
+    g.fillRect(22 + ox, y(30), 7, 4);
+    g.fillStyle = shadeHex(look.shoes, 40);
+    g.fillRect(12 + ox, y(30), 3, 1);
+    g.fillRect(23 + ox, y(30), 3, 1);
+    if (look.shoeRed) {
+      g.fillStyle = look.shoeRed;
+      g.fillRect(11 + ox, y(31), 2, 2);
+      g.fillRect(22 + ox, y(31), 2, 2);
+    }
+  } else {
+    const lPlant = gait.lLift <= 0;
+    const rPlant = gait.rLift <= 0;
+    g.fillStyle = pantsLo;
+    g.fillRect(15 + ox + gait.lFoot, y(26) - gait.lLift, 5, 10 + gait.lLift);
+    g.fillStyle = look.pants;
+    g.fillRect(20 + ox + gait.rFoot, y(26) - gait.rLift, 5, 10 + gait.rLift);
+    g.fillStyle = pantsHi;
+    g.fillRect(16 + ox + gait.lFoot, y(27) - gait.lLift, 1, 7);
+    g.fillRect(21 + ox + gait.rFoot, y(27) - gait.rLift, 1, 7);
+    g.fillStyle = look.pants;
+    g.fillRect(16 + ox, y(25), 8, 4);
 
-  g.fillStyle = look.shoes;
-  g.fillRect(14 + lLeg, 36 - lLift, 6, 4);
-  g.fillRect(20 + rLeg, 36 - rLift, 6, 4);
-  g.fillStyle = shadeHex(look.shoes, 40);
-  g.fillRect(15 + lLeg, 36 - lLift, 3, 1);
-  g.fillRect(21 + rLeg, 36 - rLift, 3, 1);
-  g.fillStyle = shadeHex(look.shoes, -36);
-  g.fillRect(14 + lLeg, 38 - lLift, 2, 2);
-  g.fillRect(20 + rLeg, 38 - rLift, 2, 2);
-
-  g.fillStyle = look.shirt;
-  g.fillRect(13, y(16), 14, 11);
-  g.fillStyle = shirtHi;
-  g.fillRect(15, y(17), 5, 8);
-  g.fillStyle = shirtLo;
-  g.fillRect(23, y(17), 3, 8);
-  g.fillStyle = look.accent;
-  g.fillRect(13, y(16), 14, 2);
-  g.fillStyle = shirtLo;
-  g.fillRect(13, y(25), 14, 1);
-  g.fillStyle = shadeHex(look.shirt, 40);
-  g.fillRect(18, y(17), 1, 8);
-  g.fillRect(16, y(21), 4, 1);
-
-  if (look.chain) {
-    g.fillStyle = "#f0c430";
-    g.fillRect(17, y(18), 6, 1);
-    g.fillRect(19, y(19), 2, 2);
+    const lShoeY = lPlant ? 36 : 36 - gait.lLift;
+    const rShoeY = rPlant ? 36 : 36 - gait.rLift;
+    g.fillStyle = look.shoes;
+    g.fillRect(14 + ox + gait.lFoot, lShoeY, 6, 4);
+    g.fillRect(20 + ox + gait.rFoot, rShoeY, 6, 4);
+    g.fillStyle = shadeHex(look.shoes, 44);
+    g.fillRect(15 + ox + gait.lFoot, lShoeY, 3, 1);
+    g.fillRect(21 + ox + gait.rFoot, rShoeY, 3, 1);
+    g.fillStyle = shadeHex(look.shoes, -40);
+    g.fillRect(14 + ox + gait.lFoot, lShoeY + 2, 2, 2);
+    g.fillRect(20 + ox + gait.rFoot, rShoeY + 2, 2, 2);
+    if (look.shoeRed) {
+      g.fillStyle = look.shoeRed;
+      g.fillRect(14 + ox + gait.lFoot, lShoeY + 1, 2, 2);
+      g.fillRect(20 + ox + gait.rFoot, rShoeY + 1, 2, 2);
+    }
   }
 
-  g.fillStyle = look.skin;
-  g.fillRect(10 + lArm, y(18), 4, 7);
-  g.fillRect(26 + rArm, y(18), 4, 7);
   g.fillStyle = look.shirt;
-  g.fillRect(10 + lArm, y(17), 4, 3);
-  g.fillRect(26 + rArm, y(17), 4, 3);
+  g.fillRect(13 + ox, y(16), bodyW, 11);
+  g.fillStyle = shirtHi;
+  g.fillRect(14 + ox, y(17), threeQ ? 4 : 5, 8);
+  g.fillStyle = shadeHex(look.shirt, 48);
+  g.fillRect(15 + ox, y(18), 1, 6);
+  g.fillStyle = shirtLo;
+  g.fillRect((threeQ ? 22 : 23) + ox, y(17), 3, 8);
+  g.fillStyle = look.accent;
+  g.fillRect(13 + ox, y(16), bodyW, 2);
+  g.fillStyle = shirtLo;
+  g.fillRect(13 + ox, y(25), bodyW, 1);
+  g.fillStyle = shadeHex(look.shirt, 36);
+  g.fillRect(17 + ox, y(21), 4, 1);
+
+  if (look.chain) {
+    g.fillStyle = look.chain === true ? "#f0c430" : look.chain;
+    g.fillRect(17 + ox, y(18), 6, 1);
+    g.fillRect(19 + ox, y(19), 2, 2);
+  }
+
+  const lArm = sit ? 0 : gait.lArm;
+  const rArm = sit ? 0 : gait.rArm;
+  g.fillStyle = look.skin;
+  if (!threeQ) g.fillRect(10 + lArm, y(18), 4, sit ? 5 : 7);
+  g.fillRect(26 + ox + rArm, y(18), 4, sit ? 5 : 7);
+  g.fillStyle = look.shirt;
+  if (!threeQ) g.fillRect(10 + lArm, y(17), 4, 3);
+  g.fillRect(26 + ox + rArm, y(17), 4, 3);
+  g.fillStyle = skinLo;
+  if (!threeQ) g.fillRect(10 + lArm, y(23), 4, 1);
+  g.fillRect(26 + ox + rArm, y(23), 4, 1);
 
   g.fillStyle = look.skin;
-  g.fillRect(14, y(8), 12, 9);
+  g.fillRect(14 + ox, y(8), threeQ ? 10 : 12, 9);
   g.fillStyle = skinHi;
-  g.fillRect(15, y(9), 4, 6);
+  g.fillRect(15 + ox, y(9), 4, 6);
   g.fillStyle = skinLo;
-  g.fillRect(22, y(10), 3, 6);
+  g.fillRect((threeQ ? 21 : 22) + ox, y(10), 3, 6);
   g.fillStyle = "#f4e6d4";
-  g.fillRect(16, y(11), 2, 2);
-  g.fillRect(21, y(11), 2, 2);
+  g.fillRect(16 + ox, y(11), 2, 2);
+  if (!threeQ) g.fillRect(21, y(11), 2, 2);
   g.fillStyle = "#1a1210";
-  g.fillRect(17, y(11), 1, 2);
-  g.fillRect(22, y(11), 1, 2);
+  g.fillRect(17 + ox, y(11), 1, 2);
+  if (!threeQ) g.fillRect(22, y(11), 1, 2);
   g.fillStyle = skinLo;
-  g.fillRect(18, y(15), 4, 1);
+  g.fillRect(18 + ox, y(15), threeQ ? 3 : 4, 1);
+  g.fillStyle = skinHi;
+  g.fillRect(16 + ox, y(13), 2, 1);
 
-  if (look.hat === "beanie") {
+  const hatKind = look.hat || "none";
+  if (hatKind === "beanie") {
     g.fillStyle = outline;
-    g.fillRect(14, y(3), 12, 6);
+    g.fillRect(14 + ox, y(3), threeQ ? 10 : 12, 6);
     g.fillStyle = look.accent;
-    g.fillRect(15, y(3), 10, 5);
+    g.fillRect(15 + ox, y(3), threeQ ? 8 : 10, 5);
     g.fillStyle = shadeHex(look.accent, 28);
-    g.fillRect(16, y(3), 8, 2);
-    g.fillStyle = look.hair;
-    g.fillRect(15, y(7), 2, 2);
-    g.fillRect(23, y(7), 2, 2);
-  } else if (look.hat === "cap") {
-    g.fillStyle = outline;
-    g.fillRect(14, y(3), 12, 5);
-    g.fillStyle = "#2a4a8a";
-    g.fillRect(15, y(3), 10, 4);
-    g.fillStyle = shadeHex("#2a4a8a", 36);
-    g.fillRect(16, y(3), 6, 2);
-    g.fillStyle = "#1a2a58";
-    g.fillRect(24, y(6), 5, 2);
-    g.fillStyle = look.hair;
-    g.fillRect(15, y(7), 2, 3);
-  } else if (look.hat === "durag") {
-    g.fillStyle = outline;
-    g.fillRect(13, y(3), 14, 6);
-    g.fillStyle = "#2a1a28";
-    g.fillRect(14, y(3), 12, 5);
+    g.fillRect(16 + ox, y(3), threeQ ? 6 : 8, 2);
     g.fillStyle = look.accent;
-    g.fillRect(16, y(4), 8, 2);
+    g.fillRect(16 + ox, y(2), threeQ ? 6 : 8, 2);
+    g.fillStyle = look.hair;
+    g.fillRect(15 + ox, y(7), 2, 2);
+    g.fillRect(23 + ox, y(7), 2, 2);
+  } else if (hatKind === "cap") {
+    g.fillStyle = outline;
+    g.fillRect(14 + ox, y(3), 12, 5);
+    g.fillStyle = "#2a4a8a";
+    g.fillRect(15 + ox, y(3), 10, 4);
+    g.fillStyle = shadeHex("#2a4a8a", 36);
+    g.fillRect(16 + ox, y(3), 6, 2);
+    g.fillStyle = "#1a2a58";
+    g.fillRect(24 + ox, y(6), 5, 2);
+    g.fillStyle = look.hair;
+    g.fillRect(15 + ox, y(7), 2, 3);
+  } else if (hatKind === "durag") {
+    g.fillStyle = outline;
+    g.fillRect(13 + ox, y(3), 14, 6);
+    g.fillStyle = "#2a1a28";
+    g.fillRect(14 + ox, y(3), 12, 5);
+    g.fillStyle = look.accent;
+    g.fillRect(16 + ox, y(4), 8, 2);
     g.fillStyle = "#1a1018";
-    g.fillRect(24, y(7), 4, 2);
-  } else if (look.hat === "afro") {
+    g.fillRect(24 + ox, y(7), 4, 2);
+  } else if (hatKind === "afro") {
     g.fillStyle = look.hair;
-    g.fillRect(12, y(2), 16, 8);
+    g.fillRect(12 + ox, y(2), 16, 8);
     g.fillStyle = hairLo;
-    g.fillRect(12, y(3), 3, 6);
-    g.fillRect(25, y(3), 3, 6);
+    g.fillRect(12 + ox, y(3), 3, 6);
+    g.fillRect(25 + ox, y(3), 3, 6);
     g.fillStyle = shadeHex(look.hair, 22);
-    g.fillRect(18, y(3), 4, 2);
+    g.fillRect(18 + ox, y(3), 4, 2);
   } else {
+    g.fillStyle = outline;
+    g.fillRect(14 + ox, y(3), 12, 6);
     g.fillStyle = look.hair;
-    g.fillRect(16, y(6), 8, 3);
-    g.fillRect(15, y(7), 10, 2);
+    g.fillRect(15 + ox, y(3), 10, 5);
+    g.fillStyle = shadeHex(look.hair, 28);
+    g.fillRect(16 + ox, y(4), 4, 2);
     g.fillStyle = hairLo;
-    g.fillRect(14, y(8), 2, 2);
-    g.fillRect(24, y(8), 2, 2);
-    g.fillStyle = shadeHex(look.hair, 24);
-    g.fillRect(17, y(6), 3, 1);
+    g.fillRect(15 + ox, y(6), 2, 2);
+    g.fillRect(23 + ox, y(6), 2, 2);
   }
 }
 
@@ -299,9 +376,11 @@ export function paintPersonLook(look, pose) {
 export function paintPlayerSet(look) {
   return {
     idle: IDLE_POSES.map((p) => paintPersonLook(look, p)),
-    walk: PED_WALK_POSES.map((p) => paintPersonLook(look, p)),
+    walk: WALK_CYCLE_POSES.map((p) => paintPersonLook(look, p)),
     jump: JUMP_POSES.map((p) => paintPersonLook(look, p)),
     shoot: SHOOT_POSES.map((p) => paintPersonLook(look, p)),
+    turn: TURN_POSES.map((p) => paintPersonLook(look, p)),
+    sit: SIT_POSES.map((p) => paintPersonLook(look, p)),
   };
 }
 
@@ -565,99 +644,38 @@ export function plantStride(src, pose = {}) {
   });
 }
 
-export function paintClassicHero(g, pose = {}, wardrobe = {}) {
-  g.clearRect(0, 0, 40, 40);
-  const bob = pose.bob || 0;
-  const step = pose.step || 0;
-  const hatOn = (wardrobe.hat ?? "beanie") !== "none";
+export function classicHeroLook(wardrobe = {}) {
   const c = CLASSIC_HERO;
-  const y = (n) => n + bob;
-  const lLeg = Math.round(step);
-  const rLeg = -Math.round(step);
-  const lArm = -Math.round(step * 0.6);
-  const rArm = Math.round(step * 0.6);
+  const hatOn = (wardrobe.hat ?? "beanie") !== "none";
+  return {
+    skin: c.skin,
+    skinLo: c.skinLo,
+    shirt: c.hoodie,
+    hoodieHi: c.hoodieHi,
+    pants: c.jeans,
+    jeansLo: c.jeansLo,
+    hair: c.hair,
+    accent: c.hat,
+    hat: hatOn ? "beanie" : "none",
+    shoes: c.shoe,
+    shoeRed: c.shoeRed,
+    chain: c.chain,
+  };
+}
 
-  const threeQ = !!pose.threeQ;
-  const ox = threeQ ? 2 : 0;
-  g.fillStyle = c.outline;
-  g.fillRect(13 + ox, y(3), threeQ ? 12 : 14, 34);
-
-  const lLift = step >= 0 ? 0 : Math.min(4, Math.abs(lLeg) + 1);
-  const rLift = step <= 0 ? 0 : Math.min(4, Math.abs(rLeg) + 1);
-
-  g.fillStyle = c.jeansLo;
-  g.fillRect(15 + ox + lLeg, y(26) - lLift, 5, 10 + lLift);
-  g.fillStyle = c.jeans;
-  g.fillRect(20 + ox + rLeg, y(26) - rLift, 5, 10 + rLift);
-  g.fillStyle = c.jeans;
-  g.fillRect(16 + ox, y(25), 8, 4);
-
-  g.fillStyle = c.shoe;
-  g.fillRect(14 + ox + lLeg, 36 - lLift, 6, 4);
-  g.fillRect(20 + ox + rLeg, 36 - rLift, 6, 4);
-  g.fillStyle = c.shoeRed;
-  g.fillRect(14 + ox + lLeg, 37 - lLift, 2, 2);
-  g.fillRect(20 + ox + rLeg, 37 - rLift, 2, 2);
-  g.fillStyle = "#f4f0e8";
-  g.fillRect(18 + ox + lLeg, 36 - lLift, 2, 1);
-  g.fillRect(24 + ox + rLeg, 36 - rLift, 2, 1);
-
-  g.fillStyle = c.hoodie;
-  g.fillRect(13 + ox, y(16), threeQ ? 12 : 14, 11);
-  g.fillStyle = c.hoodieHi;
-  g.fillRect(15 + ox, y(17), threeQ ? 4 : 5, 8);
-  g.fillStyle = c.chain;
-  g.fillRect(17 + ox, y(18), 6, 1);
-  g.fillRect(19 + ox, y(19), 2, 2);
-
-  g.fillStyle = c.skin;
-  if (!threeQ) g.fillRect(10 + lArm, y(18), 4, 7);
-  g.fillRect(26 + ox + rArm, y(18), 4, 7);
-  g.fillStyle = c.hoodie;
-  if (!threeQ) g.fillRect(10 + lArm, y(17), 4, 3);
-  g.fillRect(26 + ox + rArm, y(17), 4, 3);
-
-  g.fillStyle = c.skin;
-  g.fillRect(14 + ox, y(8), threeQ ? 10 : 12, 9);
-  g.fillStyle = c.skinLo;
-  g.fillRect((threeQ ? 21 : 22) + ox, y(10), 3, 6);
-  g.fillStyle = "#f4e6d4";
-  g.fillRect(16 + ox, y(11), 2, 2);
-  if (!threeQ) g.fillRect(21, y(11), 2, 2);
-  g.fillStyle = "#1a1210";
-  g.fillRect(17 + ox, y(11), 1, 2);
-  if (!threeQ) g.fillRect(22, y(11), 1, 2);
-  g.fillStyle = c.skinLo;
-  g.fillRect(18 + ox, y(15), threeQ ? 3 : 4, 1);
-
-  if (hatOn) {
-    g.fillStyle = c.hatLo;
-    g.fillRect(14 + ox, y(3), threeQ ? 10 : 12, 6);
-    g.fillStyle = c.hat;
-    g.fillRect(15 + ox, y(3), threeQ ? 8 : 10, 5);
-    g.fillRect(16 + ox, y(2), threeQ ? 6 : 8, 2);
-  } else {
-    g.fillStyle = c.outline;
-    g.fillRect(14 + ox, y(3), 12, 6);
-    g.fillStyle = "#3a2218";
-    g.fillRect(15 + ox, y(3), 10, 5);
-    g.fillStyle = "#5c3a28";
-    g.fillRect(16 + ox, y(4), 8, 4);
-    g.fillStyle = "#7a5840";
-    g.fillRect(17 + ox, y(4), 3, 1);
-    g.fillStyle = "#3a2218";
-    g.fillRect(15 + ox, y(7), 2, 2);
-    g.fillRect(23 + ox, y(7), 2, 2);
-  }
+export function paintClassicHero(g, pose = {}, wardrobe = {}) {
+  paintPerson(g, classicHeroLook(wardrobe), pose);
 }
 
 export function paintClassicHeroSet(wardrobe = { hat: "beanie" }) {
+  const look = classicHeroLook(wardrobe);
   return {
-    idle: IDLE_POSES.map((p) => pixelCanvas(40, 40, (g) => paintClassicHero(g, p, wardrobe))),
-    walk: PED_WALK_POSES.map((p) => pixelCanvas(40, 40, (g) => paintClassicHero(g, p, wardrobe))),
-    jump: JUMP_POSES.map((p) => pixelCanvas(40, 40, (g) => paintClassicHero(g, p, wardrobe))),
-    shoot: SHOOT_POSES.map((p) => pixelCanvas(40, 40, (g) => paintClassicHero(g, p, wardrobe))),
-    turn: TURN_POSES.map((p) => pixelCanvas(40, 40, (g) => paintClassicHero(g, p, wardrobe))),
+    idle: IDLE_POSES.map((p) => paintPersonLook(look, p)),
+    walk: WALK_CYCLE_POSES.map((p) => paintPersonLook(look, p)),
+    jump: JUMP_POSES.map((p) => paintPersonLook(look, p)),
+    shoot: SHOOT_POSES.map((p) => paintPersonLook(look, p)),
+    turn: TURN_POSES.map((p) => paintPersonLook(look, p)),
+    sit: SIT_POSES.map((p) => paintPersonLook(look, p)),
   };
 }
 
