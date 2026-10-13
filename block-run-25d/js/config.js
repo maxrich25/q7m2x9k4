@@ -69,7 +69,7 @@ export const SAVE_KEY = "block-run-save";
 export const SHOP_X = 175;
 export const DUMPSTER_X = 493;
 export const CAR_X = 220;
-export const BUYER_COUNT = 8;
+export const BUYER_COUNT = 12;
 export const COP_CAR_HP = 3;
 
 /** 3D street length in meters. Game x maps onto this wrapping strip. */

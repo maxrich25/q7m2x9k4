@@ -543,11 +543,16 @@ html, body {
 }
 #pad-car {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 64px;
+  grid-template-columns: 56px 1fr 1fr 64px;
+  grid-template-areas: "uturn brake gas shifter";
   gap: 8px;
   width: 100%;
   min-height: 156px;
 }
+#pad-car .pad-uturn { grid-area: uturn; }
+#pad-car .pad-brake { grid-area: brake; }
+#pad-car .pad-gas { grid-area: gas; }
+#pad-car #shifter { grid-area: shifter; }
 .pad-pedal {
   min-height: 0;
   font-size: 10px;
@@ -783,6 +788,42 @@ html, body {
   white-space: pre;
 }
 .crib-meta span { white-space: pre; }
+.outfit-card { align-items: center; }
+#outfit-hero {
+  width: 160px;
+  height: 160px;
+  image-rendering: pixelated;
+  background: #121018;
+  border: 2px solid #3a3644;
+  margin: 8px auto 12px;
+  display: block;
+}
+.outfit-slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 12px;
+}
+.outfit-slot {
+  font-family: var(--font);
+  font-size: 8px;
+  min-height: 44px;
+  color: #07060c;
+  background: var(--gold);
+  border: 2px solid var(--gold);
+}
+.outfit-slot.soon {
+  opacity: 0.38;
+  color: var(--muted);
+  background: #121018;
+  border-color: #3a3644;
+}
+.outfit-slot.off {
+  background: #121018;
+  color: var(--cream);
+  border-color: #3a3644;
+}
 .contact {
   display: flex;
   align-items: center;
@@ -1014,7 +1055,8 @@ html, body {
   min-height: 0;
 }
 #pad-car {
-  grid-template-columns: 1fr 1fr 1fr 56px;
+  grid-template-columns: 56px 1fr 1fr 56px;
+  grid-template-areas: "uturn brake gas shifter";
   min-height: 0;
   height: 100%;
 }
@@ -1049,11 +1091,12 @@ html, body {
   border: 2px solid rgba(58, 54, 68, 0.7);
   border-radius: 10px;
   min-height: 32px;
-  min-width: 64px;
+  min-width: 52px;
   padding: 6px 8px;
   pointer-events: auto;
   opacity: 0.48;
 }
+#btn-exit.hidden { display: none; }
 #btn-phone.unread {
   color: var(--gold);
   border-color: var(--gold);
@@ -1109,6 +1152,7 @@ html, body {
 }
 .gb-b { color: var(--cyan); }
 .gb-b.held { background: var(--cyan); color: #07060c; }
+.gb-b.hidden { display: none; }
 #gb-dpad {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1130,7 +1174,8 @@ html, body {
   #gb-face { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
   #gb-btns { grid-column: 1; grid-row: 2; width: 100%; flex-direction: row; justify-content: flex-end; }
   #gb-ab { margin-left: auto; width: 120px; }
-  #pad-car { grid-template-columns: 1fr 1fr; }
+  #pad-car { grid-template-columns: 1fr 1fr 1fr 56px; grid-template-areas: "uturn brake gas shifter"; }
+  #pad.gb.driving #gb-btns { display: none; }
   #gb-sys {
     top: auto;
     bottom: calc(12px + var(--sab));
@@ -1221,15 +1266,15 @@ html, body {
     right: calc(8px + var(--sar));
     width: auto;
     height: 148px;
-    grid-template-columns: 52px 50px 1fr 56px 78px;
-    grid-template-areas: "uturn shifter gap brake gas";
+    grid-template-columns: 58px 1fr 1fr 72px;
+    grid-template-areas: "uturn brake gas shifter";
     pointer-events: auto;
     background: transparent;
     gap: 8px;
   }
   #pad.gb.sa.driving .pad-uturn { grid-area: uturn; }
-  #pad.gb.sa.driving #shifter { grid-area: shifter; }
   #pad.gb.sa.driving .pad-brake { grid-area: brake; }
+  #pad.gb.sa.driving #shifter { grid-area: shifter; }
   #pad.gb.sa.driving .pad-gas {
     grid-area: gas;
     min-height: 148px;
@@ -1243,11 +1288,7 @@ html, body {
     background: rgba(18, 16, 24, 0.42);
   }
   #pad.gb.sa.driving #gb-btns {
-    left: calc(8px + var(--sal) + 52px + 8px + 50px + 8px);
-    right: auto;
-    bottom: calc(12px + var(--sab));
-    width: 100px;
-    height: 148px;
+    display: none;
   }
   #gb-sys {
     bottom: calc(172px + var(--sab));
