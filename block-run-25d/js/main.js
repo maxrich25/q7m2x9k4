@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=62";
-import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=62";
-import { createInput } from "./input.js?v=62";
-import { createGame } from "./game.js?v=62";
-import { loadSprites } from "./sprites.js?v=62";
-import { createWorld } from "./world.js?v=62";
-import { createHud } from "./hud.js?v=62";
+import { TICK } from "./config.js?v=63";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=63";
+import { createInput } from "./input.js?v=63";
+import { createGame } from "./game.js?v=63";
+import { loadSprites } from "./sprites.js?v=63";
+import { createWorld } from "./world.js?v=63";
+import { createHud } from "./hud.js?v=63";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -76,7 +76,7 @@ const PULSE_KEYS = [
   "stashInCash", "stashOutCash", "stashInGreen", "stashOutGreen",
   "stashInWhite", "stashOutWhite",
   "cribClose", "cribClothes", "cribSleep", "cribWait", "cribSave", "cribStash",
-  "pickClose", "pickId", "zoom",
+  "pickClose", "pickId", "zoom", "zoomNudge",
 ];
 
 function frame(now) {
@@ -90,7 +90,7 @@ function frame(now) {
   let state = null;
   while (acc >= TICK) {
     const step = first ? inp : Object.fromEntries(Object.entries(inp).map(([k, v]) => {
-      if (PULSE_KEYS.includes(k)) return [k, k === "gearTap" || k === "shiftStep" ? (k === "gearTap" ? null : 0) : false];
+      if (PULSE_KEYS.includes(k)) return [k, k === "gearTap" ? null : (k === "shiftStep" || k === "zoomNudge" ? 0 : false)];
       return [k, v];
     }));
     state = game.tick(TICK, step, view);
@@ -148,6 +148,8 @@ window.__br = {
   openCrib: () => game.openCrib(),
   cycleOutfit: () => game.cycleOutfit(),
   cycleZoom: () => game.cycleZoom?.(),
+  nudgeZoom: (d) => game.nudgeZoom?.(d),
+  setLookFace: (v) => world?.setLookFace?.(v),
   sleepCrib: () => game.sleepCrib(),
   waitCrib: () => game.waitCrib(),
   saveCrib: () => game.saveCrib(),
