@@ -311,23 +311,27 @@ export function classicWithoutHat(src) {
     let brimY = -1;
     let hatMinX = w;
     let hatMaxX = 0;
-    let hatMinY = h;
+    let beanieTop = h;
     const scanMax = Math.max(8, Math.floor(h * 0.42));
     for (let y = 0; y < scanMax; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
         if (d[i + 3] < 16) continue;
-        if (!isHatPixel(d[i], d[i + 1], d[i + 2])) continue;
+        const r = d[i];
+        const gv = d[i + 1];
+        const b = d[i + 2];
+        if (!isHatPixel(r, gv, b)) continue;
         if (y > brimY) brimY = y;
-        if (y < hatMinY) hatMinY = y;
         if (x < hatMinX) hatMinX = x;
         if (x > hatMaxX) hatMaxX = x;
+        const beanie = r > gv * 1.45 && gv < 110;
+        if (beanie && y < beanieTop) beanieTop = y;
       }
     }
     if (brimY < 2 || hatMaxX <= hatMinX) return;
     const mid = (hatMinX + hatMaxX) * 0.5;
     const hw = Math.max(2.2, (hatMaxX - hatMinX) * 0.5);
-    const hairTop = Math.max(0, brimY - 4);
+    const hairTop = beanieTop < h ? beanieTop : Math.max(0, brimY - 5);
     for (let y = 0; y <= brimY; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
@@ -337,7 +341,7 @@ export function classicWithoutHat(src) {
         const a = d[i + 3];
         const hat = a >= 16 && isHatPixel(r, gv, b);
         const nx = (x - mid) / (hw + 0.35);
-        const cap = nx * nx + ((brimY - y) / 5.2) ** 2 <= 1.05 && y >= hairTop;
+        const cap = nx * nx + ((brimY - y) / Math.max(3.2, brimY - hairTop + 0.8)) ** 2 <= 1.08 && y >= hairTop;
         if (hat && y < hairTop) {
           d[i] = 0;
           d[i + 1] = 0;
@@ -367,8 +371,8 @@ export function threeQuarter(src, pose = {}) {
   const bob = pose.bob || 0;
   return pixelCanvas(w, h, (g) => {
     g.clearRect(0, 0, w, h);
-    const nw = Math.max(8, Math.round(w * 0.88));
-    const ox = Math.round((w - nw) * 0.42);
+    const nw = Math.max(8, Math.round(w * 0.82));
+    const ox = Math.round((w - nw) * 0.55);
     g.imageSmoothingEnabled = false;
     g.drawImage(src, 0, 0, w, h, ox, bob, nw, h);
     const img = g.getImageData(0, 0, w, h);
