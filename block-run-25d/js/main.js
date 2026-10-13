@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=64";
-import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=64";
-import { createInput } from "./input.js?v=64";
-import { createGame } from "./game.js?v=64";
-import { loadSprites } from "./sprites.js?v=64";
-import { createWorld } from "./world.js?v=64";
-import { createHud } from "./hud.js?v=64";
+import { TICK } from "./config.js?v=65";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=65";
+import { createInput } from "./input.js?v=65";
+import { createGame } from "./game.js?v=65";
+import { loadSprites } from "./sprites.js?v=65";
+import { createWorld } from "./world.js?v=65";
+import { createHud } from "./hud.js?v=65";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -155,6 +155,9 @@ window.__br = {
   cycleOutfit: () => game.cycleOutfit(),
   cycleZoom: () => game.cycleZoom?.(),
   nudgeZoom: (d) => game.nudgeZoom?.(d),
+  analogZoom: (n) => game.analogZoom?.(n),
+  setZoom: (z) => game.setZoom?.(z),
+  setBoardT: (t) => game.setBoardT?.(t),
   setLookFace: (v) => world?.setLookFace?.(v),
   sleepCrib: () => game.sleepCrib(),
   waitCrib: () => game.waitCrib(),

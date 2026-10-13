@@ -82,14 +82,14 @@ export const PED_WALK_POSES = [
   { step: -2, bob: 1 },
   { step: 0, bob: 0 },
 ];
-/** PNG stride: clear swing, planted heel, opposite arm, not bow-legged. */
+/** PNG stride: one foot forward, one back, planted heel, opposite arm. */
 export const STRIDE_POSES = [
-  { leftDx: 2, leftDy: 0, rightDx: -1, rightDy: -6, bob: 0, arm: 4 },
-  { leftDx: 1, leftDy: 0, rightDx: 0, rightDy: -3, bob: 1, arm: 2 },
-  { leftDx: 0, leftDy: -2, rightDx: 0, rightDy: 0, bob: 0, arm: 0 },
-  { leftDx: -1, leftDy: -6, rightDx: 2, rightDy: 0, bob: 0, arm: -4 },
-  { leftDx: 0, leftDy: -3, rightDx: 1, rightDy: 0, bob: 1, arm: -2 },
-  { leftDx: 0, leftDy: 0, rightDx: 0, rightDy: -2, bob: 0, arm: 0 },
+  { leftDx: 6, leftDy: 0, rightDx: -5, rightDy: -2, bob: 0, arm: 4 },
+  { leftDx: 4, leftDy: 0, rightDx: -3, rightDy: -1, bob: 1, arm: 2 },
+  { leftDx: 0, leftDy: 0, rightDx: 0, rightDy: 0, bob: 0, arm: 0 },
+  { leftDx: -5, leftDy: -2, rightDx: 6, rightDy: 0, bob: 0, arm: -4 },
+  { leftDx: -3, leftDy: -1, rightDx: 4, rightDy: 0, bob: 1, arm: -2 },
+  { leftDx: 0, leftDy: 0, rightDx: 0, rightDy: 0, bob: 0, arm: 0 },
 ];
 export const TURN_POSES = [
   { threeQ: true, bob: 0 },
@@ -333,15 +333,23 @@ function isHatPixel(r, gv, b) {
   return beanie || spike;
 }
 
-function hairTone(nx, edge) {
-  if (edge) return [0x24, 0x14, 0x10];
-  if (nx * nx > 0.45) return [0x2a, 0x18, 0x10];
-  return [0x3a, 0x22, 0x18];
+function isSkinPixel(r, gv, b, a) {
+  if (a < 16) return false;
+  return gv > 78 && b > 36 && (r - gv) < 90 && r > 130;
+}
+
+function hairTone(nx, ny, edge) {
+  if (edge) return [0x14, 0x00, 0x10];
+  if (ny > 0.72 || nx * nx > 0.62) return [0x3a, 0x22, 0x18];
+  if (nx < -0.12 && ny < 0.45) return [0x7a, 0x58, 0x40];
+  return [0x5c, 0x3a, 0x28];
 }
 
 /**
- * Hat-off: never touch a pixel below the beanie brim.
- * Short modern cut (low fade / short waves), not a filled beanie silhouette.
+ * Hat-off: copy the hat-on sprite, keep every pixel below the brim,
+ * paint an opaque dark-brown short crop over the whole scalp (hat
+ * pixels and holes), and ring it with a hard outline. Never a 3px
+ * band and never a filled beanie blob.
  */
 export function classicWithoutHat(src) {
   const w = src.width || src.naturalWidth || 40;
@@ -350,27 +358,52 @@ export function classicWithoutHat(src) {
     g.drawImage(src, 0, 0, w, h);
     const img = g.getImageData(0, 0, w, h);
     const d = img.data;
+    const scanMax = Math.max(8, Math.floor(h * 0.28));
     let brimY = -1;
-    let hatMinX = w;
-    let hatMaxX = 0;
-    const scanMax = Math.max(8, Math.floor(h * 0.42));
+    const rowMin = [];
+    const rowMax = [];
+    let hatBlock = false;
     for (let y = 0; y < scanMax; y++) {
+      let minX = w;
+      let maxX = -1;
+      let n = 0;
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
         if (d[i + 3] < 16) continue;
-        const r = d[i];
-        const gv = d[i + 1];
-        const b = d[i + 2];
-        if (!isHatPixel(r, gv, b)) continue;
-        if (y > brimY) brimY = y;
-        if (x < hatMinX) hatMinX = x;
-        if (x > hatMaxX) hatMaxX = x;
+        if (isSkinPixel(d[i], d[i + 1], d[i + 2], d[i + 3])) continue;
+        if (!isHatPixel(d[i], d[i + 1], d[i + 2])) continue;
+        n += 1;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+      }
+      rowMin[y] = minX;
+      rowMax[y] = maxX;
+      if (n >= 5) {
+        hatBlock = true;
+        brimY = y;
+      } else if (hatBlock) {
+        break;
       }
     }
-    if (brimY < 2 || hatMaxX <= hatMinX) return;
+    if (brimY < 3) return;
+    let hatMinX = w;
+    let hatMaxX = 0;
+    for (let y = Math.max(0, brimY - 2); y <= brimY; y++) {
+      if (rowMax[y] >= 0) {
+        if (rowMin[y] < hatMinX) hatMinX = rowMin[y];
+        if (rowMax[y] > hatMaxX) hatMaxX = rowMax[y];
+      }
+    }
+    if (hatMaxX <= hatMinX) return;
     const mid = (hatMinX + hatMaxX) * 0.5;
-    const hw = Math.max(2.0, (hatMaxX - hatMinX) * 0.38);
-    const hairTop = Math.max(0, brimY - 3);
+    const hw = Math.max(4.2, (hatMaxX - hatMinX) * 0.52);
+    const hairH = 6.2;
+    const hairTop = Math.max(0, brimY - hairH + 1);
+    function inScalp(x, y) {
+      const nx = (x - mid) / (hw + 0.15);
+      const ny = (brimY + 0.35 - y) / hairH;
+      return nx * nx + ny * ny * 0.92 <= 1.08 && y >= hairTop - 0.2 && y <= brimY;
+    }
     for (let y = 0; y <= brimY; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
@@ -378,71 +411,112 @@ export function classicWithoutHat(src) {
         const gv = d[i + 1];
         const b = d[i + 2];
         const a = d[i + 3];
-        const hat = a >= 16 && isHatPixel(r, gv, b);
-        const nx = (x - mid) / (hw + 0.35);
-        const ny = (brimY - y) / 3.15;
-        const inCut = y >= hairTop && nx * nx + ny * ny <= 1.04 && Math.abs(nx) < 1.08;
-        if (y < hairTop) {
-          if (hat) {
-            d[i] = 0;
-            d[i + 1] = 0;
-            d[i + 2] = 0;
-            d[i + 3] = 0;
+        const skin = isSkinPixel(r, gv, b, a);
+        const hat = a >= 16 && !skin && isHatPixel(r, gv, b);
+        if (inScalp(x, y)) {
+          if (skin && y === brimY) continue;
+          if (skin && y > brimY - 1) continue;
+          const nx = (x - mid) / (hw + 0.15);
+          const ny = (brimY - y) / hairH;
+          const edge = Math.abs(nx) > 0.78 || ny > 0.88 || y === hairTop;
+          const [hr, hg, hb] = hairTone(nx, ny, false);
+          d[i] = hr;
+          d[i + 1] = hg;
+          d[i + 2] = hb;
+          d[i + 3] = 255;
+          if (edge) {
+            d[i] = 0x3a;
+            d[i + 1] = 0x22;
+            d[i + 2] = 0x18;
           }
-          continue;
+        } else if (hat) {
+          d[i] = 0;
+          d[i + 1] = 0;
+          d[i + 2] = 0;
+          d[i + 3] = 0;
         }
-        if (!inCut) {
-          if (hat) {
-            d[i] = 0;
-            d[i + 1] = 0;
-            d[i + 2] = 0;
-            d[i + 3] = 0;
-          }
-          continue;
-        }
-        if (!hat && a >= 16) continue;
-        const fade = Math.abs(nx) > 0.62 || y === brimY;
-        const [hr, hg, hb] = hairTone(nx, fade);
-        d[i] = hr;
-        d[i + 1] = hg;
-        d[i + 2] = hb;
+      }
+    }
+    for (let y = brimY + 1; y <= Math.min(h - 1, brimY + 2); y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (d[i + 3] < 16) continue;
+        if (isSkinPixel(d[i], d[i + 1], d[i + 2], d[i + 3])) continue;
+        if (!isHatPixel(d[i], d[i + 1], d[i + 2])) continue;
+        if (Math.abs(x - mid) > hw + 1.5) continue;
+        d[i] = 0x3a;
+        d[i + 1] = 0x22;
+        d[i + 2] = 0x18;
         d[i + 3] = 255;
       }
     }
+    const out = new Uint8ClampedArray(d);
+    for (let y = 0; y <= brimY; y++) {
+      for (let x = 0; x < w; x++) {
+        if (!inScalp(x, y)) continue;
+        const i = (y * w + x) * 4;
+        if (d[i + 3] < 16) continue;
+        const nbs = [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1]];
+        for (const [dx, dy] of nbs) {
+          const xx = x + dx;
+          const yy = y + dy;
+          if (xx < 0 || xx >= w || yy < 0 || yy > brimY) continue;
+          const ni = (yy * w + xx) * 4;
+          if (d[ni + 3] >= 16) continue;
+          if (yy === brimY && dy > 0) continue;
+          out[ni] = 0x14;
+          out[ni + 1] = 0x00;
+          out[ni + 2] = 0x10;
+          out[ni + 3] = 255;
+        }
+      }
+    }
+    img.data.set(out);
     g.putImageData(img, 0, 0);
-    g.fillStyle = "#5a4030";
-    g.fillRect(Math.round(mid - 1), Math.max(0, brimY - 2), 3, 1);
-    g.fillStyle = "#2a1810";
-    g.fillRect(Math.round(mid - hw + 0.4), brimY - 1, 2, 1);
-    g.fillRect(Math.round(mid + hw - 1.4), brimY - 1, 2, 1);
+    g.fillStyle = "#8a6248";
+    g.fillRect(Math.round(mid - 1.5), Math.max(0, brimY - 4), 3, 1);
   });
 }
 
-/** 3/4 turn frame: squash-free body rotation, far-side shade, near shoulder. */
+/** 3/4 view: slight squash, far-side shade, near rim, side-facing depth. */
 export function threeQuarter(src, pose = {}) {
   const w = src.width || src.naturalWidth || 40;
   const h = src.height || src.naturalHeight || 40;
   const bob = pose.bob || 0;
   return pixelCanvas(w, h, (g) => {
     g.clearRect(0, 0, w, h);
-    const nw = Math.max(8, Math.round(w * 0.82));
-    const ox = Math.round((w - nw) * 0.55);
+    const nw = Math.max(8, Math.round(w * 0.88));
+    const ox = Math.round((w - nw) * 0.42);
     g.imageSmoothingEnabled = false;
     g.drawImage(src, 0, 0, w, h, ox, bob, nw, h);
     const img = g.getImageData(0, 0, w, h);
     const d = img.data;
     const clamp = (n) => Math.max(0, Math.min(255, Math.round(n)));
+    let minX = w;
+    let maxX = 0;
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
         if (d[i + 3] < 10) continue;
-        const u = (x - ox) / Math.max(1, nw);
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+      }
+    }
+    const span = Math.max(1, maxX - minX);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (d[i + 3] < 10) continue;
+        const u = (x - minX) / span;
+        const ny = y / Math.max(1, h - 1);
         let lift = 0;
-        if (u < 0.28) lift -= 28 * (0.28 - u) / 0.28;
-        else if (u > 0.62) lift += 14 * (u - 0.62) / 0.38;
+        if (u < 0.38) lift += 42 * (0.38 - u) / 0.38;
+        else if (u > 0.55) lift -= 48 * (u - 0.55) / 0.45;
+        lift -= ny * 16;
+        if (u > 0.86) lift -= 22;
         d[i] = clamp(d[i] + lift);
-        d[i + 1] = clamp(d[i + 1] + lift * 0.92);
-        d[i + 2] = clamp(d[i + 2] + lift * 0.85);
+        d[i + 1] = clamp(d[i + 1] + lift * 0.9);
+        d[i + 2] = clamp(d[i + 2] + lift * 0.82);
       }
     }
     g.putImageData(img, 0, 0);
@@ -563,14 +637,17 @@ export function paintClassicHero(g, pose = {}, wardrobe = {}) {
     g.fillRect(15 + ox, y(3), threeQ ? 8 : 10, 5);
     g.fillRect(16 + ox, y(2), threeQ ? 6 : 8, 2);
   } else {
-    g.fillStyle = c.hair;
-    g.fillRect(16 + ox, y(6), 8, 3);
-    g.fillRect(15 + ox, y(7), 10, 2);
-    g.fillStyle = "#2a1810";
-    g.fillRect(14 + ox, y(8), 2, 2);
-    g.fillRect(24 + ox, y(8), 2, 2);
-    g.fillStyle = "#5a4030";
-    g.fillRect(17 + ox, y(6), 3, 1);
+    g.fillStyle = c.outline;
+    g.fillRect(14 + ox, y(3), 12, 6);
+    g.fillStyle = "#3a2218";
+    g.fillRect(15 + ox, y(3), 10, 5);
+    g.fillStyle = "#5c3a28";
+    g.fillRect(16 + ox, y(4), 8, 4);
+    g.fillStyle = "#7a5840";
+    g.fillRect(17 + ox, y(4), 3, 1);
+    g.fillStyle = "#3a2218";
+    g.fillRect(15 + ox, y(7), 2, 2);
+    g.fillRect(23 + ox, y(7), 2, 2);
   }
 }
 
@@ -584,7 +661,7 @@ export function paintClassicHeroSet(wardrobe = { hat: "beanie" }) {
   };
 }
 
-/** 2.5D lighting pass used by peds and the hero: left fill, right shade, ground weight. */
+/** 2.5D lighting pass used by peds: left fill, right shade, ground weight. */
 export function restyleFor25d(src) {
   if (!src) return src;
   const w = src.width || src.naturalWidth || 32;
@@ -607,6 +684,54 @@ export function restyleFor25d(src) {
         d[i] = clamp(d[i] + lift);
         d[i + 1] = clamp(d[i + 1] + lift * 0.92);
         d[i + 2] = clamp(d[i + 2] + lift * 0.85);
+      }
+    }
+    g.putImageData(img, 0, 0);
+  });
+}
+
+/** Stronger 2.5D volume for the hero: rim light, body shadow, side depth. */
+export function volumeHero(src) {
+  if (!src) return src;
+  const w = src.width || src.naturalWidth || 32;
+  const h = src.height || src.naturalHeight || 40;
+  const clamp = (n) => Math.max(0, Math.min(255, Math.round(n)));
+  return pixelCanvas(w, h, (g) => {
+    g.drawImage(src, 0, 0);
+    const img = g.getImageData(0, 0, w, h);
+    const d = img.data;
+    let minX = w;
+    let maxX = 0;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (d[(y * w + x) * 4 + 3] < 10) continue;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+      }
+    }
+    const span = Math.max(1, maxX - minX);
+    for (let y = 0; y < h; y++) {
+      let rowL = w;
+      let rowR = 0;
+      for (let x = 0; x < w; x++) {
+        if (d[(y * w + x) * 4 + 3] < 10) continue;
+        if (x < rowL) rowL = x;
+        if (x > rowR) rowR = x;
+      }
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (d[i + 3] < 10) continue;
+        const u = (x - minX) / span;
+        const ny = y / Math.max(1, h - 1);
+        let lift = 0;
+        if (u < 0.4) lift += 38 * (0.4 - u) / 0.4;
+        else if (u > 0.52) lift -= 44 * (u - 0.52) / 0.48;
+        lift -= ny * 14;
+        if (x <= rowL + 1) lift += 18;
+        if (x >= rowR - 1) lift -= 26;
+        d[i] = clamp(d[i] + lift);
+        d[i + 1] = clamp(d[i + 1] + lift * 0.9);
+        d[i + 2] = clamp(d[i + 2] + lift * 0.8);
       }
     }
     g.putImageData(img, 0, 0);

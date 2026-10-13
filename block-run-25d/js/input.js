@@ -1,4 +1,4 @@
-import { unlockAudio } from "./audio.js?v=64";
+import { unlockAudio } from "./audio.js?v=65";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyS", "KeyB", "KeyJ", "KeyK", "KeyZ", "KeyX",
@@ -20,7 +20,6 @@ const GEAR_KEYS = {
 const TAP_ROLES = {
   serve: "serve",
   gate: "gate",
-  exit: "gate",
   hitup: "hitup",
   uturn: "uturn",
   phone: "phone",
@@ -55,7 +54,6 @@ const TAP_ROLES = {
   "ping-contact": "pingContact",
   "pick-close": "pickClose",
   pick: "pick",
-  zoom: "zoom",
 };
 
 function gearFromY(clientY, root) {
@@ -205,6 +203,7 @@ export function createInput(root = document) {
       startY: e.clientY,
       curY: e.clientY,
       zoomMarkY: e.clientY,
+      zoomLastY: e.clientY,
       zoomSwiped: false,
       zoomNudge: 0,
       moved: 0,
@@ -236,15 +235,8 @@ export function createInput(root = document) {
       rec.brakeAmt = brakeAmtFromY(e.clientY, root);
     }
     if (rec.role === "zoom") {
-      const dy = e.clientY - (rec.zoomMarkY ?? rec.startY);
-      if (Math.abs(e.clientY - rec.startY) > 16) rec.zoomSwiped = true;
-      if (dy <= -28) {
-        rec.zoomNudge = -1;
-        rec.zoomMarkY = e.clientY;
-      } else if (dy >= 28) {
-        rec.zoomNudge = 1;
-        rec.zoomMarkY = e.clientY;
-      }
+      rec.curY = e.clientY;
+      if (Math.abs(e.clientY - rec.startY) > 8) rec.zoomSwiped = true;
     }
   }
 
@@ -257,7 +249,8 @@ export function createInput(root = document) {
       const btn = root.querySelector(`[data-role="${role}"]`);
       if (btn) btn.classList.remove("held");
     }
-    if (rec?.tapKey && (rec.moved || 0) < 10 && !rec.zoomSwiped) fireTap(rec);
+    if (rec?.role === "exit" || rec?.role === "zoom") return;
+    if (rec?.tapKey && (rec.moved || 0) < 10) fireTap(rec);
   }
 
   function prevent(e) {
@@ -314,6 +307,8 @@ export function createInput(root = document) {
     let shiftGear = null;
     let uturnHeld = held("KeyU");
     let zoomNudge = 0;
+    let zoomAnalog = 0;
+    let zoomHeld = false;
 
     for (const rec of pointers.values()) {
       if (rec.role === "left") moveX -= 1;
@@ -332,11 +327,15 @@ export function createInput(root = document) {
       if (rec.role === "exit" || rec.role === "gate") exitHeld = true;
       if (rec.role === "uturn") uturnHeld = true;
       if (rec.role === "shifter" && rec.gear) shiftGear = rec.gear;
-      if (rec.role === "zoom" && rec.zoomNudge) {
-        zoomNudge = rec.zoomNudge;
-        rec.zoomNudge = 0;
+      if (rec.role === "zoom") {
+        zoomHeld = true;
+        const last = rec.zoomLastY ?? rec.curY ?? rec.startY;
+        const cur = rec.curY ?? rec.startY;
+        zoomAnalog += cur - last;
+        rec.zoomLastY = cur;
       }
     }
+    if (held("BracketRight") || held("Equal")) zoomAnalog -= 2.4;
 
     if (held("Space") || held("KeyJ") || held("KeyK") || held("KeyZ")) shoot = true;
     if (held("KeyW") || held("ArrowUp")) jump = true;
@@ -459,8 +458,10 @@ export function createInput(root = document) {
       invClose: take("invClose"),
       phoneTab: take("tabTexts") ? "texts" : take("tabContacts") ? "contacts" : null,
       pickClose: take("pickClose"),
-      zoom: take("zoom"),
+      zoom: false,
       zoomNudge,
+      zoomAnalog,
+      zoomHeld,
       pickId,
       stashClose: take("stashClose"),
       cribClose: take("cribClose"),
