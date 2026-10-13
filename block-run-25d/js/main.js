@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=63";
-import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=63";
-import { createInput } from "./input.js?v=63";
-import { createGame } from "./game.js?v=63";
-import { loadSprites } from "./sprites.js?v=63";
-import { createWorld } from "./world.js?v=63";
-import { createHud } from "./hud.js?v=63";
+import { TICK } from "./config.js?v=64";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=64";
+import { createInput } from "./input.js?v=64";
+import { createGame } from "./game.js?v=64";
+import { loadSprites } from "./sprites.js?v=64";
+import { createWorld } from "./world.js?v=64";
+import { createHud } from "./hud.js?v=64";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -76,6 +76,7 @@ const PULSE_KEYS = [
   "stashInCash", "stashOutCash", "stashInGreen", "stashOutGreen",
   "stashInWhite", "stashOutWhite",
   "cribClose", "cribClothes", "cribSleep", "cribWait", "cribSave", "cribStash",
+  "outfitClose", "outfitHat",
   "pickClose", "pickId", "zoom", "zoomNudge",
 ];
 
@@ -146,6 +147,11 @@ window.__br = {
   openBuy: () => game.openBuy(),
   openStash: () => game.openStash(),
   openCrib: () => game.openCrib(),
+  enterCrib: () => game.enterCrib?.(),
+  leaveCrib: () => game.leaveCrib?.(),
+  openOutfit: () => game.openOutfit?.(),
+  setInCrib: (on) => game.setInCrib?.(on),
+  setCribX: (x) => game.setCribX?.(x),
   cycleOutfit: () => game.cycleOutfit(),
   cycleZoom: () => game.cycleZoom?.(),
   nudgeZoom: (d) => game.nudgeZoom?.(d),

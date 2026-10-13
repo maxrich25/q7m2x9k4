@@ -1,5 +1,6 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=63";
-import { isUnlocked } from "./audio.js?v=63";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=64";
+import { paintClassicHero } from "./paint.js?v=64";
+import { isUnlocked } from "./audio.js?v=64";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -56,6 +57,10 @@ export function createHud(opts = {}) {
   const sheetBuy = document.getElementById("sheet-buy");
   const sheetStash = document.getElementById("sheet-stash");
   const sheetCrib = document.getElementById("sheet-crib");
+  const sheetOutfit = document.getElementById("sheet-outfit");
+  const outfitHero = document.getElementById("outfit-hero");
+  const outfitHatBtn = document.getElementById("outfit-hat");
+  const btnExit = document.getElementById("btn-exit");
   const cribClock = document.getElementById("crib-clock");
   const cribTime = document.getElementById("crib-time");
   const cribRep = document.getElementById("crib-rep");
@@ -209,11 +214,27 @@ export function createHud(opts = {}) {
     if (cribTime) cribTime.textContent = clock;
     if (cribRep) cribRep.textContent = repLine;
     else if (cribClock) cribClock.textContent = clock + "   " + repLine;
-    if (cribFit) {
-      cribFit.textContent = state.wardrobe?.hat === "none" ? "HAT OFF" : "HAT ON";
+  }
+
+  function renderOutfit(state) {
+    const hatOn = state.wardrobe?.hat !== "none";
+    if (outfitHatBtn) {
+      outfitHatBtn.textContent = hatOn ? "HAT ON" : "HAT OFF";
+      outfitHatBtn.classList.toggle("off", !hatOn);
     }
-    const hatBtn = document.getElementById("crib-hat");
-    if (hatBtn) hatBtn.textContent = state.wardrobe?.hat === "none" ? "PUT HAT ON" : "TAKE HAT OFF";
+    if (!outfitHero) return;
+    const g = outfitHero.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    g.fillStyle = "#121018";
+    g.fillRect(0, 0, outfitHero.width, outfitHero.height);
+    const src = document.createElement("canvas");
+    src.width = 40;
+    src.height = 40;
+    paintClassicHero(src.getContext("2d"), { bob: 0 }, state.wardrobe || {});
+    const scale = 4;
+    const dx = Math.round((outfitHero.width - 40 * scale) / 2);
+    const dy = Math.round((outfitHero.height - 40 * scale) / 2);
+    g.drawImage(src, 0, 0, 40, 40, dx, dy, 40 * scale, 40 * scale);
   }
 
   let popNodes = [];
@@ -294,14 +315,14 @@ export function createHud(opts = {}) {
     }
     edgeL?.classList.toggle("hidden", !state.edgeL);
     edgeR?.classList.toggle("hidden", !state.edgeR);
-    destL?.classList.toggle("hidden", state.destSide !== -1);
-    destR?.classList.toggle("hidden", state.destSide !== 1);
+    destL?.classList.toggle("hidden", !!(state.inCrib) || state.destSide !== -1);
+    destR?.classList.toggle("hidden", !!(state.inCrib) || state.destSide !== 1);
     const edge = `${state.navLabel || "HOME"} ${state.dealLabel || ""}`.trim();
     if (destL) destL.textContent = "◀ " + edge;
     if (destR) destR.textContent = edge + " ▶";
     const onFoot = !state.inCar && state.mode === "play";
-    carL?.classList.toggle("hidden", !(onFoot && state.carSide === -1));
-    carR?.classList.toggle("hidden", !(onFoot && state.carSide === 1));
+    carL?.classList.toggle("hidden", !!(state.inCrib) || !(onFoot && state.carSide === -1));
+    carR?.classList.toggle("hidden", !!(state.inCrib) || !(onFoot && state.carSide === 1));
     const carEdge = `CAR ${state.carLabel || ""}`.trim();
     if (carL) carL.textContent = "◀ " + carEdge;
     if (carR) carR.textContent = carEdge + " ▶";
@@ -354,8 +375,10 @@ export function createHud(opts = {}) {
         }
       }
     }
-    if (bLabelEl) bLabelEl.textContent = driving ? "HAT" : "RUN";
+    if (bLabelEl) bLabelEl.textContent = "RUN";
+    document.getElementById("btn-b")?.classList.toggle("hidden", driving);
     document.getElementById("btn-b")?.classList.toggle("off", false);
+    btnExit?.classList.toggle("hidden", !(driving || state.inCrib));
     if (btnStall) btnStall.classList.add("hidden");
     phoneDeal?.classList.toggle("hidden", !showAccept);
     btnAccept?.classList.toggle("hidden", !showAccept);
@@ -417,7 +440,8 @@ export function createHud(opts = {}) {
     sheetPhone?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "phone"));
     sheetBuy?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "buy"));
     sheetStash?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "stash"));
-    sheetCrib?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "crib"));
+    sheetCrib?.classList.toggle("hidden", true);
+    sheetOutfit?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "outfit"));
     sheetInv?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "inv"));
     sheetPick?.classList.toggle("hidden", !(state.mode === "play" && state.ui === "pick"));
     if (state.ui === "pick" && pickList) {
@@ -429,6 +453,7 @@ export function createHud(opts = {}) {
     if (state.ui === "buy") renderBuy(state);
     if (state.ui === "stash") renderStash(state);
     if (state.ui === "crib") renderCrib(state);
+    if (state.ui === "outfit") renderOutfit(state);
     if (state.ui === "inv" && invRows) {
       const g = state.inv || {};
       const s = state.stashInv || {};
