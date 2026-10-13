@@ -2,8 +2,8 @@ import * as THREE from "three";
 import {
   pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, PED_WALK_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
-  STRIDE_POSES, TURN_POSES, plantStride, threeQuarter, paintClassicHeroSet, classicWithoutHat, restyleFor25d,
-} from "./paint.js?v=64";
+  STRIDE_POSES, TURN_POSES, plantStride, threeQuarter, paintClassicHeroSet, classicWithoutHat, restyleFor25d, volumeHero,
+} from "./paint.js?v=65";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -137,13 +137,18 @@ export async function loadSprites() {
     Promise.all([1, 2, 3, 4].map((i) => loadRaw(`boss-${i}.png`))),
   ]);
 
+  function heroize(c, hatOn) {
+    const src = hatOn ? c : classicWithoutHat(c);
+    return texturize(volumeHero(threeQuarter(src)), true);
+  }
+
   function finishSet(set) {
     return {
-      idle: set.idle.map((c) => texturize(restyleFor25d(c), true)),
-      walk: set.walk.map((c) => texturize(restyleFor25d(c), true)),
-      jump: set.jump.map((c) => texturize(restyleFor25d(c), true)),
-      shoot: set.shoot.map((c) => texturize(restyleFor25d(c), true)),
-      turn: (set.turn || set.idle).map((c) => texturize(restyleFor25d(c), true)),
+      idle: set.idle.map((c) => texturize(volumeHero(threeQuarter(c)), true)),
+      walk: set.walk.map((c) => texturize(volumeHero(threeQuarter(c)), true)),
+      jump: set.jump.map((c) => texturize(volumeHero(threeQuarter(c)), true)),
+      shoot: set.shoot.map((c) => texturize(volumeHero(threeQuarter(c)), true)),
+      turn: (set.turn || set.idle).map((c) => texturize(volumeHero(threeQuarter(c)), true)),
     };
   }
 
@@ -156,31 +161,29 @@ export async function loadSprites() {
     const idleC = idleSrc.map(toCanvas);
     const walkC = (walkSrc.length ? walkSrc : idleSrc).map(toCanvas);
     const shootC = (shootSrc.length ? shootSrc : idleSrc).map(toCanvas);
-    const frames = (canvases, hatOn) => canvases.map((c) => (
-      texturize(restyleFor25d(hatOn ? c : classicWithoutHat(c)), true)
-    ));
     const stride = (src, hatOn) => {
-      const base = hatOn ? src : classicWithoutHat(src);
-      return STRIDE_POSES.map((p) => texturize(restyleFor25d(plantStride(base, p)), true));
+      const base = threeQuarter(hatOn ? src : classicWithoutHat(src));
+      return STRIDE_POSES.map((p) => texturize(volumeHero(plantStride(base, p)), true));
     };
-    const turns = (src, hatOn) => {
-      const base = hatOn ? src : classicWithoutHat(src);
-      return TURN_POSES.map((p) => texturize(restyleFor25d(threeQuarter(base, p)), true));
-    };
+    const walkSrcC = walkC.length ? walkC : idleC;
     playerHat = {
-      idle: frames(idleC, true),
-      walk: stride(idleC[0] || walkC[0], true),
-      jump: JUMP_POSES.map((p) => texturize(restyleFor25d(derivePose(idleC[0], p)), true)),
-      shoot: frames(shootC, true),
-      turn: turns(idleC[0] || walkC[0], true),
+      idle: idleC.map((c) => heroize(c, true)),
+      walk: walkSrcC.map((c) => heroize(c, true)),
+      jump: JUMP_POSES.map((p) => heroize(derivePose(idleC[0], p), true)),
+      shoot: shootC.map((c) => heroize(c, true)),
+      turn: TURN_POSES.map((p) => texturize(volumeHero(threeQuarter(idleC[0] || walkC[0], p)), true)),
     };
     playerBare = {
-      idle: frames(idleC, false),
-      walk: stride(idleC[0] || walkC[0], false),
-      jump: JUMP_POSES.map((p) => texturize(restyleFor25d(derivePose(classicWithoutHat(idleC[0]), p)), true)),
-      shoot: frames(shootC, false),
-      turn: turns(idleC[0] || walkC[0], false),
+      idle: idleC.map((c) => heroize(c, false)),
+      walk: walkSrcC.map((c) => heroize(c, false)),
+      jump: JUMP_POSES.map((p) => heroize(derivePose(classicWithoutHat(idleC[0]), p), true)),
+      shoot: shootC.map((c) => heroize(c, false)),
+      turn: TURN_POSES.map((p) => texturize(volumeHero(threeQuarter(classicWithoutHat(idleC[0] || walkC[0]), p)), true)),
     };
+    if (walkSrcC.length < 3) {
+      playerHat.walk = stride(idleC[0] || walkC[0], true);
+      playerBare.walk = stride(idleC[0] || walkC[0], false);
+    }
   } else {
     playerHat = finishSet(paintClassicHeroSet({ hat: "beanie", top: "hoodie", bottom: "jeans", shoes: "reds" }));
     playerBare = finishSet(paintClassicHeroSet({ hat: "none", top: "hoodie", bottom: "jeans", shoes: "reds" }));
@@ -260,6 +263,7 @@ export function makeBillboard(texture, height = 1.7) {
     transparent: true,
     alphaTest: 0.12,
     depthWrite: false,
+    depthTest: true,
     opacity: 1,
     side: THREE.DoubleSide,
   });

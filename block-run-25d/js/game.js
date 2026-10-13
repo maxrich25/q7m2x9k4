@@ -12,9 +12,10 @@ import {
   OUTFITS, DEFAULT_WARDROBE, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
   nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen, SAVE_KEY,
   HEAT_ENABLED, ORDER_T_MIN, ORDER_T_MAX, LIGHT_STOP_LEAD, PASS_MIN_SPEED,
-  BOARD_T, ZOOM_KEY, ZOOM_MED_KEY, CAM_ZOOM_MUL, STREET_LEN,
-} from "./config.js?v=64";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=64";
+  BOARD_T, ENTER_LOCK, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
+  CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN,
+} from "./config.js?v=65";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=65";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -78,20 +79,25 @@ export function createGame() {
   let timeHours = START_HOUR;
   let fromCrib = false;
   let boardT = 0;
-  let camZoom = 1;
+  let enterLock = 0;
+  let camZoom = CAM_ZOOM_MED;
   let zoomMigratedNow = false;
   try {
-    if (!localStorage.getItem(ZOOM_MED_KEY)) {
-      camZoom = 1;
+    if (!localStorage.getItem(ZOOM_CONT_KEY)) {
+      camZoom = CAM_ZOOM_MED;
+      localStorage.setItem(ZOOM_CONT_KEY, "1");
       localStorage.setItem(ZOOM_MED_KEY, "1");
-      localStorage.setItem(ZOOM_KEY, "1");
+      localStorage.setItem(ZOOM_KEY, String(CAM_ZOOM_MED));
       zoomMigratedNow = true;
     } else {
       const z = Number(localStorage.getItem(ZOOM_KEY));
-      if (Number.isFinite(z)) camZoom = Math.max(0, Math.min(CAM_ZOOM_MUL.length - 1, z | 0));
+      if (Number.isFinite(z)) {
+        if (z === 0 || z === 1 || z === 2) camZoom = CAM_ZOOM_MUL[z] || CAM_ZOOM_MED;
+        else camZoom = Math.max(CAM_ZOOM_MIN, Math.min(CAM_ZOOM_MAX, z));
+      }
     }
   } catch {
-    camZoom = 1;
+    camZoom = CAM_ZOOM_MED;
   }
   let holdLight = false;
   let holdCar = false;
@@ -291,7 +297,7 @@ export function createGame() {
       bits: bits.map((b) => ({ ...b })),
       booms: booms.map((b) => ({ ...b })),
       boss: boss ? { ...boss } : null,
-      shake, muzzle, invuln, boardT, camZoom,
+      shake, muzzle, invuln, boardT, enterLock, camZoom,
       edgeL, edgeR, viewHalf: lastView?.halfWidth || 0,
     };
   }
@@ -351,20 +357,37 @@ export function createGame() {
     try { localStorage.setItem(ZOOM_KEY, String(camZoom)); } catch {}
   }
 
+  function clampZoom(z) {
+    return Math.max(CAM_ZOOM_MIN, Math.min(CAM_ZOOM_MAX, Number(z) || CAM_ZOOM_MED));
+  }
+
   function cycleZoom() {
-    camZoom = (camZoom + 1) % CAM_ZOOM_MUL.length;
+    camZoom = clampZoom(camZoom + 0.12);
     persistZoom();
     return camZoom;
   }
 
   function nudgeZoom(dir) {
-    const d = dir < 0 ? -1 : 1;
-    camZoom = Math.max(0, Math.min(CAM_ZOOM_MUL.length - 1, (camZoom | 0) + d));
+    camZoom = clampZoom(camZoom + (dir < 0 ? -0.04 : 0.04));
+    persistZoom();
+    return camZoom;
+  }
+
+  function analogZoom(pixels) {
+    if (!pixels) return camZoom;
+    camZoom = clampZoom(camZoom + pixels * 0.0032);
+    persistZoom();
+    return camZoom;
+  }
+
+  function setZoom(z) {
+    camZoom = clampZoom(z);
     persistZoom();
     return camZoom;
   }
 
   function enterCar() {
+    if (enterLock > 0) return false;
     inCar = true;
     boardT = BOARD_T;
     revU = 0;
@@ -380,12 +403,15 @@ export function createGame() {
     player.vy = 0;
     player.vx = 0;
     player.facing = car.facing;
+    return true;
   }
 
   function leaveCar() {
     inCar = false;
     boardT = BOARD_T;
-    player.x = car.x;
+    enterLock = ENTER_LOCK;
+    const side = car.facing < 0 ? 1 : -1;
+    player.x = wrap(car.x + side * 10, WORLD);
     player.vx = 0;
     player.y = GROUND_Y;
     player.vy = 0;
@@ -1001,7 +1027,8 @@ export function createGame() {
       else if (inCar) leaveCar();
       if (GEARS.includes(s.gear)) car.gear = s.gear;
       if (!zoomMigratedNow && Number.isFinite(Number(s.camZoom))) {
-        camZoom = Math.max(0, Math.min(CAM_ZOOM_MUL.length - 1, s.camZoom | 0));
+        const z = Number(s.camZoom);
+        camZoom = (z === 0 || z === 1 || z === 2) ? (CAM_ZOOM_MUL[z] || CAM_ZOOM_MED) : clampZoom(z);
         persistZoom();
       }
       syncCrowd();
@@ -1449,8 +1476,7 @@ export function createGame() {
     if (input.invClose) ui = null;
     if (input.buyTier && input.buyProduct) buyProduct(input.buyProduct, input.buyTierId);
     if (input.mute) setMuted(!isMuted());
-    if (input.zoomNudge) nudgeZoom(input.zoomNudge);
-    else if (input.zoom) cycleZoom();
+    if (input.zoomAnalog) analogZoom(input.zoomAnalog);
     if (input.pause) {
       if (mode === "play") mode = "paused";
       else if (mode === "paused") mode = "play";
@@ -1797,6 +1823,7 @@ export function createGame() {
     player.flash = Math.max(0, player.flash - dt);
     clock += dt;
     boardT = Math.max(0, boardT - dt);
+    enterLock = Math.max(0, enterLock - dt);
     atHome = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28;
     heat = Math.max(0, heat - dt * (atHome ? 0.2 : 0.04));
     needPackT = Math.max(0, needPackT - dt);
@@ -2285,6 +2312,8 @@ export function createGame() {
     cycleOutfit,
     cycleZoom,
     nudgeZoom,
+    analogZoom,
+    setZoom,
     sleepCrib,
     waitCrib,
     saveCrib,
@@ -2314,8 +2343,13 @@ export function createGame() {
     },
     spawnOrder,
     setInCar(on) {
-      if (on && car.hp > 0) enterCar();
-      else if (inCar) leaveCar();
+      if (on && car.hp > 0) {
+        enterLock = 0;
+        enterCar();
+      } else if (inCar) leaveCar();
+    },
+    setBoardT(t) {
+      boardT = Math.max(0, Number(t) || 0);
     },
     setInCrib(on) {
       if (on) enterCrib();

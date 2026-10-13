@@ -1,6 +1,6 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=64";
-import { paintClassicHero } from "./paint.js?v=64";
-import { isUnlocked } from "./audio.js?v=64";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=65";
+import { paintClassicHero } from "./paint.js?v=65";
+import { isUnlocked } from "./audio.js?v=65";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
