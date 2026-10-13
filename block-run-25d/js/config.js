@@ -22,8 +22,10 @@ export const BOARD_T = 0.62;
 /** GTA-style camera distances: close / mid / far multipliers on the base camZ. */
 export const CAM_ZOOM_MUL = [0.76, 1, 1.34];
 export const ZOOM_KEY = "block-run-25d-zoom";
+/** One-shot: force saved zooms onto medium (index 1). */
+export const ZOOM_MED_KEY = "block-run-25d-zoom-med-v1";
 export const CAR_KINDS = {
-  beater: { accel: 160, max: 142, creep: 18, color: 0x6a3a24 },
+  beater: { accel: 160, max: 142, creep: 18, color: 0xc45a28 },
   luxury: { accel: 260, max: 220, creep: 23, color: 0x121214 },
 };
 export const GEARS = ["P", "R", "N", "D"];

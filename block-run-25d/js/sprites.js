@@ -2,8 +2,8 @@ import * as THREE from "three";
 import {
   pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, PED_WALK_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
-  STRIDE_POSES, plantStride, paintClassicHeroSet, classicWithoutHat, restyleFor25d,
-} from "./paint.js?v=62";
+  STRIDE_POSES, TURN_POSES, plantStride, threeQuarter, paintClassicHeroSet, classicWithoutHat, restyleFor25d,
+} from "./paint.js?v=63";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -143,6 +143,7 @@ export async function loadSprites() {
       walk: set.walk.map((c) => texturize(restyleFor25d(c), true)),
       jump: set.jump.map((c) => texturize(restyleFor25d(c), true)),
       shoot: set.shoot.map((c) => texturize(restyleFor25d(c), true)),
+      turn: (set.turn || set.idle).map((c) => texturize(restyleFor25d(c), true)),
     };
   }
 
@@ -162,17 +163,23 @@ export async function loadSprites() {
       const base = hatOn ? src : classicWithoutHat(src);
       return STRIDE_POSES.map((p) => texturize(restyleFor25d(plantStride(base, p)), true));
     };
+    const turns = (src, hatOn) => {
+      const base = hatOn ? src : classicWithoutHat(src);
+      return TURN_POSES.map((p) => texturize(restyleFor25d(threeQuarter(base, p)), true));
+    };
     playerHat = {
       idle: frames(idleC, true),
       walk: stride(idleC[0] || walkC[0], true),
       jump: JUMP_POSES.map((p) => texturize(restyleFor25d(derivePose(idleC[0], p)), true)),
       shoot: frames(shootC, true),
+      turn: turns(idleC[0] || walkC[0], true),
     };
     playerBare = {
       idle: frames(idleC, false),
       walk: stride(idleC[0] || walkC[0], false),
       jump: JUMP_POSES.map((p) => texturize(restyleFor25d(derivePose(classicWithoutHat(idleC[0]), p)), true)),
       shoot: frames(shootC, false),
+      turn: turns(idleC[0] || walkC[0], false),
     };
   } else {
     playerHat = finishSet(paintClassicHeroSet({ hat: "beanie", top: "hoodie", bottom: "jeans", shoes: "reds" }));
