@@ -17,13 +17,20 @@ export const CAR_STOP = 8;
  *  Road: curb z=2.95, dashes z=7.55, near edge ~12.15. Centers sit mid-lane. */
 export const CAR_LANE_NEAR = 4.9;
 export const CAR_LANE_FAR = 0.3;
-/** Door-open + step-in/out clip length, seconds. */
-export const BOARD_T = 0.62;
-/** GTA-style camera distances: close / mid / far multipliers on the base camZ. */
-export const CAM_ZOOM_MUL = [0.76, 1, 1.34];
+/** Door-open + duck-in/out clip length, seconds. */
+export const BOARD_T = 0.88;
+/** Seconds after EXIT before the player can enter the car again. */
+export const ENTER_LOCK = 1.05;
+/** Continuous camera zoom: close / mid / far multipliers on the base camZ. */
+export const CAM_ZOOM_MIN = 0.76;
+export const CAM_ZOOM_MED = 1;
+export const CAM_ZOOM_MAX = 1.34;
+export const CAM_ZOOM_MUL = [CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX];
 export const ZOOM_KEY = "block-run-25d-zoom";
-/** One-shot: force saved zooms onto medium (index 1). */
+/** One-shot: force saved zooms onto medium. */
 export const ZOOM_MED_KEY = "block-run-25d-zoom-med-v1";
+/** One-shot: migrate stepped zoom indices onto a continuous mid default. */
+export const ZOOM_CONT_KEY = "block-run-25d-zoom-cont-v1";
 export const CAR_KINDS = {
   beater: { accel: 160, max: 142, creep: 18, color: 0xc45a28 },
   luxury: { accel: 260, max: 220, creep: 23, color: 0x121214 },
