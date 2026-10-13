@@ -1,4 +1,4 @@
-import { unlockAudio } from "./audio.js?v=62";
+import { unlockAudio } from "./audio.js?v=63";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyS", "KeyB", "KeyJ", "KeyK", "KeyZ", "KeyX",
@@ -201,6 +201,10 @@ export function createInput(root = document) {
       brakeAmt,
       startX: e.clientX,
       startY: e.clientY,
+      curY: e.clientY,
+      zoomMarkY: e.clientY,
+      zoomSwiped: false,
+      zoomNudge: 0,
       moved: 0,
       tapKey: TAP_ROLES[role] || (role === "buy-tier" ? "buyTier" : null),
       buyProduct: e.target.closest("[data-product]")?.dataset?.product || null,
@@ -218,6 +222,7 @@ export function createInput(root = document) {
     const rec = pointers.get(e.pointerId);
     if (!rec) return;
     rec.moved = Math.max(rec.moved || 0, Math.hypot(e.clientX - rec.startX, e.clientY - rec.startY));
+    rec.curY = e.clientY;
     if (rec.role === "shifter") {
       rec.gear = gearFromY(e.clientY, root) || rec.gear;
       return;
@@ -227,6 +232,17 @@ export function createInput(root = document) {
     }
     if (rec.role === "brake") {
       rec.brakeAmt = brakeAmtFromY(e.clientY, root);
+    }
+    if (rec.role === "zoom") {
+      const dy = e.clientY - (rec.zoomMarkY ?? rec.startY);
+      if (Math.abs(e.clientY - rec.startY) > 16) rec.zoomSwiped = true;
+      if (dy <= -28) {
+        rec.zoomNudge = -1;
+        rec.zoomMarkY = e.clientY;
+      } else if (dy >= 28) {
+        rec.zoomNudge = 1;
+        rec.zoomMarkY = e.clientY;
+      }
     }
   }
 
@@ -239,7 +255,7 @@ export function createInput(root = document) {
       const btn = root.querySelector(`[data-role="${role}"]`);
       if (btn) btn.classList.remove("held");
     }
-    if (rec?.tapKey && (rec.moved || 0) < 10) fireTap(rec);
+    if (rec?.tapKey && (rec.moved || 0) < 10 && !rec.zoomSwiped) fireTap(rec);
   }
 
   function prevent(e) {
@@ -295,6 +311,7 @@ export function createInput(root = document) {
     let exitHeld = held("KeyX");
     let shiftGear = null;
     let uturnHeld = held("KeyU");
+    let zoomNudge = 0;
 
     for (const rec of pointers.values()) {
       if (rec.role === "left") moveX -= 1;
@@ -313,6 +330,10 @@ export function createInput(root = document) {
       if (rec.role === "exit" || rec.role === "gate") exitHeld = true;
       if (rec.role === "uturn") uturnHeld = true;
       if (rec.role === "shifter" && rec.gear) shiftGear = rec.gear;
+      if (rec.role === "zoom" && rec.zoomNudge) {
+        zoomNudge = rec.zoomNudge;
+        rec.zoomNudge = 0;
+      }
     }
 
     if (held("Space") || held("KeyJ") || held("KeyK") || held("KeyZ")) shoot = true;
@@ -437,6 +458,7 @@ export function createInput(root = document) {
       phoneTab: take("tabTexts") ? "texts" : take("tabContacts") ? "contacts" : null,
       pickClose: take("pickClose"),
       zoom: take("zoom"),
+      zoomNudge,
       pickId,
       stashClose: take("stashClose"),
       cribClose: take("cribClose"),

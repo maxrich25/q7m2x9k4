@@ -73,23 +73,23 @@ export const WALK_POSES = [
   { step: -1, bob: 1 },
   { step: 0, bob: 0 },
 ];
-/** Planted stride: one foot stays on the canvas floor, the other lifts. */
+/** Planted stride: legs under the hips, small lift, heel stays on the floor. */
 export const PED_WALK_POSES = [
-  { step: 4, bob: 1 },
+  { step: 2, bob: 1 },
   { step: 1, bob: 0 },
-  { step: -4, bob: 1 },
+  { step: -2, bob: 1 },
   { step: -1, bob: 0 },
 ];
-/** PNG stride from an idle frame: planted foot, opposite arm, slight torso bob. */
+/** PNG stride: legs under the hips, heel-to-toe, opposite arm. */
 export const STRIDE_POSES = [
-  { leftDx: 3, leftDy: 0, rightDx: -2, rightDy: -5, bob: 0, arm: 2 },
-  { leftDx: 2, leftDy: 0, rightDx: 0, rightDy: -2, bob: 1, arm: 1 },
-  { leftDx: -2, leftDy: -5, rightDx: 3, rightDy: 0, bob: 0, arm: -2 },
-  { leftDx: 0, leftDy: -2, rightDx: 2, rightDy: 0, bob: 1, arm: -1 },
+  { leftDx: 1, leftDy: 0, rightDx: 0, rightDy: -2, bob: 0, arm: 1 },
+  { leftDx: 0, leftDy: 0, rightDx: 0, rightDy: 0, bob: 1, arm: 0 },
+  { leftDx: 0, leftDy: -2, rightDx: 1, rightDy: 0, bob: 0, arm: -1 },
+  { leftDx: 0, leftDy: 0, rightDx: 0, rightDy: 0, bob: 1, arm: 0 },
 ];
 export const TURN_POSES = [
-  { armDx: 2, legDx: 1, bob: 0 },
-  { armDx: -1, legDx: 0, bob: 1 },
+  { threeQ: true, bob: 0 },
+  { threeQ: true, bob: 1 },
 ];
 export const IDLE_POSES = [
   { bob: 0 },
@@ -148,8 +148,8 @@ export function paintPerson(g, look, pose = {}) {
   const rightLeg = -Math.round(step);
   const leftArm = -Math.round(step * 0.7);
   const rightArm = Math.round(step * 0.7);
-  const leftLift = step >= 0 ? 0 : Math.min(4, Math.abs(step));
-  const rightLift = step <= 0 ? 0 : Math.min(4, Math.abs(step));
+  const leftLift = step >= 0 ? 0 : Math.min(2, Math.abs(step));
+  const rightLift = step <= 0 ? 0 : Math.min(2, Math.abs(step));
   const shirtHi = shadeHex(look.shirt, 32);
   const shirtLo = shadeHex(look.shirt, -30);
   const shirtMid = shadeHex(look.shirt, -8);
@@ -283,7 +283,24 @@ export const CLASSIC_HERO = {
   outline: "#140010",
 };
 
-/** Lift the red beanie off a classic PNG frame and draw a short fade/crop on the scalp. */
+function isHatPixel(r, gv, b) {
+  const skin = gv > 78 && b > 36 && (r - gv) < 90 && r > 130;
+  if (skin) return false;
+  const beanie = r > 80 && r > gv * 1.45 && r > b * 1.25 && gv < 110 && b < 100;
+  const spike = r > 120 && r > b + 28 && gv < 175 && b < 100 && r > gv * 1.08;
+  return beanie || spike;
+}
+
+function hairTone(nx, edge) {
+  if (edge) return [0x24, 0x14, 0x10];
+  if (nx * nx > 0.45) return [0x2a, 0x18, 0x10];
+  return [0x3a, 0x22, 0x18];
+}
+
+/**
+ * Hat-off: never touch a pixel below the beanie brim.
+ * Recolor only the hat region into a short opaque crop; face/skin/outline stay.
+ */
 export function classicWithoutHat(src) {
   const w = src.width || src.naturalWidth || 40;
   const h = src.height || src.naturalHeight || 40;
@@ -291,72 +308,94 @@ export function classicWithoutHat(src) {
     g.drawImage(src, 0, 0, w, h);
     const img = g.getImageData(0, 0, w, h);
     const d = img.data;
-    const yHat = Math.max(10, Math.floor(h * 0.36));
-    for (let y = 0; y < yHat; y++) {
+    let brimY = -1;
+    let hatMinX = w;
+    let hatMaxX = 0;
+    let beanieTop = h;
+    const scanMax = Math.max(8, Math.floor(h * 0.42));
+    for (let y = 0; y < scanMax; y++) {
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4;
-        if (d[i + 3] < 8) continue;
+        if (d[i + 3] < 16) continue;
         const r = d[i];
         const gv = d[i + 1];
         const b = d[i + 2];
-        const hat = r > 80 && r > gv * 1.45 && r > b * 1.25 && gv < 110 && b < 100;
-        if (hat) {
+        if (!isHatPixel(r, gv, b)) continue;
+        if (y > brimY) brimY = y;
+        if (x < hatMinX) hatMinX = x;
+        if (x > hatMaxX) hatMaxX = x;
+        const beanie = r > gv * 1.45 && gv < 110;
+        if (beanie && y < beanieTop) beanieTop = y;
+      }
+    }
+    if (brimY < 2 || hatMaxX <= hatMinX) return;
+    const mid = (hatMinX + hatMaxX) * 0.5;
+    const hw = Math.max(2.2, (hatMaxX - hatMinX) * 0.5);
+    const hairTop = beanieTop < h ? beanieTop : Math.max(0, brimY - 5);
+    for (let y = 0; y <= brimY; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        const r = d[i];
+        const gv = d[i + 1];
+        const b = d[i + 2];
+        const a = d[i + 3];
+        const hat = a >= 16 && isHatPixel(r, gv, b);
+        const nx = (x - mid) / (hw + 0.35);
+        const cap = nx * nx + ((brimY - y) / Math.max(3.2, brimY - hairTop + 0.8)) ** 2 <= 1.08 && y >= hairTop;
+        if (hat && y < hairTop) {
           d[i] = 0;
           d[i + 1] = 0;
           d[i + 2] = 0;
           d[i + 3] = 0;
+          continue;
         }
-      }
-    }
-    const isSkin = (r, gv, b) => r > 140 && gv > 78 && gv < 210 && b < 150 && r > b + 8;
-    let minX = w;
-    let maxX = 0;
-    let browY = h;
-    for (let y = 0; y < Math.floor(h * 0.52); y++) {
-      for (let x = 0; x < w; x++) {
-        const i = (y * w + x) * 4;
-        if (d[i + 3] < 16) continue;
-        if (!isSkin(d[i], d[i + 1], d[i + 2])) continue;
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < browY) browY = y;
-      }
-    }
-    if (maxX <= minX || browY >= h) {
-      g.putImageData(img, 0, 0);
-      return;
-    }
-    const hairCeil = Math.min(h, browY + 6);
-    for (let y = 0; y < hairCeil; y++) {
-      for (let x = 0; x < w; x++) {
-        const i = (y * w + x) * 4;
-        if (d[i + 3] < 8) continue;
-        const face = isSkin(d[i], d[i + 1], d[i + 2]) && x >= minX && x <= maxX && y >= browY;
-        if (face) continue;
-        d[i] = 0;
-        d[i + 1] = 0;
-        d[i + 2] = 0;
-        d[i + 3] = 0;
+        if (!hat && a >= 16) continue;
+        if (!hat && !cap) continue;
+        const [hr, hg, hb] = hairTone(nx, Math.abs(nx) > 0.72 || y === brimY);
+        d[i] = hr;
+        d[i + 1] = hg;
+        d[i + 2] = hb;
+        d[i + 3] = 255;
       }
     }
     g.putImageData(img, 0, 0);
-    const mid = (minX + maxX) * 0.5;
-    const hw = Math.max(1.4, (maxX - minX) * 0.5);
-    for (let x = minX; x <= maxX; x++) {
-      const nx = (x - mid) / (hw + 0.2);
-      if (nx * nx > 1) continue;
-      const rise = 2 + Math.round((1 - nx * nx) * 1.1);
-      const y0 = Math.max(1, browY - rise);
-      const down = Math.abs(nx) > 0.7 ? 3 : 1;
-      g.fillStyle = Math.abs(nx) > 0.58 ? "#241410" : "#3a2418";
-      g.fillRect(x, y0, 1, browY + down - y0);
-    }
     g.fillStyle = "#4a3224";
-    g.fillRect(Math.round(mid - 2), Math.max(1, browY - 2), 4, 1);
+    g.fillRect(Math.round(mid - 2), Math.max(0, brimY - 3), 4, 1);
   });
 }
 
-/** Slice an idle frame into a planted stride: stance foot stays on the canvas floor. */
+/** 3/4 turn frame: squash-free body rotation, far-side shade, near shoulder. */
+export function threeQuarter(src, pose = {}) {
+  const w = src.width || src.naturalWidth || 40;
+  const h = src.height || src.naturalHeight || 40;
+  const bob = pose.bob || 0;
+  return pixelCanvas(w, h, (g) => {
+    g.clearRect(0, 0, w, h);
+    const nw = Math.max(8, Math.round(w * 0.82));
+    const ox = Math.round((w - nw) * 0.55);
+    g.imageSmoothingEnabled = false;
+    g.drawImage(src, 0, 0, w, h, ox, bob, nw, h);
+    const img = g.getImageData(0, 0, w, h);
+    const d = img.data;
+    const clamp = (n) => Math.max(0, Math.min(255, Math.round(n)));
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        if (d[i + 3] < 10) continue;
+        const u = (x - ox) / Math.max(1, nw);
+        let lift = 0;
+        if (u < 0.28) lift -= 28 * (0.28 - u) / 0.28;
+        else if (u > 0.62) lift += 14 * (u - 0.62) / 0.38;
+        d[i] = clamp(d[i] + lift);
+        d[i + 1] = clamp(d[i + 1] + lift * 0.92);
+        d[i + 2] = clamp(d[i + 2] + lift * 0.85);
+      }
+    }
+    g.putImageData(img, 0, 0);
+  });
+}
+
+/** Slice an idle frame into a planted stride: legs under the hips, heel on the floor. */
 export function plantStride(src, pose = {}) {
   const w = src.width || src.naturalWidth || 32;
   const h = src.height || src.naturalHeight || 40;
@@ -365,12 +404,13 @@ export function plantStride(src, pose = {}) {
   const bob = pose.bob || 0;
   const arm = pose.arm || 0;
   const arm0 = Math.round(h * 0.34);
+  const hipIn = 2;
   return pixelCanvas(w, h, (g) => {
     g.clearRect(0, 0, w, h);
     g.drawImage(src, 0, 0, w, arm0, arm, bob, w, arm0);
     g.drawImage(src, 0, arm0, w, waist - arm0, 0, bob + arm0, w, waist - arm0);
-    g.drawImage(src, 0, waist, mid, h - waist, pose.leftDx || 0, waist + (pose.leftDy || 0), mid, h - waist);
-    g.drawImage(src, mid, waist, w - mid, h - waist, mid + (pose.rightDx || 0), waist + (pose.rightDy || 0), w - mid, h - waist);
+    g.drawImage(src, 0, waist, mid, h - waist, (pose.leftDx || 0) + hipIn, waist + (pose.leftDy || 0), mid, h - waist);
+    g.drawImage(src, mid, waist, w - mid, h - waist, mid + (pose.rightDx || 0) - hipIn, waist + (pose.rightDy || 0), w - mid, h - waist);
     const img = g.getImageData(0, 0, w, h);
     let lowest = 0;
     const d = img.data;
@@ -405,69 +445,74 @@ export function paintClassicHero(g, pose = {}, wardrobe = {}) {
   const lArm = -Math.round(step * 0.6);
   const rArm = Math.round(step * 0.6);
 
+  const threeQ = !!pose.threeQ;
+  const ox = threeQ ? 2 : 0;
   g.fillStyle = c.outline;
-  g.fillRect(13, y(3), 14, 34);
+  g.fillRect(13 + ox, y(3), threeQ ? 12 : 14, 34);
 
-  const lLift = step >= 0 ? 0 : Math.min(4, Math.abs(lLeg));
-  const rLift = step <= 0 ? 0 : Math.min(4, Math.abs(rLeg));
+  const lLift = step >= 0 ? 0 : Math.min(2, Math.abs(lLeg));
+  const rLift = step <= 0 ? 0 : Math.min(2, Math.abs(rLeg));
 
   g.fillStyle = c.jeansLo;
-  g.fillRect(13 + lLeg, y(26) - lLift, 6, 10 + lLift);
+  g.fillRect(15 + ox + lLeg, y(26) - lLift, 5, 10 + lLift);
   g.fillStyle = c.jeans;
-  g.fillRect(21 + rLeg, y(26) - rLift, 6, 10 + rLift);
+  g.fillRect(20 + ox + rLeg, y(26) - rLift, 5, 10 + rLift);
   g.fillStyle = c.jeans;
-  g.fillRect(15, y(25), 10, 4);
+  g.fillRect(16 + ox, y(25), 8, 4);
 
   g.fillStyle = c.shoe;
-  g.fillRect(12 + lLeg, 36 - lLift, 7, 4);
-  g.fillRect(21 + rLeg, 36 - rLift, 7, 4);
+  g.fillRect(14 + ox + lLeg, 36 - lLift, 6, 4);
+  g.fillRect(20 + ox + rLeg, 36 - rLift, 6, 4);
   g.fillStyle = c.shoeRed;
-  g.fillRect(12 + lLeg, 36 - lLift, 3, 2);
-  g.fillRect(21 + rLeg, 36 - rLift, 3, 2);
+  g.fillRect(14 + ox + lLeg, 37 - lLift, 2, 2);
+  g.fillRect(20 + ox + rLeg, 37 - rLift, 2, 2);
+  g.fillStyle = "#f4f0e8";
+  g.fillRect(18 + ox + lLeg, 36 - lLift, 2, 1);
+  g.fillRect(24 + ox + rLeg, 36 - rLift, 2, 1);
 
   g.fillStyle = c.hoodie;
-  g.fillRect(13, y(16), 14, 11);
+  g.fillRect(13 + ox, y(16), threeQ ? 12 : 14, 11);
   g.fillStyle = c.hoodieHi;
-  g.fillRect(15, y(17), 5, 8);
+  g.fillRect(15 + ox, y(17), threeQ ? 4 : 5, 8);
   g.fillStyle = c.chain;
-  g.fillRect(17, y(18), 6, 1);
-  g.fillRect(19, y(19), 2, 2);
+  g.fillRect(17 + ox, y(18), 6, 1);
+  g.fillRect(19 + ox, y(19), 2, 2);
 
   g.fillStyle = c.skin;
-  g.fillRect(10 + lArm, y(18), 4, 7);
-  g.fillRect(26 + rArm, y(18), 4, 7);
+  if (!threeQ) g.fillRect(10 + lArm, y(18), 4, 7);
+  g.fillRect(26 + ox + rArm, y(18), 4, 7);
   g.fillStyle = c.hoodie;
-  g.fillRect(10 + lArm, y(17), 4, 3);
-  g.fillRect(26 + rArm, y(17), 4, 3);
+  if (!threeQ) g.fillRect(10 + lArm, y(17), 4, 3);
+  g.fillRect(26 + ox + rArm, y(17), 4, 3);
 
   g.fillStyle = c.skin;
-  g.fillRect(14, y(8), 12, 9);
+  g.fillRect(14 + ox, y(8), threeQ ? 10 : 12, 9);
   g.fillStyle = c.skinLo;
-  g.fillRect(22, y(10), 3, 6);
+  g.fillRect((threeQ ? 21 : 22) + ox, y(10), 3, 6);
   g.fillStyle = "#f4e6d4";
-  g.fillRect(16, y(11), 2, 2);
-  g.fillRect(21, y(11), 2, 2);
+  g.fillRect(16 + ox, y(11), 2, 2);
+  if (!threeQ) g.fillRect(21, y(11), 2, 2);
   g.fillStyle = "#1a1210";
-  g.fillRect(17, y(11), 1, 2);
-  g.fillRect(22, y(11), 1, 2);
+  g.fillRect(17 + ox, y(11), 1, 2);
+  if (!threeQ) g.fillRect(22, y(11), 1, 2);
   g.fillStyle = c.skinLo;
-  g.fillRect(18, y(15), 4, 1);
+  g.fillRect(18 + ox, y(15), threeQ ? 3 : 4, 1);
 
   if (hatOn) {
     g.fillStyle = c.hatLo;
-    g.fillRect(14, y(3), 12, 6);
+    g.fillRect(14 + ox, y(3), threeQ ? 10 : 12, 6);
     g.fillStyle = c.hat;
-    g.fillRect(15, y(3), 10, 5);
-    g.fillRect(16, y(2), 8, 2);
+    g.fillRect(15 + ox, y(3), threeQ ? 8 : 10, 5);
+    g.fillRect(16 + ox, y(2), threeQ ? 6 : 8, 2);
   } else {
     g.fillStyle = c.hair;
-    g.fillRect(16, y(5), 8, 4);
-    g.fillRect(15, y(6), 10, 3);
+    g.fillRect(16 + ox, y(5), 8, 4);
+    g.fillRect(15 + ox, y(6), 10, 3);
     g.fillStyle = "#2a1810";
-    g.fillRect(14, y(7), 2, 4);
-    g.fillRect(24, y(7), 2, 4);
+    g.fillRect(14 + ox, y(7), 2, 4);
+    g.fillRect(24 + ox, y(7), 2, 4);
     g.fillStyle = "#4a3224";
-    g.fillRect(17, y(5), 4, 1);
+    g.fillRect(17 + ox, y(5), 4, 1);
   }
 }
 
@@ -477,6 +522,7 @@ export function paintClassicHeroSet(wardrobe = { hat: "beanie" }) {
     walk: PED_WALK_POSES.map((p) => pixelCanvas(40, 40, (g) => paintClassicHero(g, p, wardrobe))),
     jump: JUMP_POSES.map((p) => pixelCanvas(40, 40, (g) => paintClassicHero(g, p, wardrobe))),
     shoot: SHOOT_POSES.map((p) => pixelCanvas(40, 40, (g) => paintClassicHero(g, p, wardrobe))),
+    turn: TURN_POSES.map((p) => pixelCanvas(40, 40, (g) => paintClassicHero(g, p, wardrobe))),
   };
 }
 

@@ -12,9 +12,9 @@ import {
   OUTFITS, DEFAULT_WARDROBE, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
   nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen, SAVE_KEY,
   HEAT_ENABLED, ORDER_T_MIN, ORDER_T_MAX, LIGHT_STOP_LEAD, PASS_MIN_SPEED,
-  BOARD_T, ZOOM_KEY, CAM_ZOOM_MUL,
-} from "./config.js?v=62";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=62";
+  BOARD_T, ZOOM_KEY, ZOOM_MED_KEY, CAM_ZOOM_MUL,
+} from "./config.js?v=63";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=63";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -77,10 +77,20 @@ export function createGame() {
   let fromCrib = false;
   let boardT = 0;
   let camZoom = 1;
+  let zoomMigratedNow = false;
   try {
-    const z = Number(localStorage.getItem(ZOOM_KEY));
-    if (Number.isFinite(z)) camZoom = Math.max(0, Math.min(CAM_ZOOM_MUL.length - 1, z | 0));
-  } catch {}
+    if (!localStorage.getItem(ZOOM_MED_KEY)) {
+      camZoom = 1;
+      localStorage.setItem(ZOOM_MED_KEY, "1");
+      localStorage.setItem(ZOOM_KEY, "1");
+      zoomMigratedNow = true;
+    } else {
+      const z = Number(localStorage.getItem(ZOOM_KEY));
+      if (Number.isFinite(z)) camZoom = Math.max(0, Math.min(CAM_ZOOM_MUL.length - 1, z | 0));
+    }
+  } catch {
+    camZoom = 1;
+  }
   let holdLight = false;
   let holdCar = false;
   let runHeld = false;
@@ -331,6 +341,13 @@ export function createGame() {
 
   function cycleZoom() {
     camZoom = (camZoom + 1) % CAM_ZOOM_MUL.length;
+    persistZoom();
+    return camZoom;
+  }
+
+  function nudgeZoom(dir) {
+    const d = dir < 0 ? -1 : 1;
+    camZoom = Math.max(0, Math.min(CAM_ZOOM_MUL.length - 1, (camZoom | 0) + d));
     persistZoom();
     return camZoom;
   }
@@ -941,7 +958,7 @@ export function createGame() {
       if (s.inCar && car.hp > 0) enterCar();
       else if (inCar) leaveCar();
       if (GEARS.includes(s.gear)) car.gear = s.gear;
-      if (Number.isFinite(Number(s.camZoom))) {
+      if (!zoomMigratedNow && Number.isFinite(Number(s.camZoom))) {
         camZoom = Math.max(0, Math.min(CAM_ZOOM_MUL.length - 1, s.camZoom | 0));
         persistZoom();
       }
@@ -1386,7 +1403,8 @@ export function createGame() {
     if (input.invClose) ui = null;
     if (input.buyTier && input.buyProduct) buyProduct(input.buyProduct, input.buyTierId);
     if (input.mute) setMuted(!isMuted());
-    if (input.zoom) cycleZoom();
+    if (input.zoomNudge) nudgeZoom(input.zoomNudge);
+    else if (input.zoom) cycleZoom();
     if (input.pause) {
       if (mode === "play") mode = "paused";
       else if (mode === "paused") mode = "play";
@@ -2209,6 +2227,7 @@ export function createGame() {
     openCrib,
     cycleOutfit,
     cycleZoom,
+    nudgeZoom,
     sleepCrib,
     waitCrib,
     saveCrib,
