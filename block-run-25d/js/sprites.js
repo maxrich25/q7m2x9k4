@@ -1,9 +1,9 @@
 import * as THREE from "three";
 import {
   pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
-  WALK_POSES, WALK_CYCLE_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
+  WALK_POSES, WALK_CYCLE_POSES, RUN_CYCLE_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
   paintClassicHeroSet, restyleFor25d,
-} from "./paint.js?v=67";
+} from "./paint.js?v=73";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -138,10 +138,20 @@ export async function loadSprites() {
   ]);
 
   function finishSet(set) {
-    const tex = (c) => texturize(restyleFor25d(c), true);
+    const tex = (c) => {
+      const t = texturize(restyleFor25d(c), true);
+      t.magFilter = THREE.LinearFilter;
+      t.minFilter = THREE.LinearFilter;
+      if (t.userData.flipped) {
+        t.userData.flipped.magFilter = THREE.LinearFilter;
+        t.userData.flipped.minFilter = THREE.LinearFilter;
+      }
+      return t;
+    };
     return {
       idle: set.idle.map(tex),
       walk: set.walk.map(tex),
+      run: (set.run || set.walk).map(tex),
       jump: set.jump.map(tex),
       shoot: set.shoot.map(tex),
       turn: (set.turn || set.idle).map(tex),
@@ -163,11 +173,24 @@ export async function loadSprites() {
   const runner = setFromOriginal(runnerBase, { idle: runnerOrig.length ? runnerOrig : null, walk: runnerOrig.length ? runnerOrig : null });
 
   const cop = setFromOriginal(paintCopFig());
+  function softTex(c) {
+    const t = texturize(restyleFor25d(c), true);
+    t.magFilter = THREE.LinearFilter;
+    t.minFilter = THREE.LinearFilter;
+    if (t.userData.flipped) {
+      t.userData.flipped.magFilter = THREE.LinearFilter;
+      t.userData.flipped.minFilter = THREE.LinearFilter;
+    }
+    return t;
+  }
   const buyers = PED_LOOKS.map((_, i) => {
     const src = restyleFor25d(paintLook(i));
-    const walks = paintWalkLook(i, WALK_CYCLE_POSES).map((c) => texturize(restyleFor25d(c), true));
-    const idles = IDLE_POSES.map((p) => texturize(restyleFor25d(paintLook(i, p)), true));
-    return setFromOriginal(src, { walk: walks, idle: idles });
+    const walks = paintWalkLook(i, WALK_CYCLE_POSES).map(softTex);
+    const runs = paintWalkLook(i, RUN_CYCLE_POSES).map(softTex);
+    const idles = IDLE_POSES.map((p) => softTex(paintLook(i, p)));
+    const set = setFromOriginal(src, { walk: walks, idle: idles });
+    set.run = runs;
+    return set;
   });
   const plug = setFromOriginal(paintPlugFig());
 
@@ -188,6 +211,7 @@ export async function loadSprites() {
   return {
     idle: player.idle,
     walk: player.walk,
+    run: player.run,
     jump: player.jump,
     shoot: player.shoot,
     player,
