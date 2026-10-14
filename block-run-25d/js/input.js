@@ -1,4 +1,4 @@
-import { unlockAudio } from "./audio.js?v=78";
+import { unlockAudio } from "./audio.js?v=79";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyS", "KeyB", "KeyJ", "KeyK", "KeyZ", "KeyX",
@@ -50,6 +50,8 @@ const TAP_ROLES = {
   car: "carBtn",
   crib: "cribBtn",
   pullover: "pullover",
+  "quick-phone": "quickPhone",
+  "quick-phone-close": "quickPhoneClose",
   inventory: "inventory",
   "inv-close": "invClose",
   "tab-texts": "tabTexts",
@@ -477,6 +479,8 @@ export function createInput(root = document) {
       uturn: take("uturn"),
       phone: take("phone"),
       phoneClose: take("phoneClose"),
+      quickPhone: take("quickPhone"),
+      quickPhoneClose: take("quickPhoneClose"),
       textPlug: take("textPlug"),
       pingContact: take("pingContact"),
       pingContactId,

@@ -13,10 +13,10 @@ import {
   nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen, SAVE_KEY,
   HEAT_ENABLED, ORDER_T_MIN, ORDER_T_MAX, LIGHT_STOP_LEAD, PASS_MIN_SPEED,
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
-  CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN,
+  CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=78";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=78";
+} from "./config.js?v=79";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=79";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -137,23 +137,24 @@ export function createGame() {
     const nearPlug = !inCrib && Math.abs(wrapDelta(player.x, plugMeet?.x ?? PLUG_X, WORLD)) < 28;
     const nearHome = !inCrib && !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && player.y >= 197.5;
     const nearPed = !inCrib && !inCar && peds.some((p) => Math.abs(wrapDelta(player.x, p.x, WORLD)) < 18);
-    const nearCribDoor = !!(inCrib && cribX < -2.55);
+    // Door sits at cribX≈-2.65 — allow EXIT when standing at or in front of it.
+    const nearCribDoor = !!(inCrib && cribX < -1.55);
     const nearWardrobe = !!(inCrib && cribX > 2.15);
     const parked = !!(car.parked || (car.gear === "P" && Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.7));
     const pullOverOk = !!(inCar && !car.parked && (car.pullOverT || 0) <= 0 && car.turnT <= 0);
     const exitOk = (inCar && parked) || nearCribDoor;
-    // On foot: Enter Car when near. In car: always tappable (exit if parked, else pull over → park).
+    // Y: CAR only when on foot near the car. EXIT only when parked in the car.
     const carBtnOk = !!(!inCrib && (
-      (inCar && (car.pullOverT || 0) <= 0 && car.turnT <= 0)
+      (inCar && parked)
       || (!inCar && nearCar)
     ));
-    // On foot: Enter/Exit Crib. In car: dedicated Pull Over.
-    const cribBtnOk = !!(inCar ? pullOverOk : (nearCribDoor || (!inCar && !inCrib && nearHome)));
     const liveDeal = !!(order && (order.phase === "active" || order.phase === "nudge"));
     const nearDeal = !!(liveDeal && !inCar && Math.abs(wrapDelta(player.x, order.x, WORLD)) < 36);
+    const nearDump = !inCrib && !inCar && Math.abs(wrapDelta(player.x, DUMPSTER_X, WORLD)) < 22 && player.y >= 197.5;
     const slowEnough = Math.abs(player.vx) < SERVE_SLOW * 1.6;
     const canServe = !!(mode === "play" && !ui && nearDeal);
     const canBuy = !!(plugMeet && nearPlug && slowEnough);
+    const canSell = !!(mode === "play" && !ui && nearDump && carrying);
     const offer = !!(order && (order.phase === "offer" || order.phase === "stalling"));
     let prompt = "";
     let gate = "";
@@ -168,33 +169,37 @@ export function createGame() {
       else if (nearHome) gate = "ENTER CRIB";
       else if (canBuy) gate = "BUY";
       if (canServe) prompt = "SERVE";
+      else if (canSell) prompt = "SELL";
       else if (gate) prompt = gate;
       else if (nearPlug && !plugMeet) prompt = "TEXT";
       else if (nearPed && !nearCar && !nearHome) prompt = "HIT UP";
     }
-    // Face-grid ACT: crib enter/exit near door, plus interact/sell/buy/text.
-    let actionLabel = "ACT";
+    // A: blank unless an action word is available.
+    let actionLabel = "";
     let actionOk = false;
     let actionKind = "";
     if (mode === "play" && !ui) {
       if (inCrib && nearWardrobe) { actionLabel = "CLOTHES"; actionOk = true; actionKind = "clothes"; }
       else if (nearCribDoor) { actionLabel = "EXIT"; actionOk = true; actionKind = "crib"; }
       else if (!inCar && !inCrib && nearHome) { actionLabel = "CRIB"; actionOk = true; actionKind = "crib"; }
-      else if (canServe) { actionLabel = "SERVE"; actionOk = true; actionKind = "serve"; }
+      else if (inCar && pullOverOk) { actionLabel = "PULL"; actionOk = true; actionKind = "pull"; }
+      else if (inCar && car.gear === "D" && car.turnT <= 0 && (car.pullOverT || 0) <= 0) {
+        actionLabel = "U-TN"; actionOk = true; actionKind = "uturn";
+      } else if (canServe) { actionLabel = "SERVE"; actionOk = true; actionKind = "serve"; }
+      else if (canSell) { actionLabel = "SELL"; actionOk = true; actionKind = "sell"; }
       else if (canBuy) { actionLabel = "BUY"; actionOk = true; actionKind = "buy"; }
       else if (nearPlug && !plugMeet) { actionLabel = "TEXT"; actionOk = true; actionKind = "text"; }
       else if (nearPed && !nearCar && !nearHome && !canBuy) { actionLabel = "HIT UP"; actionOk = true; actionKind = "talk"; }
     }
-    const carLabel = inCar ? "EXIT" : "CAR";
-    // Slot X: Pull Over while driving; reserved (grey) on foot.
-    const xLabel = inCar ? "PULL" : "—";
-    const xBtnOk = !!(inCar && pullOverOk);
+    const carLabel = inCar ? (parked ? "EXIT" : "") : (nearCar ? "CAR" : "");
+    const xLabel = "PHONE";
+    const xBtnOk = true;
     const cribLabel = xLabel;
     const uturnBtnOk = !!(inCar && car.gear === "D" && car.turnT <= 0 && (car.pullOverT || 0) <= 0);
     return {
       nearCar, nearPlug, nearHome, nearPed, nearCribDoor, nearWardrobe, exitOk, liveDeal, nearDeal, slowEnough,
-      canServe, canBuy, offer, prompt, gate, actionLabel, actionOk, actionKind, picks: [],
-      parked, carBtnOk, cribBtnOk: xBtnOk, carLabel, cribLabel, xLabel, xBtnOk,
+      canServe, canBuy, canSell, offer, prompt, gate, actionLabel, actionOk, actionKind, picks: [],
+      parked, carBtnOk, cribBtnOk: false, carLabel, cribLabel, xLabel, xBtnOk,
       pullOverOk, uturnBtnOk,
     };
   }
@@ -439,7 +444,7 @@ export function createGame() {
 
   function leaveCar() {
     if (!carIsParked()) {
-      pop(car.x, 150, "PULL OVER");
+      pop(car.x, 150, "PULL OVER FIRST");
       return false;
     }
     inCar = false;
@@ -538,8 +543,13 @@ export function createGame() {
   const TRAFFIC_KINDS = ["beater", "luxury", "hatch", "suv", "van"];
 
   function makePed(i) {
+    // Keep spawn clear of the crib doorway.
+    let x = wrap((WORLD / Math.max(1, PED_COUNT)) * ((i ?? 0) % PED_COUNT) + Math.random() * 90, WORLD);
+    if (Math.abs(wrapDelta(x, HOME_X, WORLD)) < 42) {
+      x = wrap(HOME_X + 48 + (i % 7) * 22, WORLD);
+    }
     return {
-      x: wrap((WORLD / Math.max(1, PED_COUNT)) * ((i ?? 0) % PED_COUNT) + Math.random() * 90, WORLD),
+      x,
       facing: (i ?? 0) % 2 === 0 ? 1 : -1,
       look: (i ?? 0) % BUYER_COUNT,
       anim: Math.random(),
@@ -551,7 +561,24 @@ export function createGame() {
       lane: ((i ?? 0) % 5) * 0.22 - 0.18,
       stride: Math.random() * 8,
       pushed: 0,
+      cross: 0,
+      crossT: 0,
+      crossWait: 1.5 + Math.random() * 4,
     };
+  }
+
+  function carNearCrosswalk(x, span = 70) {
+    if (car.hp > 0 && Math.abs(wrapDelta(x, car.x, WORLD)) < span) return true;
+    for (const t of traffic) {
+      if (Math.abs(wrapDelta(x, t.x, WORLD)) < span) return true;
+    }
+    return false;
+  }
+
+  function nearIntersection(x) {
+    const blockGame = BLOCK_LEN * (WORLD / STREET_LEN);
+    const local = wrap(x, blockGame);
+    return local < 28 || local > blockGame - 28;
   }
 
   function makeTrafficCar(i) {
@@ -1118,8 +1145,18 @@ export function createGame() {
     if (!a.actionOk) return false;
     if (a.actionKind === "accept") return acceptOrder();
     if (a.actionKind === "serve") return serve();
+    if (a.actionKind === "sell") {
+      if (!carrying) return false;
+      carrying = false;
+      cash += 100;
+      pop(DUMPSTER_X, 158, "SELL +100");
+      sfx.drop();
+      return true;
+    }
     if (a.actionKind === "clothes") return openOutfit();
     if (a.actionKind === "crib") return doCribBtn();
+    if (a.actionKind === "pull") return startPullOver();
+    if (a.actionKind === "uturn") return doUTurn();
     if (a.actionKind === "buy") return useGatePick("buy");
     if (a.actionKind === "text") return textPlug();
     if (a.actionKind === "talk") return solicit();
@@ -1129,9 +1166,10 @@ export function createGame() {
   function doCarBtn() {
     if (inCrib) return false;
     if (inCar) {
-      // Exit only when parked; otherwise Pull Over → curb → P.
+      // Exit only once pulled over and parked.
       if (carIsParked()) return leaveCar();
-      return startPullOver();
+      pop(car.x, 150, "PULL OVER FIRST");
+      return false;
     }
     if (car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && onGround()) {
       return enterCar();
@@ -1140,10 +1178,8 @@ export function createGame() {
   }
 
   function doCribBtn() {
-    // While driving the X slot is Pull Over; on foot ACT handles crib enter/exit.
-    if (inCar) return startPullOver();
     if (inCrib) {
-      if (cribX < -2.55) { leaveCrib(); return true; }
+      if (cribX < -1.55) { leaveCrib(); return true; }
       return false;
     }
     if (Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && onGround()) {
@@ -1153,10 +1189,19 @@ export function createGame() {
     return false;
   }
 
+  function toggleQuickPhone() {
+    ui = ui === "quickPhone" ? null : "quickPhone";
+    return ui === "quickPhone";
+  }
+
   function useGatePick(id) {
     if (id === "exit") {
       if (inCrib) { leaveCrib(); return true; }
-      if (inCar) return leaveCar();
+      if (inCar) {
+        if (carIsParked()) return leaveCar();
+        pop(car.x, 150, "PULL OVER FIRST");
+        return false;
+      }
     }
     if (id === "car") return doCarBtn();
     if (id === "crib") return doCribBtn();
@@ -1174,7 +1219,7 @@ export function createGame() {
     const nearHomeNow = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && onGround();
     const nearPlugNow = Math.abs(wrapDelta(player.x, plugMeet?.x ?? PLUG_X, WORLD)) < 28;
     if (inCrib) {
-      if (cribX < -2.55) {
+      if (cribX < -1.55) {
         leaveCrib();
         return true;
       }
@@ -1184,7 +1229,11 @@ export function createGame() {
       }
       return false;
     }
-    if (inCar) return leaveCar();
+    if (inCar) {
+      if (carIsParked()) return leaveCar();
+      pop(car.x, 150, "PULL OVER FIRST");
+      return false;
+    }
     if (nearCarNow) return enterCar();
     if (nearHomeNow) {
       openCrib();
@@ -1373,6 +1422,11 @@ export function createGame() {
       car.vx = 0;
       wreckT = 8;
       if (inCar) {
+        car.parked = true;
+        car.gear = "P";
+        car.vx = 0;
+        car.lat = parkLat(car.facing);
+        car.pullOverT = 0;
         leaveCar();
         player.vy = -80;
         pop(car.x, 148, "WRECK");
@@ -1588,6 +1642,8 @@ export function createGame() {
 
     if (input.phone) togglePhone();
     if (input.phoneClose) ui = null;
+    if (input.quickPhone) toggleQuickPhone();
+    if (input.quickPhoneClose && ui === "quickPhone") ui = null;
     if (input.pickClose) ui = ui === "pick" ? null : ui;
     if (input.pickId) runPick(input.pickId);
     if (input.pingContact) pingContact(input.pingContactId);
@@ -1613,7 +1669,7 @@ export function createGame() {
     if (input.stashInWhite) transfer("WHITE", 1);
     if (input.stashOutWhite) transfer("WHITE", -1);
 
-    if (ui && ui !== "phone") {
+    if (ui && ui !== "phone" && ui !== "quickPhone") {
       if (input.accept) acceptOrder();
       if (input.decline) declineOrder();
       clock += dt;
@@ -1623,6 +1679,10 @@ export function createGame() {
         salePop.life -= dt;
         if (salePop.life <= 0) salePop = null;
       }
+      return snapshot();
+    }
+    if (ui === "quickPhone") {
+      clock += dt;
       return snapshot();
     }
 
@@ -2016,9 +2076,41 @@ export function createGame() {
     for (const ped of peds) {
       ped.hitCd = Math.max(0, ped.hitCd - dt);
       ped.pushed = Math.max(0, (ped.pushed || 0) - dt);
-      ped.side = (ped.side || 0) * Math.exp(-dt * 2.8);
       ped.anim += dt;
       if (Math.abs(ped.vx || 0) > 2) ped.stride = (ped.stride || 0) + Math.abs(ped.vx) * dt;
+
+      // Never idle in or path through the crib doorway.
+      const dHome = Math.abs(wrapDelta(ped.x, HOME_X, WORLD));
+      if (dHome < 36) {
+        const away = wrapDelta(HOME_X, ped.x, WORLD) >= 0 ? 1 : -1;
+        ped.x = wrap(HOME_X + away * (38 + Math.abs(ped.lane || 0) * 4), WORLD);
+        ped.facing = away;
+        ped.vx = away * ped.speed;
+        ped.side = 0;
+        ped.cross = 0;
+        ped.crossT = 0;
+        ped.wait = 0.4;
+        continue;
+      }
+
+      // Crossing only at intersections, and only when no car is near.
+      if ((ped.cross || 0) > 0) {
+        ped.crossT = (ped.crossT || 0) + dt;
+        const u = Math.min(1, ped.crossT / 1.35);
+        ped.side = ped.cross * (u < 0.5 ? u * 2 : (1 - u) * 2) * 2.4;
+        ped.vx = 0;
+        if (u >= 1) {
+          ped.cross = 0;
+          ped.crossT = 0;
+          ped.side = 0;
+          ped.crossWait = 3 + Math.random() * 5;
+          ped.wait = 0.35;
+        }
+        continue;
+      }
+
+      ped.side = (ped.side || 0) * Math.exp(-dt * 2.8);
+      ped.crossWait = Math.max(0, (ped.crossWait || 0) - dt);
       if (ped.wait > 0) {
         ped.wait -= dt;
         ped.vx = 0;
@@ -2026,6 +2118,16 @@ export function createGame() {
         if (Math.random() < 0.0035) ped.wait = 0.7 + Math.random() * 2.4;
         ped.vx = ped.facing * ped.speed;
         ped.x = wrap(ped.x + ped.vx * dt, WORLD);
+        if (
+          ped.crossWait <= 0
+          && nearIntersection(ped.x)
+          && Math.random() < 0.012
+          && !carNearCrosswalk(ped.x, 78)
+        ) {
+          ped.cross = Math.random() < 0.5 ? 1 : -1;
+          ped.crossT = 0;
+          ped.vx = 0;
+        }
       }
     }
     separatePeds(peds);
@@ -2604,6 +2706,7 @@ export function createGame() {
     doAction,
     doCarBtn,
     doCribBtn,
+    toggleQuickPhone,
     startPullOver,
     useGate,
     doUTurn,

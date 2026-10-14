@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=78";
-import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=78";
-import { createInput } from "./input.js?v=78";
-import { createGame } from "./game.js?v=78";
-import { loadSprites } from "./sprites.js?v=78";
-import { createWorld } from "./world.js?v=78";
-import { createHud } from "./hud.js?v=78";
+import { TICK } from "./config.js?v=79";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=79";
+import { createInput } from "./input.js?v=79";
+import { createGame } from "./game.js?v=79";
+import { loadSprites } from "./sprites.js?v=79";
+import { createWorld } from "./world.js?v=79";
+import { createHud } from "./hud.js?v=79";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -60,6 +60,7 @@ let lastProject = null;
 let view = { camGameX: 80, halfWidth: 90 };
 
 try {
+  if (document.fonts?.ready) await document.fonts.ready;
   const sprites = await loadSprites();
   world = createWorld(canvas, sprites);
 } catch (err) {
@@ -72,6 +73,7 @@ const PULSE_KEYS = [
   "shoot", "jump", "start", "mute", "pause", "exit", "gearTap", "shiftStep",
   "accept", "decline", "action", "carBtn", "cribBtn", "pullover",
   "serve", "gate", "hitup", "uturn", "phone", "phoneClose",
+  "quickPhone", "quickPhoneClose",
   "textPlug", "pingContact", "pingContactId", "buyGreen", "buyWhite", "buyTier", "buyProduct", "buyTierId", "buyClose", "stashClose",
   "inventory", "invClose", "phoneTab",
   "stashInCash", "stashOutCash", "stashInGreen", "stashOutGreen",
@@ -167,6 +169,7 @@ window.__br = {
   doAction: () => game.doAction(),
   doCarBtn: () => game.doCarBtn?.(),
   doCribBtn: () => game.doCribBtn?.(),
+  toggleQuickPhone: () => game.toggleQuickPhone?.(),
   startPullOver: () => game.startPullOver?.(),
   setTimeHours: (h) => game.setTimeHours(h),
   setOutfit: (i) => game.setOutfit(i),
