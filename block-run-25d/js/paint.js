@@ -74,29 +74,39 @@ export const WALK_POSES = [
   { step: 0, bob: 0 },
 ];
 /**
- * 8-frame gait: contact, down, passing, up (each side).
- * Planted foot stays on the canvas floor and travels backward so it does
- * not slide when the sprite origin moves at MOVE_SPEED.
- * Opposite arm: +arm swings the left arm forward.
+ * 8-frame side gait: contact, down, passing, up (each side).
+ * Narrow stance — knees under hips, short natural stride, soft bob.
+ * Planted foot travels backward so it stays planted vs MOVE_SPEED.
  */
 export const WALK_CYCLE_POSES = [
-  { rFoot: 10, lFoot: -7, rLift: 0, lLift: 4, arm: 6, bob: 0 },
-  { rFoot: 4, lFoot: -2, rLift: 0, lLift: 8, arm: 5, bob: 2 },
-  { rFoot: -2, lFoot: 5, rLift: 0, lLift: 10, arm: 2, bob: 0 },
-  { rFoot: -9, lFoot: 10, rLift: 2, lLift: 3, arm: -4, bob: 0 },
-  { lFoot: 10, rFoot: -7, lLift: 0, rLift: 4, arm: -6, bob: 0 },
-  { lFoot: 4, rFoot: -2, lLift: 0, rLift: 8, arm: -5, bob: 2 },
-  { lFoot: -2, rFoot: 5, lLift: 0, rLift: 10, arm: -2, bob: 0 },
-  { lFoot: -9, rFoot: 10, lLift: 2, rLift: 3, arm: 4, bob: 0 },
+  { side: true, rFoot: 2, lFoot: -1.5, rLift: 0, lLift: 1.5, arm: 2, bob: 0 },
+  { side: true, rFoot: 0.5, lFoot: -0.5, rLift: 0, lLift: 2, arm: 1.5, bob: 0.5 },
+  { side: true, rFoot: -1, lFoot: 1, rLift: 0.5, lLift: 1.5, arm: 0.5, bob: 0 },
+  { side: true, rFoot: -1.5, lFoot: 2, rLift: 1, lLift: 0.5, arm: -1.5, bob: 0 },
+  { side: true, lFoot: 2, rFoot: -1.5, lLift: 0, rLift: 1.5, arm: -2, bob: 0 },
+  { side: true, lFoot: 0.5, rFoot: -0.5, lLift: 0, rLift: 2, arm: -1.5, bob: 0.5 },
+  { side: true, lFoot: -1, rFoot: 1, lLift: 0.5, rLift: 1.5, arm: -0.5, bob: 0 },
+  { side: true, lFoot: -1.5, rFoot: 2, lLift: 1, rLift: 0.5, arm: 1.5, bob: 0 },
+];
+/** Run: longer stride, forward lean, higher cadence bob. */
+export const RUN_CYCLE_POSES = [
+  { side: true, run: true, rFoot: 4, lFoot: -2.5, rLift: 0, lLift: 3, arm: 4, bob: 0, lean: 2.5 },
+  { side: true, run: true, rFoot: 1.5, lFoot: -1, rLift: 0, lLift: 3.5, arm: 3, bob: 0.5, lean: 2.5 },
+  { side: true, run: true, rFoot: -1, lFoot: 2.5, rLift: 1, lLift: 2.5, arm: 0.5, bob: 0, lean: 2.5 },
+  { side: true, run: true, rFoot: -3, lFoot: 4, rLift: 2.5, lLift: 0.5, arm: -3.5, bob: 0, lean: 2.5 },
+  { side: true, run: true, lFoot: 4, rFoot: -2.5, lLift: 0, rLift: 3, arm: -4, bob: 0, lean: 2.5 },
+  { side: true, run: true, lFoot: 1.5, rFoot: -1, lLift: 0, rLift: 3.5, arm: -3, bob: 0.5, lean: 2.5 },
+  { side: true, run: true, lFoot: -1, rFoot: 2.5, lLift: 1, rLift: 2.5, arm: -0.5, bob: 0, lean: 2.5 },
+  { side: true, run: true, lFoot: -3, rFoot: 4, lLift: 2.5, rLift: 0.5, arm: 3.5, bob: 0, lean: 2.5 },
 ];
 export const PED_WALK_POSES = WALK_CYCLE_POSES;
 /**
- * Game-x of one full gait cycle (both feet).
- * 20px planted-foot travel on a 40px / 3.05m billboard = 1.525m
- * = 1.525 * WORLD/STREET_LEN ≈ 11.7 game units. Keep in lockstep so
- * the planted shoe does not slide on the pavement.
+ * Game-x of one full walk cycle (both feet).
+ * ~8px plant travel on 40px / 3.05m ≈ 0.61m ≈ 4.7 game units.
  */
-export const STRIDE_CYCLE = 12;
+export const STRIDE_CYCLE = 6;
+/** Run cycle length in game-x (longer plant travel). */
+export const RUN_STRIDE_CYCLE = 10;
 /** PNG stride leftover — kept for older sheets. */
 export const STRIDE_POSES = [
   { leftDx: 6, leftDy: 0, rightDx: -5, rightDy: -2, bob: 0, arm: 4 },
@@ -107,8 +117,8 @@ export const STRIDE_POSES = [
   { leftDx: 0, leftDy: 0, rightDx: 0, rightDy: 0, bob: 0, arm: 0 },
 ];
 export const TURN_POSES = [
-  { threeQ: true, bob: 0 },
-  { threeQ: true, bob: 1 },
+  { side: true, bob: 0 },
+  { side: true, bob: 1 },
 ];
 export const SIT_POSES = [
   { sit: true, bob: 0 },
@@ -184,185 +194,237 @@ function gaitFromPose(pose = {}) {
   };
 }
 
-/** Shared SNES-volume figure used by the hero and every pedestrian. */
+function fillOval(g, cx, cy, rx, ry, color) {
+  g.fillStyle = color;
+  g.beginPath();
+  g.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+  g.fill();
+}
+
+function fillLimb(g, x0, y0, x1, y1, w0, w1, color) {
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const len = Math.max(0.001, Math.hypot(dx, dy));
+  const nx = -dy / len;
+  const ny = dx / len;
+  g.fillStyle = color;
+  g.beginPath();
+  g.moveTo(x0 + nx * w0, y0 + ny * w0);
+  g.lineTo(x1 + nx * w1, y1 + ny * w1);
+  g.lineTo(x1 - nx * w1, y1 - ny * w1);
+  g.lineTo(x0 - nx * w0, y0 - ny * w0);
+  g.closePath();
+  g.fill();
+  fillOval(g, x0, y0, w0, w0, color);
+  fillOval(g, x1, y1, w1, w1, color);
+}
+
+function paintHand(g, x, y, skin, side = false) {
+  fillOval(g, x, y, side ? 1.35 : 1.55, side ? 1.2 : 1.45, skin);
+  fillOval(g, x + (side ? 0.7 : 0), y + 0.55, 0.7, 0.55, skin);
+}
+
+/** Shared refined figure used by the hero and every pedestrian. */
 export function paintPerson(g, look, pose = {}) {
   g.clearRect(0, 0, 40, 40);
   const sit = !!pose.sit;
-  const threeQ = !!pose.threeQ;
+  const side = !!pose.side || !!pose.threeQ;
+  const run = !!pose.run;
+  const lean = pose.lean || (run ? 2 : 0);
   const bob = pose.bob || 0;
-  const ox = threeQ ? 2 : (sit ? 1 : 0);
-  const y = (n) => n + bob + (sit ? 4 : 0);
+  const y = (n) => n + bob + (sit ? 3 : 0);
   const gait = gaitFromPose(pose);
-  const shirtHi = look.hoodieHi || shadeHex(look.shirt, 32);
-  const shirtLo = shadeHex(look.shirt, -34);
-  const pantsLo = look.jeansLo || shadeHex(look.pants, -26);
-  const pantsHi = shadeHex(look.pants, 20);
-  const skinLo = look.skinLo || shadeHex(look.skin, -24);
-  const skinHi = shadeHex(look.skin, 18);
+  const shirtHi = look.hoodieHi || shadeHex(look.shirt, 28);
+  const shirtLo = shadeHex(look.shirt, -30);
+  const pantsLo = look.jeansLo || shadeHex(look.pants, -24);
+  const pantsHi = shadeHex(look.pants, 18);
+  const skinLo = look.skinLo || shadeHex(look.skin, -22);
+  const skinHi = shadeHex(look.skin, 16);
   const hairLo = shadeHex(look.hair, -18);
   const outline = "#140010";
-  const bodyW = threeQ || sit ? 12 : 14;
-
-  g.fillStyle = outline;
-  g.fillRect(13 + ox, y(sit ? 6 : 3), bodyW, sit ? 22 : 34);
+  const cx = 20 + lean * 0.55;
 
   if (sit) {
-    g.fillStyle = look.pants;
-    g.fillRect(11 + ox, y(20), 17, 6);
-    g.fillStyle = pantsHi;
-    g.fillRect(12 + ox, y(20), 6, 3);
-    g.fillStyle = pantsLo;
-    g.fillRect(12 + ox, y(25), 5, 6);
-    g.fillRect(23 + ox, y(25), 5, 6);
-    g.fillStyle = look.shoes;
-    g.fillRect(11 + ox, y(30), 7, 4);
-    g.fillRect(22 + ox, y(30), 7, 4);
-    g.fillStyle = shadeHex(look.shoes, 40);
-    g.fillRect(12 + ox, y(30), 3, 1);
-    g.fillRect(23 + ox, y(30), 3, 1);
+    fillOval(g, cx, y(22), 7.2, 4.6, look.pants);
+    fillLimb(g, cx - 2.5, y(22), cx - 6.5, y(30), 2.0, 1.4, pantsLo);
+    fillLimb(g, cx + 2.5, y(22), cx + 7.5, y(30), 2.0, 1.4, look.pants);
+    fillOval(g, cx - 6.5, y(31), 2.8, 1.5, look.shoes);
+    fillOval(g, cx + 7.5, y(31), 2.8, 1.5, look.shoes);
     if (look.shoeRed) {
-      g.fillStyle = look.shoeRed;
-      g.fillRect(11 + ox, y(31), 2, 2);
-      g.fillRect(22 + ox, y(31), 2, 2);
+      fillOval(g, cx - 7.2, y(31), 1.0, 1.0, look.shoeRed);
+      fillOval(g, cx + 6.8, y(31), 1.0, 1.0, look.shoeRed);
     }
+    fillOval(g, cx, y(16.5), 6.6, 6.2, look.shirt);
+    fillOval(g, cx - 1.8, y(14.5), 2.6, 3.8, shirtHi);
+    fillOval(g, cx + 2.4, y(15.5), 2.0, 3.6, shirtLo);
+    g.fillStyle = look.accent;
+    g.fillRect(cx - 5.5, y(11.5), 11, 1.6);
+    fillLimb(g, cx - 5.5, y(15), cx - 8.5, y(21.5), 1.8, 1.3, look.shirt);
+    fillLimb(g, cx + 5.5, y(15), cx + 8.5, y(21.5), 1.8, 1.3, look.shirt);
+    paintHand(g, cx - 8.5, y(22.5), look.skin);
+    paintHand(g, cx + 8.5, y(22.5), look.skin);
+  } else if (side) {
+    // True profile: narrow torso, knees under hips, short fore/aft stride.
+    const hipY = y(23.5);
+    const hipX = cx;
+    const backX = hipX + Math.min(gait.lFoot, gait.rFoot);
+    const frontX = hipX + Math.max(gait.lFoot, gait.rFoot);
+    const backLift = gait.lFoot <= gait.rFoot ? gait.lLift : gait.rLift;
+    const frontLift = gait.lFoot > gait.rFoot ? gait.lLift : gait.rLift;
+    const kneeBack = (hipX + backX) * 0.5;
+    const kneeFront = (hipX + frontX) * 0.5;
+    fillLimb(g, hipX, hipY, kneeBack, 30 - backLift * 0.4, 1.9, 1.45, pantsLo);
+    fillLimb(g, kneeBack, 30 - backLift * 0.4, backX, 36.2 - backLift, 1.45, 1.15, pantsLo);
+    fillOval(g, backX + 1.2, 37.2 - backLift, 2.8, 1.25, look.shoes);
+    fillOval(g, hipX, hipY - 0.4, 2.5, 2.8, look.pants);
+    fillLimb(g, hipX, hipY, kneeFront, 30 - frontLift * 0.4, 1.9, 1.45, look.pants);
+    fillLimb(g, kneeFront, 30 - frontLift * 0.4, frontX, 36.2 - frontLift, 1.45, 1.15, look.pants);
+    fillOval(g, frontX + 1.2, 37.2 - frontLift, 2.8, 1.25, look.shoes);
+    if (look.shoeRed) {
+      fillOval(g, backX + 0.4, 37.2 - backLift, 0.85, 0.85, look.shoeRed);
+      fillOval(g, frontX + 0.4, 37.2 - frontLift, 0.85, 0.85, look.shoeRed);
+    }
+    const torsoY = y(15.5);
+    const tx = hipX + lean * 0.2;
+    fillOval(g, tx, torsoY, 2.9, 7.0, look.shirt);
+    fillOval(g, tx - 0.7, torsoY - 1.2, 1.5, 4.4, shirtHi);
+    fillOval(g, tx + 1.0, torsoY, 1.25, 4.6, shirtLo);
+    fillOval(g, tx, y(11.2), 3.2, 2.0, look.shirt);
+    g.fillStyle = look.accent;
+    g.fillRect(tx - 2.6, y(10.8), 5.2, 1.4);
+    const armSwing = gait.rArm;
+    const elbow = hipX + armSwing * 0.45;
+    fillLimb(g, hipX + 0.3, y(13.5), elbow, y(18), 1.55, 1.25, look.shirt);
+    fillLimb(g, elbow, y(18), hipX + armSwing, y(22.5), 1.25, 1.0, look.shirt);
+    paintHand(g, hipX + armSwing, y(23.4), look.skin, true);
   } else {
-    const lPlant = gait.lLift <= 0;
-    const rPlant = gait.rLift <= 0;
-    g.fillStyle = pantsLo;
-    g.fillRect(15 + ox + gait.lFoot, y(26) - gait.lLift, 5, 10 + gait.lLift);
-    g.fillStyle = look.pants;
-    g.fillRect(20 + ox + gait.rFoot, y(26) - gait.rLift, 5, 10 + gait.rLift);
-    g.fillStyle = pantsHi;
-    g.fillRect(16 + ox + gait.lFoot, y(27) - gait.lLift, 1, 7);
-    g.fillRect(21 + ox + gait.rFoot, y(27) - gait.rLift, 1, 7);
-    g.fillStyle = look.pants;
-    g.fillRect(16 + ox, y(25), 8, 4);
-
-    const lShoeY = lPlant ? 36 : 36 - gait.lLift;
-    const rShoeY = rPlant ? 36 : 36 - gait.rLift;
-    g.fillStyle = look.shoes;
-    g.fillRect(14 + ox + gait.lFoot, lShoeY, 6, 4);
-    g.fillRect(20 + ox + gait.rFoot, rShoeY, 6, 4);
-    g.fillStyle = shadeHex(look.shoes, 44);
-    g.fillRect(15 + ox + gait.lFoot, lShoeY, 3, 1);
-    g.fillRect(21 + ox + gait.rFoot, rShoeY, 3, 1);
-    g.fillStyle = shadeHex(look.shoes, -40);
-    g.fillRect(14 + ox + gait.lFoot, lShoeY + 2, 2, 2);
-    g.fillRect(20 + ox + gait.rFoot, rShoeY + 2, 2, 2);
+    const hipY = y(24.5);
+    const stance = 1.35;
+    const lKneeX = cx - stance + gait.lFoot * 0.12;
+    const rKneeX = cx + stance + gait.rFoot * 0.12;
+    fillLimb(g, cx - stance, hipY, lKneeX, 30.5 - gait.lLift * 0.35, 1.9, 1.4, pantsLo);
+    fillLimb(g, lKneeX, 30.5 - gait.lLift * 0.35, lKneeX, 36.2 - gait.lLift, 1.4, 1.1, pantsLo);
+    fillLimb(g, cx + stance, hipY, rKneeX, 30.5 - gait.rLift * 0.35, 1.9, 1.4, look.pants);
+    fillLimb(g, rKneeX, 30.5 - gait.rLift * 0.35, rKneeX, 36.2 - gait.rLift, 1.4, 1.1, look.pants);
+    fillOval(g, lKneeX, 37.2 - gait.lLift, 2.5, 1.25, look.shoes);
+    fillOval(g, rKneeX, 37.2 - gait.rLift, 2.5, 1.25, look.shoes);
     if (look.shoeRed) {
-      g.fillStyle = look.shoeRed;
-      g.fillRect(14 + ox + gait.lFoot, lShoeY + 1, 2, 2);
-      g.fillRect(20 + ox + gait.rFoot, rShoeY + 1, 2, 2);
+      fillOval(g, lKneeX - 0.5, 37.2 - gait.lLift, 0.85, 0.85, look.shoeRed);
+      fillOval(g, rKneeX - 0.35, 37.2 - gait.rLift, 0.85, 0.85, look.shoeRed);
     }
+    fillOval(g, cx, hipY - 0.8, 3.8, 2.7, look.pants);
+    fillOval(g, cx - 1.0, hipY - 1.6, 1.5, 1.5, pantsHi);
+    // Soft torso + sloping shoulders (no cube body).
+    fillOval(g, cx, y(15.5), 5.4, 7.0, look.shirt);
+    fillOval(g, cx - 1.8, y(13.8), 2.4, 4.4, shirtHi);
+    fillOval(g, cx + 2.2, y(14.6), 1.9, 4.4, shirtLo);
+    fillOval(g, cx - 4.6, y(12.4), 2.6, 2.0, look.shirt);
+    fillOval(g, cx + 4.6, y(12.4), 2.6, 2.0, look.shirt);
+    fillOval(g, cx, y(11.2), 4.8, 1.8, look.shirt);
+    g.fillStyle = look.accent;
+    g.fillRect(cx - 5, y(10.8), 10, 1.5);
+    const lHandX = cx - 7.2 + gait.lArm * 0.3;
+    const rHandX = cx + 7.2 + gait.rArm * 0.3;
+    fillLimb(g, cx - 4.8, y(13.2), cx - 6.2 + gait.lArm * 0.15, y(17.5), 1.7, 1.3, look.shirt);
+    fillLimb(g, cx - 6.2 + gait.lArm * 0.15, y(17.5), lHandX, y(22.2), 1.3, 1.0, look.shirt);
+    fillLimb(g, cx + 4.8, y(13.2), cx + 6.2 + gait.rArm * 0.15, y(17.5), 1.7, 1.3, look.shirt);
+    fillLimb(g, cx + 6.2 + gait.rArm * 0.15, y(17.5), rHandX, y(22.2), 1.3, 1.0, look.shirt);
+    paintHand(g, lHandX, y(23.2), look.skin);
+    paintHand(g, rHandX, y(23.2), look.skin);
   }
 
-  g.fillStyle = look.shirt;
-  g.fillRect(13 + ox, y(16), bodyW, 11);
-  g.fillStyle = shirtHi;
-  g.fillRect(14 + ox, y(17), threeQ ? 4 : 5, 8);
-  g.fillStyle = shadeHex(look.shirt, 48);
-  g.fillRect(15 + ox, y(18), 1, 6);
-  g.fillStyle = shirtLo;
-  g.fillRect((threeQ ? 22 : 23) + ox, y(17), 3, 8);
-  g.fillStyle = look.accent;
-  g.fillRect(13 + ox, y(16), bodyW, 2);
-  g.fillStyle = shirtLo;
-  g.fillRect(13 + ox, y(25), bodyW, 1);
-  g.fillStyle = shadeHex(look.shirt, 36);
-  g.fillRect(17 + ox, y(21), 4, 1);
-
-  if (look.chain) {
+  if (look.chain && !side) {
     g.fillStyle = look.chain === true ? "#f0c430" : look.chain;
-    g.fillRect(17 + ox, y(18), 6, 1);
-    g.fillRect(19 + ox, y(19), 2, 2);
+    g.fillRect(cx - 2.5, y(13.5), 5, 1);
+    g.fillRect(cx - 0.8, y(14.5), 1.6, 1.8);
   }
 
-  const lArm = sit ? 0 : gait.lArm;
-  const rArm = sit ? 0 : gait.rArm;
-  g.fillStyle = look.skin;
-  if (!threeQ) g.fillRect(10 + lArm, y(18), 4, sit ? 5 : 7);
-  g.fillRect(26 + ox + rArm, y(18), 4, sit ? 5 : 7);
-  g.fillStyle = look.shirt;
-  if (!threeQ) g.fillRect(10 + lArm, y(17), 4, 3);
-  g.fillRect(26 + ox + rArm, y(17), 4, 3);
-  g.fillStyle = skinLo;
-  if (!threeQ) g.fillRect(10 + lArm, y(23), 4, 1);
-  g.fillRect(26 + ox + rArm, y(23), 4, 1);
-
-  g.fillStyle = look.skin;
-  g.fillRect(14 + ox, y(8), threeQ ? 10 : 12, 9);
-  g.fillStyle = skinHi;
-  g.fillRect(15 + ox, y(9), 4, 6);
-  g.fillStyle = skinLo;
-  g.fillRect((threeQ ? 21 : 22) + ox, y(10), 3, 6);
-  g.fillStyle = "#f4e6d4";
-  g.fillRect(16 + ox, y(11), 2, 2);
-  if (!threeQ) g.fillRect(21, y(11), 2, 2);
-  g.fillStyle = "#1a1210";
-  g.fillRect(17 + ox, y(11), 1, 2);
-  if (!threeQ) g.fillRect(22, y(11), 1, 2);
-  g.fillStyle = skinLo;
-  g.fillRect(18 + ox, y(15), threeQ ? 3 : 4, 1);
-  g.fillStyle = skinHi;
-  g.fillRect(16 + ox, y(13), 2, 1);
+  // Soft neck + rounded head (never a cube).
+  fillOval(g, cx + (side ? lean * 0.25 : 0), y(9.6), side ? 1.6 : 2.2, 1.4, look.skin);
+  const headX = cx + (side ? lean * 0.35 : 0);
+  const headY = y(6.4);
+  fillOval(g, headX, headY, side ? 4.2 : 5.5, side ? 5.2 : 5.8, look.skin);
+  fillOval(g, headX - (side ? 0.7 : 1.7), headY - 0.9, side ? 1.5 : 2.2, side ? 2.4 : 3.0, skinHi);
+  fillOval(g, headX + (side ? 1.2 : 2.0), headY + 0.2, side ? 1.2 : 1.8, side ? 2.2 : 2.6, skinLo);
+  if (side) {
+    fillOval(g, headX + 2.9, headY + 0.5, 1.25, 1.05, look.skin);
+    g.fillStyle = "#1a1210";
+    g.fillRect(headX + 1.2, headY - 0.5, 1.3, 1.3);
+    g.fillStyle = "#f4e6d4";
+    g.fillRect(headX + 1.3, headY - 0.4, 0.6, 0.6);
+    g.fillStyle = skinLo;
+    g.fillRect(headX + 0.6, headY + 2.1, 1.9, 0.8);
+  } else {
+    g.fillStyle = "#f4e6d4";
+    g.fillRect(headX - 2.6, headY - 0.4, 1.7, 1.7);
+    g.fillRect(headX + 0.9, headY - 0.4, 1.7, 1.7);
+    g.fillStyle = "#1a1210";
+    g.fillRect(headX - 2.0, headY - 0.15, 1.05, 1.2);
+    g.fillRect(headX + 1.4, headY - 0.15, 1.05, 1.2);
+    g.fillStyle = skinLo;
+    g.fillRect(headX - 1.2, headY + 2.6, 2.4, 0.85);
+  }
 
   const hatKind = look.hat || "none";
   if (hatKind === "beanie") {
-    g.fillStyle = outline;
-    g.fillRect(14 + ox, y(3), threeQ ? 10 : 12, 6);
-    g.fillStyle = look.accent;
-    g.fillRect(15 + ox, y(3), threeQ ? 8 : 10, 5);
-    g.fillStyle = shadeHex(look.accent, 28);
-    g.fillRect(16 + ox, y(3), threeQ ? 6 : 8, 2);
-    g.fillStyle = look.accent;
-    g.fillRect(16 + ox, y(2), threeQ ? 6 : 8, 2);
+    fillOval(g, headX, headY - 2.8, side ? 4.8 : 5.6, 3.2, outline);
+    fillOval(g, headX, headY - 3.0, side ? 4.1 : 4.9, 2.7, look.accent);
+    fillOval(g, headX - 0.9, headY - 3.7, side ? 2.6 : 3.1, 1.4, shadeHex(look.accent, 28));
     g.fillStyle = look.hair;
-    g.fillRect(15 + ox, y(7), 2, 2);
-    g.fillRect(23 + ox, y(7), 2, 2);
+    if (!side) {
+      g.fillRect(headX - 4.4, headY + 0.8, 1.7, 1.7);
+      g.fillRect(headX + 2.7, headY + 0.8, 1.7, 1.7);
+    } else {
+      g.fillRect(headX - 3.5, headY + 0.8, 1.7, 1.7);
+    }
   } else if (hatKind === "cap") {
-    g.fillStyle = outline;
-    g.fillRect(14 + ox, y(3), 12, 5);
-    g.fillStyle = "#2a4a8a";
-    g.fillRect(15 + ox, y(3), 10, 4);
-    g.fillStyle = shadeHex("#2a4a8a", 36);
-    g.fillRect(16 + ox, y(3), 6, 2);
+    fillOval(g, headX, headY - 2.6, side ? 4.6 : 5.4, 2.5, "#2a4a8a");
     g.fillStyle = "#1a2a58";
-    g.fillRect(24 + ox, y(6), 5, 2);
+    if (side) g.fillRect(headX + 1.8, headY - 1.3, 4.4, 1.4);
+    else g.fillRect(headX + 1.8, headY - 1.0, 4.4, 1.4);
     g.fillStyle = look.hair;
-    g.fillRect(15 + ox, y(7), 2, 3);
+    g.fillRect(headX - (side ? 3.5 : 4.4), headY + 0.8, 1.7, 1.7);
   } else if (hatKind === "durag") {
-    g.fillStyle = outline;
-    g.fillRect(13 + ox, y(3), 14, 6);
-    g.fillStyle = "#2a1a28";
-    g.fillRect(14 + ox, y(3), 12, 5);
+    fillOval(g, headX, headY - 2.5, side ? 4.8 : 5.6, 3.0, "#2a1a28");
     g.fillStyle = look.accent;
-    g.fillRect(16 + ox, y(4), 8, 2);
-    g.fillStyle = "#1a1018";
-    g.fillRect(24 + ox, y(7), 4, 2);
+    g.fillRect(headX - 2.6, headY - 2.7, 5.2, 1.3);
+    if (side) {
+      g.fillStyle = "#1a1018";
+      g.fillRect(headX + 2.6, headY, 2.6, 1.7);
+    }
   } else if (hatKind === "afro") {
-    g.fillStyle = look.hair;
-    g.fillRect(12 + ox, y(2), 16, 8);
-    g.fillStyle = hairLo;
-    g.fillRect(12 + ox, y(3), 3, 6);
-    g.fillRect(25 + ox, y(3), 3, 6);
-    g.fillStyle = shadeHex(look.hair, 22);
-    g.fillRect(18 + ox, y(3), 4, 2);
+    fillOval(g, headX, headY - 1.8, side ? 6.2 : 7.2, side ? 5.4 : 6.2, look.hair);
+    fillOval(g, headX - 2.6, headY - 0.9, 2.2, 3.0, hairLo);
+    fillOval(g, headX + 2.6, headY - 0.9, 2.2, 3.0, hairLo);
   } else {
-    g.fillStyle = outline;
-    g.fillRect(14 + ox, y(3), 12, 6);
-    g.fillStyle = look.hair;
-    g.fillRect(15 + ox, y(3), 10, 5);
-    g.fillStyle = shadeHex(look.hair, 28);
-    g.fillRect(16 + ox, y(4), 4, 2);
+    fillOval(g, headX, headY - 3.0, side ? 4.4 : 5.2, 2.5, look.hair);
+    fillOval(g, headX - 1.3, headY - 3.4, 1.9, 1.2, shadeHex(look.hair, 24));
     g.fillStyle = hairLo;
-    g.fillRect(15 + ox, y(6), 2, 2);
-    g.fillRect(23 + ox, y(6), 2, 2);
+    if (!side) {
+      g.fillRect(headX - 4.4, headY + 0.4, 1.7, 1.7);
+      g.fillRect(headX + 2.7, headY + 0.4, 1.7, 1.7);
+    } else {
+      g.fillRect(headX - 3.5, headY + 0.4, 1.7, 1.7);
+    }
   }
+}
+
+/** Logical figure space is 40×40; paint at 3× with smoothing so ovals read round. */
+export const PERSON_SCALE = 3;
+export const PERSON_SIZE = 40 * PERSON_SCALE;
+
+function paintPersonHi(g, look, pose) {
+  g.imageSmoothingEnabled = true;
+  g.imageSmoothingQuality = "high";
+  g.save();
+  g.scale(PERSON_SCALE, PERSON_SCALE);
+  paintPerson(g, look, pose);
+  g.restore();
 }
 
 export function paintLook(i, pose) {
   const look = PED_LOOKS[i % PED_LOOKS.length];
-  return pixelCanvas(40, 40, (g) => paintPerson(g, look, pose));
+  return pixelCanvas(PERSON_SIZE, PERSON_SIZE, (g) => paintPersonHi(g, look, pose));
 }
 
 export function paintWalkLook(i, poses = PED_WALK_POSES) {
@@ -370,13 +432,14 @@ export function paintWalkLook(i, poses = PED_WALK_POSES) {
 }
 
 export function paintPersonLook(look, pose) {
-  return pixelCanvas(40, 40, (g) => paintPerson(g, look, pose));
+  return pixelCanvas(PERSON_SIZE, PERSON_SIZE, (g) => paintPersonHi(g, look, pose));
 }
 
 export function paintPlayerSet(look) {
   return {
     idle: IDLE_POSES.map((p) => paintPersonLook(look, p)),
     walk: WALK_CYCLE_POSES.map((p) => paintPersonLook(look, p)),
+    run: RUN_CYCLE_POSES.map((p) => paintPersonLook(look, p)),
     jump: JUMP_POSES.map((p) => paintPersonLook(look, p)),
     shoot: SHOOT_POSES.map((p) => paintPersonLook(look, p)),
     turn: TURN_POSES.map((p) => paintPersonLook(look, p)),
@@ -672,6 +735,7 @@ export function paintClassicHeroSet(wardrobe = { hat: "beanie" }) {
   return {
     idle: IDLE_POSES.map((p) => paintPersonLook(look, p)),
     walk: WALK_CYCLE_POSES.map((p) => paintPersonLook(look, p)),
+    run: RUN_CYCLE_POSES.map((p) => paintPersonLook(look, p)),
     jump: JUMP_POSES.map((p) => paintPersonLook(look, p)),
     shoot: SHOOT_POSES.map((p) => paintPersonLook(look, p)),
     turn: TURN_POSES.map((p) => paintPersonLook(look, p)),
@@ -757,29 +821,20 @@ export function volumeHero(src) {
 }
 
 export function paintCopFig() {
-  return pixelCanvas(40, 40, (g) => {
-    paintPerson(g, {
+  return pixelCanvas(PERSON_SIZE, PERSON_SIZE, (g) => {
+    paintPersonHi(g, {
       skin: "#c68642", shirt: "#1a2a58", pants: "#1a2438",
       hair: "#1a1210", accent: "#f0c430", hat: "cap", shoes: "#111018",
     });
-    g.fillStyle = "#2a4a8a";
-    g.fillRect(15, 3, 10, 4);
-    g.fillRect(24, 6, 6, 2);
-    g.fillStyle = "#f0c430";
-    g.fillRect(17, 20, 6, 3);
   });
 }
 
 export function paintPlugFig() {
-  return pixelCanvas(40, 40, (g) => {
-    paintPerson(g, {
+  return pixelCanvas(PERSON_SIZE, PERSON_SIZE, (g) => {
+    paintPersonHi(g, {
       skin: "#8d5524", shirt: "#1a1a22", pants: "#2a2430",
       hair: "#1a1210", accent: "#f0c430", hat: "none", shoes: "#f0c430", chain: true,
     });
-    g.fillStyle = "#e21b7a";
-    g.fillRect(13, 16, 14, 2);
-    g.fillStyle = "#f0c430";
-    g.fillRect(24, 18, 4, 4);
   });
 }
 

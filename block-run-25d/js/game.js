@@ -15,8 +15,8 @@ import {
   BOARD_T, ENTER_LOCK, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=67";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=67";
+} from "./config.js?v=73";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=73";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -300,6 +300,7 @@ export function createGame() {
       booms: booms.map((b) => ({ ...b })),
       boss: boss ? { ...boss } : null,
       shake, muzzle, invuln, boardT, enterLock, camZoom,
+      runHeld,
       edgeL, edgeR, viewHalf: lastView?.halfWidth || 0,
     };
   }

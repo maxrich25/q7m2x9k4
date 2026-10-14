@@ -1,6 +1,6 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=67";
-import { paintClassicHero } from "./paint.js?v=67";
-import { isUnlocked } from "./audio.js?v=67";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=73";
+import { paintClassicHero } from "./paint.js?v=73";
+import { isUnlocked } from "./audio.js?v=73";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -228,78 +228,93 @@ export function createHud(opts = {}) {
     g.fillStyle = "#121018";
     g.fillRect(0, 0, outfitHero.width, outfitHero.height);
     const src = document.createElement("canvas");
-    src.width = 40;
-    src.height = 40;
-    paintClassicHero(src.getContext("2d"), { bob: 0 }, state.wardrobe || {});
-    const scale = 4;
-    const dx = Math.round((outfitHero.width - 40 * scale) / 2);
-    const dy = Math.round((outfitHero.height - 40 * scale) / 2);
-    g.drawImage(src, 0, 0, 40, 40, dx, dy, 40 * scale, 40 * scale);
+    src.width = 120;
+    src.height = 120;
+    const pg = src.getContext("2d");
+    pg.imageSmoothingEnabled = true;
+    pg.scale(3, 3);
+    paintClassicHero(pg, { bob: 0 }, state.wardrobe || {});
+    const scale = 1.5;
+    const dx = Math.round((outfitHero.width - 120 * scale) / 2);
+    const dy = Math.round((outfitHero.height - 120 * scale) / 2);
+    g.imageSmoothingEnabled = true;
+    g.drawImage(src, 0, 0, 120, 120, dx, dy, 120 * scale, 120 * scale);
   }
 
   let popNodes = [];
 
+  let hudScratch = null;
   function paintHudTop(state) {
     const host = document.getElementById("hud-top");
-    if (!host) return;
-    let c = document.getElementById("hud-top-canvas");
-    if (!c) {
-      c = document.createElement("canvas");
-      c.id = "hud-top-canvas";
-      c.setAttribute("aria-hidden", "true");
-      host.insertBefore(c, host.firstChild);
-    }
-    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-    const w = Math.max(1, host.clientWidth);
-    const h = 48;
-    const bw = Math.round(w * dpr);
-    const bh = Math.round(h * dpr);
+    const c = document.getElementById("hud-top-canvas");
+    if (!host || !c) return;
+    const cssW = Math.max(1, Math.round(host.clientWidth || 390));
+    const cssH = 32;
+    const dpr = Math.max(1, Math.min(3, Math.round(window.devicePixelRatio || 1)));
+    const bw = Math.round(cssW * dpr);
+    const bh = Math.round(cssH * dpr);
     if (c.width !== bw || c.height !== bh) {
       c.width = bw;
       c.height = bh;
-      c.style.width = w + "px";
-      c.style.height = h + "px";
     }
+    c.style.width = cssW + "px";
+    c.style.height = cssH + "px";
+    // Paint at 1 CSS-px = 1 bitmap px, then nearest-neighbor upscale to DPR
+    // so Press Start 2P stays hard-edged at DPR 2/3 (no canvas text AA blur).
+    if (!hudScratch) hudScratch = document.createElement("canvas");
+    if (hudScratch.width !== cssW || hudScratch.height !== cssH) {
+      hudScratch.width = cssW;
+      hudScratch.height = cssH;
+    }
+    const tg = hudScratch.getContext("2d");
+    tg.setTransform(1, 0, 0, 1, 0, 0);
+    tg.imageSmoothingEnabled = false;
+    tg.clearRect(0, 0, cssW, cssH);
+    const fs = cssW < 360 ? 8 : 16;
+    tg.font = fs + "px \"Press Start 2P\", monospace";
+    tg.textBaseline = "top";
+    tg.textAlign = "left";
+    const y = Math.round((cssH - fs) / 2);
+    let x = 8;
+    const cash = "$" + String(state.cash).padStart(4, "0");
+    tg.fillStyle = "#f0c430";
+    tg.fillText(cash, x, y);
+    x += Math.ceil(tg.measureText(cash).width) + 10;
+    const inv = state.inv || {};
+    const grn = "GRN " + fmtGrams(inv.GREEN);
+    tg.fillStyle = "#3dff7a";
+    tg.fillText(grn, x, y);
+    x += Math.ceil(tg.measureText(grn).width) + 10;
+    const wht = "WHT " + fmtGrams(inv.WHITE);
+    tg.fillStyle = "#f4f0e8";
+    tg.fillText(wht, x, y);
+    x += Math.ceil(tg.measureText(wht).width) + 10;
+    const rep = "REP " + Math.round(state.rep || 0);
+    tg.fillStyle = "#8a8696";
+    tg.fillText(rep, x, y);
+    // Harden glyph edges so DPR upscale stays pixel-crisp (canvas text AA → binary alpha).
+    const img = tg.getImageData(0, 0, cssW, cssH);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 140) {
+        d[i] = 0; d[i + 1] = 0; d[i + 2] = 0; d[i + 3] = 0;
+      } else {
+        d[i + 3] = 255;
+      }
+    }
+    tg.putImageData(img, 0, 0);
     const g = c.getContext("2d");
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.imageSmoothingEnabled = false;
     g.clearRect(0, 0, bw, bh);
-    const cash = "$" + String(state.cash).padStart(4, "0");
-    const inv = state.inv || {};
-    const grn = "GRN " + fmtGrams(inv.GREEN);
-    const wht = "WHT " + fmtGrams(inv.WHITE);
-    const rep = "REP " + Math.round(state.rep || 0);
-    const gap0 = Math.round(10 * dpr);
-    let fs = Math.round(16 * dpr);
-    const minFs = Math.round(13 * dpr);
-    function layout(size, gap) {
-      g.font = size + 'px "Press Start 2P", ui-monospace, monospace';
-      return g.measureText(cash).width + g.measureText(grn).width + g.measureText(wht).width
-        + g.measureText(rep).width + gap * 3;
-    }
-    while (fs > minFs && layout(fs, gap0) > bw - Math.round(10 * dpr)) fs -= 1;
-    const gap = layout(fs, gap0) > bw - Math.round(8 * dpr) ? Math.round(6 * dpr) : gap0;
-    g.font = fs + 'px "Press Start 2P", ui-monospace, monospace';
-    g.textBaseline = "top";
-    g.textAlign = "left";
-    const y = Math.round(12 * dpr);
-    let x = Math.round(4 * dpr);
-    g.fillStyle = "#f0c430";
-    g.fillText(cash, x, y);
-    x += Math.round(g.measureText(cash).width) + gap;
-    g.fillStyle = "#3dff7a";
-    g.fillText(grn, x, y);
-    x += Math.round(g.measureText(grn).width) + gap;
-    g.fillStyle = "#f4f0e8";
-    g.fillText(wht, x, y);
-    g.textAlign = "right";
-    g.fillStyle = "#8a8696";
-    g.fillText(rep, bw - Math.round(4 * dpr), y);
+    g.drawImage(hudScratch, 0, 0, cssW, cssH, 0, 0, bw, bh);
+    if (cashEl) cashEl.textContent = cash;
+    if (invEl) invEl.innerHTML = invHtml(state);
+    if (repEl) repEl.textContent = rep;
+    if (hudTime) hudTime.textContent = "";
   }
 
   function sync(state, project) {
-    cashEl.textContent = "$" + String(state.cash).padStart(4, "0");
-    if (invEl) invEl.innerHTML = invHtml(state);
     paintHudTop(state);
     const heatOn = !!(state.heatEnabled ?? HEAT_ENABLED);
     if (heatEl) {
