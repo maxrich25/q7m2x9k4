@@ -83,14 +83,14 @@ html, body {
   min-width: 0;
   min-height: calc(40px + var(--sat));
   pointer-events: none;
-  transform: translate3d(0, 0, 0);
+  transform: none;
+  -webkit-transform: none;
 }
 #hud-top-canvas {
   display: block !important;
   width: 100%;
   height: 32px;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
+  image-rendering: auto;
 }
 #hud-top > span.hud-sr {
   position: absolute !important;
