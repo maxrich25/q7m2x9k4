@@ -1,6 +1,6 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=73";
-import { paintClassicHero } from "./paint.js?v=73";
-import { isUnlocked } from "./audio.js?v=73";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=74";
+import { paintClassicHero } from "./paint.js?v=74";
+import { isUnlocked } from "./audio.js?v=74";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -228,45 +228,76 @@ export function createHud(opts = {}) {
     g.fillStyle = "#121018";
     g.fillRect(0, 0, outfitHero.width, outfitHero.height);
     const src = document.createElement("canvas");
-    src.width = 120;
-    src.height = 120;
+    src.width = 40;
+    src.height = 40;
     const pg = src.getContext("2d");
-    pg.imageSmoothingEnabled = true;
-    pg.scale(3, 3);
-    paintClassicHero(pg, { bob: 0 }, state.wardrobe || {});
-    const scale = 1.5;
-    const dx = Math.round((outfitHero.width - 120 * scale) / 2);
-    const dy = Math.round((outfitHero.height - 120 * scale) / 2);
-    g.imageSmoothingEnabled = true;
-    g.drawImage(src, 0, 0, 120, 120, dx, dy, 120 * scale, 120 * scale);
+    pg.imageSmoothingEnabled = false;
+    paintClassicHero(pg, { side: true, threeQ: true, bob: 0 }, state.wardrobe || {});
+    const scale = 4;
+    const dx = Math.round((outfitHero.width - 40 * scale) / 2);
+    const dy = Math.round((outfitHero.height - 40 * scale) / 2);
+    g.imageSmoothingEnabled = false;
+    g.drawImage(src, 0, 0, 40, 40, dx, dy, 40 * scale, 40 * scale);
   }
 
   let popNodes = [];
 
   let hudScratch = null;
+  function hudPixelRatio() {
+    const vv = window.visualViewport;
+    const scale = vv && vv.scale > 0 ? vv.scale : 1;
+    // iOS reports screen.width in CSS pixels, so screen/innerWidth is ~1 and
+    // must not replace devicePixelRatio. Standalone stays crisp when the
+    // backing store matches the real DPR and we blit nearest-neighbor.
+    const dpr = (window.devicePixelRatio || 1) / scale;
+    return Math.max(1, Math.min(4, dpr));
+  }
+  function nearestBlit(src, dst, dw, dh) {
+    const sw = src.width;
+    const sh = src.height;
+    const sd = src.getContext("2d").getImageData(0, 0, sw, sh).data;
+    const g = dst.getContext("2d");
+    const out = g.createImageData(dw, dh);
+    const od = out.data;
+    for (let y = 0; y < dh; y++) {
+      const sy = Math.min(sh - 1, (y * sh / dh) | 0);
+      const row = sy * sw;
+      for (let x = 0; x < dw; x++) {
+        const sx = Math.min(sw - 1, (x * sw / dw) | 0);
+        const si = (row + sx) * 4;
+        const di = (y * dw + x) * 4;
+        od[di] = sd[si];
+        od[di + 1] = sd[si + 1];
+        od[di + 2] = sd[si + 2];
+        od[di + 3] = sd[si + 3];
+      }
+    }
+    g.putImageData(out, 0, 0);
+  }
   function paintHudTop(state) {
     const host = document.getElementById("hud-top");
     const c = document.getElementById("hud-top-canvas");
     if (!host || !c) return;
-    const cssW = Math.max(1, Math.round(host.clientWidth || 390));
+    const pad = parseFloat(getComputedStyle(host).paddingTop) || 0;
+    const padR = Math.round(pad);
+    if (Math.abs(pad - padR) > 0.01) host.style.paddingTop = padR + "px";
+    const cssW = Math.max(1, Math.round(host.clientWidth || c.clientWidth || 390));
     const cssH = 32;
-    const dpr = Math.max(1, Math.min(3, Math.round(window.devicePixelRatio || 1)));
-    const bw = Math.round(cssW * dpr);
-    const bh = Math.round(cssH * dpr);
+    const dpr = hudPixelRatio();
+    const bw = Math.max(1, Math.round(cssW * dpr));
+    const bh = Math.max(1, Math.round(cssH * dpr));
     if (c.width !== bw || c.height !== bh) {
       c.width = bw;
       c.height = bh;
     }
     c.style.width = cssW + "px";
     c.style.height = cssH + "px";
-    // Paint at 1 CSS-px = 1 bitmap px, then nearest-neighbor upscale to DPR
-    // so Press Start 2P stays hard-edged at DPR 2/3 (no canvas text AA blur).
     if (!hudScratch) hudScratch = document.createElement("canvas");
     if (hudScratch.width !== cssW || hudScratch.height !== cssH) {
       hudScratch.width = cssW;
       hudScratch.height = cssH;
     }
-    const tg = hudScratch.getContext("2d");
+    const tg = hudScratch.getContext("2d", { willReadFrequently: true });
     tg.setTransform(1, 0, 0, 1, 0, 0);
     tg.imageSmoothingEnabled = false;
     tg.clearRect(0, 0, cssW, cssH);
@@ -292,7 +323,6 @@ export function createHud(opts = {}) {
     const rep = "REP " + Math.round(state.rep || 0);
     tg.fillStyle = "#8a8696";
     tg.fillText(rep, x, y);
-    // Harden glyph edges so DPR upscale stays pixel-crisp (canvas text AA → binary alpha).
     const img = tg.getImageData(0, 0, cssW, cssH);
     const d = img.data;
     for (let i = 0; i < d.length; i += 4) {
@@ -303,11 +333,11 @@ export function createHud(opts = {}) {
       }
     }
     tg.putImageData(img, 0, 0);
-    const g = c.getContext("2d");
+    const g = c.getContext("2d", { willReadFrequently: true });
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.imageSmoothingEnabled = false;
-    g.clearRect(0, 0, bw, bh);
-    g.drawImage(hudScratch, 0, 0, cssW, cssH, 0, 0, bw, bh);
+    if (bw === cssW && bh === cssH) g.drawImage(hudScratch, 0, 0);
+    else nearestBlit(hudScratch, c, bw, bh);
     if (cashEl) cashEl.textContent = cash;
     if (invEl) invEl.innerHTML = invHtml(state);
     if (repEl) repEl.textContent = rep;

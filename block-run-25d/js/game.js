@@ -15,8 +15,8 @@ import {
   BOARD_T, ENTER_LOCK, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=73";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=73";
+} from "./config.js?v=74";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=74";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -517,12 +517,14 @@ export function createGame() {
     };
   }
 
+  let trafficLock = false;
   function syncCrowd() {
     const busy = streetBusy(timeHours);
     const nPed = Math.max(0, Math.round(PED_COUNT * busy));
     const nCar = Math.max(0, Math.round(TRAFFIC_MAX * busy));
     while (peds.length < nPed) peds.push(makePed(peds.length));
     if (peds.length > nPed) peds.length = nPed;
+    if (trafficLock) return;
     while (traffic.length < nCar) traffic.push(makeTrafficCar(traffic.length));
     if (traffic.length > nCar) traffic.length = nCar;
   }
@@ -1664,21 +1666,29 @@ export function createGame() {
       const carClose = !!(aheadCar && aheadDist < 28 && Math.abs(aheadCar.vx) < Math.abs(car.vx) + 12);
 
       function passLaneClear() {
+        const span = 640;
+        const alongside = CAR_NOSE_GAME * 2.8;
         for (const t of traffic) {
           const tLat = t.lat ?? restLat(t.facing);
-          if (Math.abs(tLat - passLat) > 1.8) continue;
+          if (Math.abs(tLat - passLat) > 1.7) continue;
           const d = wrapDelta(car.x, t.x, WORLD);
-          const closingOn = Math.sign(t.facing || 1) === -Math.sign(face)
-            && Math.sign(d || 1) === Math.sign(face)
-            && Math.abs(d) < 120;
-          const sameWay = Math.abs(d) < 70;
-          if (closingOn || sameWay) return false;
+          const oncoming = Math.sign(t.facing || 1) !== Math.sign(face);
+          if (oncoming && Math.abs(d) < span) return false;
+          if (Math.abs(d) < alongside) return false;
         }
         return true;
       }
+      function junctionAhead() {
+        for (let i = 0; i < LIGHT_COUNT; i++) {
+          const d = wrapDelta(bumperX(), lightGameX(i), WORLD);
+          if (Math.sign(d || 1) !== Math.sign(face)) continue;
+          if (Math.abs(d) < 160) return true;
+        }
+        return false;
+      }
 
       const canPass = !!(aheadCar && car.gear === "D" && car.turnT <= 0
-        && spd >= PASS_MIN_SPEED && gas && !redHold
+        && spd >= PASS_MIN_SPEED && gas && !redHold && !junctionAhead()
         && passLaneClear());
       if (canPass) car.passT = Math.max(car.passT || 0, 1.05);
       if (redHold) car.passT = 0;
@@ -1710,9 +1720,20 @@ export function createGame() {
           const d = wrapDelta(car.x, aheadCar.x, WORLD);
           if (Math.sign(d) !== Math.sign(face) && Math.abs(d) > 10) car.passT = 0;
         }
+        if ((car.passT || 0) > 0 && !passLaneClear()) car.passT = 0;
         car.passT = Math.max(0, (car.passT || 0) - dt);
-        const wantLat = (car.passT || 0) > 0 ? passLat : homeLat;
-        car.lat = (car.lat ?? homeLat) + (wantLat - (car.lat ?? homeLat)) * Math.min(1, dt * 3.6);
+        let wantLat = (car.passT || 0) > 0 ? passLat : homeLat;
+        const curLat = car.lat ?? homeLat;
+        if (Math.abs(wantLat - curLat) > 0.12) {
+          let blocked = false;
+          for (const t of traffic) {
+            const tLat = t.lat ?? restLat(t.facing);
+            if (Math.abs(tLat - wantLat) > 1.6) continue;
+            if (Math.abs(wrapDelta(car.x, t.x, WORLD)) < CAR_NOSE_GAME * 2.4) blocked = true;
+          }
+          if (blocked) wantLat = curLat;
+        }
+        car.lat = curLat + (wantLat - curLat) * Math.min(1, dt * 3.2);
         if (car.gear === "P") {
           car.vx = 0;
         } else if (brake) {
@@ -1895,26 +1916,52 @@ export function createGame() {
     if (inbox.length > 40) inbox.length = 40;
     if (pops.length > 16) pops.splice(0, pops.length - 16);
 
+    const carGap = CAR_NOSE_GAME * 2.55;
+    const oncomingSpan = 720;
     function laneBusy(lat, x, except, span = 72) {
-      if (car.hp > 0 && Math.abs((car.lat ?? restLat(car.facing)) - lat) < 1.8
+      if (car.hp > 0 && Math.abs((car.lat ?? restLat(car.facing)) - lat) < 1.7
         && Math.abs(wrapDelta(x, car.x, WORLD)) < span) return true;
       for (const o of traffic) {
         if (o === except) continue;
-        if (Math.abs((o.lat ?? restLat(o.facing)) - lat) < 1.8
+        if (Math.abs((o.lat ?? restLat(o.facing)) - lat) < 1.7
           && Math.abs(wrapDelta(x, o.x, WORLD)) < span) return true;
       }
       return false;
     }
+    function oncomingInLane(t, lat) {
+      const faceT = t.facing || 1;
+      if (car.hp > 0 && Math.sign(car.facing || 1) !== Math.sign(faceT)) {
+        const plat = car.lat ?? restLat(car.facing);
+        if (Math.abs(plat - lat) < 1.7 && Math.abs(wrapDelta(t.x, car.x, WORLD)) < oncomingSpan) return true;
+      }
+      for (const o of traffic) {
+        if (o === t) continue;
+        if (Math.sign(o.facing || 1) === Math.sign(faceT)) continue;
+        const olat = o.lat ?? restLat(o.facing);
+        if (Math.abs(olat - lat) > 1.7) continue;
+        if (Math.abs(wrapDelta(t.x, o.x, WORLD)) < oncomingSpan) return true;
+      }
+      return false;
+    }
+    function junctionAheadOf(x, facing) {
+      const faceT = facing || 1;
+      for (let i = 0; i < LIGHT_COUNT; i++) {
+        const d = wrapDelta(x, lightGameX(i), WORLD);
+        if (Math.sign(d || 1) !== Math.sign(faceT)) continue;
+        if (Math.abs(d) < 170) return lightPhaseAt(clock, i);
+      }
+      return null;
+    }
     for (const t of traffic) {
-      const cruise = (t.facing || 1) * Math.abs(t.cruise || t.vx || 56);
+      const faceT = t.facing || 1;
+      const cruise = faceT * Math.abs(t.cruise || t.vx || 56);
       let want = cruise;
       let redAhead = false;
       for (let i = 0; i < LIGHT_COUNT; i++) {
         if (lightPhaseAt(clock, i) !== "red") continue;
-        const line = stopLineGameX(i, t.facing || 1);
+        const line = stopLineGameX(i, faceT);
         const d = wrapDelta(t.x, line, WORLD);
-        const faceT = t.facing || 1;
-        if (Math.sign(d) === Math.sign(faceT) && Math.abs(d) < 32) {
+        if (Math.sign(d) === Math.sign(faceT) && Math.abs(d) < 90) {
           redAhead = true;
           if (Math.abs(d) < Math.abs(t.vx) * dt + 3 || d * faceT <= 3) {
             t.x = wrap(line - faceT * 3, WORLD);
@@ -1926,32 +1973,90 @@ export function createGame() {
       if (redAhead) want = 0;
       const homeLat = restLat(t.facing);
       const otherLat = restLat(-t.facing);
+      const nearJunction = junctionAheadOf(t.x, faceT);
+      const oncoming = oncomingInLane(t, otherLat);
       if (car.hp > 0) {
         const playerLat = car.lat ?? restLat(car.facing);
-        const sameLane = Math.abs((t.lat ?? homeLat) - playerLat) < 1.8;
+        const sameLane = Math.abs((t.lat ?? homeLat) - playerLat) < 1.7;
         const ahead = wrapDelta(t.x, car.x, WORLD);
-        const closing = sameLane && Math.sign(t.facing || 1) === Math.sign(ahead || 1) && Math.abs(ahead) < 44;
+        const closing = sameLane && Math.sign(faceT) === Math.sign(ahead || 1) && Math.abs(ahead) < 52;
         const headOn = sameLane
-          && Math.sign(t.facing || 1) !== Math.sign(car.facing || 1)
-          && Math.abs(ahead) < 110
-          && Math.sign(ahead || 1) === Math.sign(t.facing || 1);
+          && Math.sign(faceT) !== Math.sign(car.facing || 1)
+          && Math.abs(ahead) < 140
+          && Math.sign(ahead || 1) === Math.sign(faceT);
         if (headOn) {
           want = 0;
+          t.passT = 0;
         } else if (closing) {
-          const canPass = !laneBusy(otherLat, t.x, t, 88);
+          const canPass = !oncoming && !nearJunction && !redAhead
+            && !laneBusy(otherLat, t.x, t, carGap * 1.4);
           if (canPass) {
             t.passT = Math.max(t.passT || 0, 1.35);
-            want = cruise * 1.18;
+            want = cruise * 1.12;
           } else {
             want = 0;
+            if (!(t.passT > 0)) t.passT = 0;
           }
         }
       }
+      if (oncoming || nearJunction || redAhead) {
+        t.passT = 0;
+        if (oncoming && Math.abs((t.lat ?? homeLat) - otherLat) < 1.2) want = 0;
+      }
       t.passT = Math.max(0, (t.passT || 0) - dt);
-      const targetLat = t.passT > 0 ? otherLat : homeLat;
-      t.lat = (t.lat ?? homeLat) + (targetLat - (t.lat ?? homeLat)) * Math.min(1, dt * 3.2);
+      let targetLat = t.passT > 0 ? otherLat : homeLat;
+      const curLat = t.lat ?? homeLat;
+      if (Math.abs(targetLat - curLat) > 0.12 && laneBusy(targetLat, t.x, t, carGap)) {
+        targetLat = curLat;
+        t.passT = 0;
+      }
+      t.lat = curLat + (targetLat - curLat) * Math.min(1, dt * 2.4);
       t.vx += (want - t.vx) * Math.min(1, dt * 2.4);
       t.x = wrap(t.x + t.vx * dt, WORLD);
+    }
+    const minGap = Math.max(carGap, CAR_NOSE_GAME * 3.15);
+    const laneKey = (lat) => Math.round((lat ?? 0) * 4);
+    const groups = new Map();
+    for (const t of traffic) {
+      const k = laneKey(t.lat ?? restLat(t.facing));
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(t);
+    }
+    const playerLat = car.hp > 0 ? (car.lat ?? restLat(car.facing)) : null;
+    const playerKey = playerLat == null ? null : laneKey(playerLat);
+    for (const [k, list] of groups) {
+      const base = car.hp > 0 ? car.x : list[0].x;
+      const ux = (x) => wrapDelta(base, x, WORLD);
+      list.sort((a, b) => ux(a.x) - ux(b.x));
+      if (playerKey === k) {
+        const behind = list.filter((t) => ux(t.x) < 0);
+        const ahead = list.filter((t) => ux(t.x) >= 0);
+        let cursor = minGap;
+        for (const t of ahead) {
+          if (ux(t.x) < cursor - 0.01) {
+            t.x = wrap(base + cursor, WORLD);
+            t.vx *= 0.2;
+          }
+          cursor = ux(t.x) + minGap;
+        }
+        cursor = -minGap;
+        for (let i = behind.length - 1; i >= 0; i--) {
+          const t = behind[i];
+          if (ux(t.x) > cursor + 0.01) {
+            t.x = wrap(base + cursor, WORLD);
+            t.vx *= 0.2;
+          }
+          cursor = ux(t.x) - minGap;
+        }
+      } else {
+        for (let i = 1; i < list.length; i++) {
+          const prev = ux(list[i - 1].x);
+          if (ux(list[i].x) - prev < minGap) {
+            list[i].x = wrap(base + prev + minGap, WORLD);
+            list[i].vx *= 0.2;
+          }
+        }
+      }
     }
 
     if (HEAT_ENABLED && inCar && Math.abs(car.vx) > 4) {
@@ -2431,6 +2536,28 @@ export function createGame() {
       car.passT = 1.2;
       car.lat = restLat(-car.facing);
       return t.x;
+    },
+    placeCars(list) {
+      trafficLock = true;
+      traffic.length = 0;
+      for (const spec of list || []) {
+        const facing = spec.facing < 0 ? -1 : 1;
+        const x = wrap(Number(spec.x) || 0, WORLD);
+        const spd = spec.vx != null ? Number(spec.vx) : facing * 48;
+        traffic.push({
+          x,
+          px: x,
+          facing,
+          vx: spd,
+          cruise: spec.cruise != null ? Number(spec.cruise) : spd,
+          lat: spec.lat != null ? Number(spec.lat) : restLat(facing),
+          passT: Number(spec.passT) || 0,
+          kind: spec.kind || "beater",
+          color: spec.color || "#2a3048",
+          yaw: facing < 0 ? Math.PI : 0,
+        });
+      }
+      return traffic.length;
     },
   };
 }
