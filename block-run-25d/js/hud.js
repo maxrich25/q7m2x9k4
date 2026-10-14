@@ -1,6 +1,6 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=76";
-import { paintClassicHero } from "./paint.js?v=76";
-import { isUnlocked } from "./audio.js?v=76";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=78";
+import { paintClassicHero } from "./paint.js?v=78";
+import { isUnlocked } from "./audio.js?v=78";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -40,14 +40,13 @@ export function createHud(opts = {}) {
   const padCar = document.getElementById("pad-car");
   const shiftKnob = document.getElementById("shift-knob");
   const shiftHint = document.getElementById("shift-hint");
-  const padUturn = document.querySelector('[data-role="uturn"]');
-  const padPullover = document.querySelector('[data-role="pullover"]');
   const ctx = document.getElementById("pad-ctx") || document.getElementById("ctx");
   const btnAction = document.getElementById("btn-action");
   const btnCar = document.getElementById("btn-car");
-  const btnCrib = document.getElementById("btn-crib");
+  const btnX = document.getElementById("btn-x");
+  const btnB = document.getElementById("btn-b");
   const btnCarLabel = document.getElementById("btn-car-label");
-  const btnCribLabel = document.getElementById("btn-crib-label");
+  const btnXLabel = document.getElementById("btn-x-label");
   const btnStall = document.getElementById("btn-stall");
   const btnAccept = document.getElementById("btn-accept");
   const btnServe = document.getElementById("btn-serve");
@@ -65,7 +64,6 @@ export function createHud(opts = {}) {
   const sheetOutfit = document.getElementById("sheet-outfit");
   const outfitHero = document.getElementById("outfit-hero");
   const outfitHatBtn = document.getElementById("outfit-hat");
-  const btnExit = document.getElementById("btn-exit");
   const cribClock = document.getElementById("crib-clock");
   const cribTime = document.getElementById("crib-time");
   const cribRep = document.getElementById("crib-rep");
@@ -246,9 +244,11 @@ export function createHud(opts = {}) {
   }
 
   let popNodes = [];
+  let hudCanvasSig = "";
+  const hudCanvas = document.getElementById("hud-top-canvas");
 
   function paintHudTop(state) {
-    // DOM text stays crisp in iOS standalone (canvas upscales blur there).
+    // Draw HUD at true devicePixelRatio so iOS standalone doesn't stretch 1x → 2x blur.
     const host = document.getElementById("hud-top");
     if (host) {
       const pad = parseFloat(getComputedStyle(host).paddingTop) || 0;
@@ -256,11 +256,60 @@ export function createHud(opts = {}) {
       if (Math.abs(pad - padR) > 0.01) host.style.paddingTop = padR + "px";
     }
     const cash = "$" + String(state.cash).padStart(4, "0");
+    const g = state.inv || {};
+    const grn = "GRN " + fmtGrams(g.GREEN);
+    const wht = "WHT " + fmtGrams(g.WHITE);
     const rep = "REP " + Math.round(state.rep || 0);
     if (cashEl) cashEl.textContent = cash;
     if (invEl) invEl.innerHTML = invHtml(state);
     if (repEl) repEl.textContent = rep;
     if (hudTime) hudTime.textContent = "";
+    if (!hudCanvas || !host) return;
+    const cssW = Math.max(1, Math.round(host.clientWidth || window.innerWidth || 375));
+    const cssH = 32;
+    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    const fontReady = !!(document.fonts?.check?.('11px "Press Start 2P"'));
+    const sig = [cash, grn, wht, rep, cssW, cssH, dpr, fontReady ? 1 : 0].join("|");
+    if (sig === hudCanvasSig
+      && hudCanvas.width === Math.round(cssW * dpr)
+      && hudCanvas.height === Math.round(cssH * dpr)) {
+      return;
+    }
+    hudCanvasSig = sig;
+    hudCanvas.width = Math.round(cssW * dpr);
+    hudCanvas.height = Math.round(cssH * dpr);
+    hudCanvas.style.width = cssW + "px";
+    hudCanvas.style.height = cssH + "px";
+    const ctx = hudCanvas.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, hudCanvas.width, hudCanvas.height);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    // Keep HUD glyphs on an integer pixel grid at the device DPR.
+    const fontPx = cssW < 360 ? 8 : 10;
+    ctx.font = fontPx + 'px "Press Start 2P", ui-monospace, monospace';
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+    const y = Math.round(cssH / 2);
+    const gap = cssW < 360 ? 6 : 8;
+    let x = 8;
+    const parts = [
+      [cash, "#f0c430"],
+      [grn, "#3dff7a"],
+      [wht, "#f4f0e8"],
+      [rep, "#8a8696"],
+    ];
+    for (const [text, color] of parts) {
+      // Crisp shadow (no blur) so thin pixel fonts stay readable on night sky.
+      ctx.fillStyle = "#07060c";
+      ctx.fillText(text, x + 1, y + 1);
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, y);
+      const w = Math.ceil(ctx.measureText(text).width);
+      x += w + gap;
+      if (x > cssW - 8) break;
+    }
   }
 
   function sync(state, project) {
@@ -306,16 +355,10 @@ export function createHud(opts = {}) {
     });
     if (driving) placeKnob(gear);
     shiftHint?.classList.toggle("hidden", !(driving && (state.car?.shiftHint || 0) > 0));
-    padUturn?.classList.toggle("off", driving && !state.turnOk);
-    padUturn?.classList.toggle("hidden", !driving);
-    // Pull Over lives on the face-grid while driving (not on the pedal strip).
-    padPullover?.classList.add("hidden");
     btnPhone?.classList.toggle("unread", !!state.unread);
 
     const playUi = state.mode === "play" && !state.ui;
     const offer = !!(state.offer || state.order?.phase === "offer" || state.order?.phase === "stalling");
-    const padEl = document.getElementById("pad");
-    const padOn = !!(padEl && window.getComputedStyle(padEl).display !== "none");
     const showAccept = !!(offer && state.mode === "play");
     const showServe = !!(playUi && !offer && state.showServe);
     const showGate = !!(playUi && !offer && state.showGate);
@@ -326,33 +369,59 @@ export function createHud(opts = {}) {
       ctx.setAttribute("hidden", "");
       ctx.innerHTML = "";
     }
+
+    // Face grid:
+    //   foot:    Y CAR | X —(reserved)
+    //            A ACT | B RUN
+    //   driving: Y EXIT | X PULL
+    //            A U-TURN | B ACT
+    const carOn = !!(state.carBtnOk && state.mode === "play");
+    const xOn = !!(driving && state.xBtnOk && state.mode === "play");
+    const uturnOn = !!(driving && state.uturnBtnOk && state.mode === "play");
     const label = state.actionLabel || "ACT";
     const actionOn = !!(state.actionOk && state.mode === "play");
-    if (actionLabelEl) actionLabelEl.textContent = label;
-    else if (btnAction) btnAction.textContent = label;
-    if (btnAction) {
-      btnAction.classList.toggle("off", !actionOn);
-      btnAction.classList.toggle("go", actionOn);
-      btnAction.classList.toggle("pulse", showServe && label === "SERVE");
-      btnAction.classList.toggle("serve", showServe && label === "SERVE");
-    }
-    const carOn = !!(state.carBtnOk && state.mode === "play");
-    const cribOn = !!(state.cribBtnOk && state.mode === "play");
-    const exitReady = !!(driving && state.parked);
-    if (btnCarLabel) btnCarLabel.textContent = state.faceCarLabel || (state.inCar ? "EXIT" : "CAR");
-    if (btnCribLabel) btnCribLabel.textContent = state.faceCribLabel || (state.inCar ? "PULL" : (state.inCrib ? "EXIT" : "CRIB"));
+
+    if (btnCarLabel) btnCarLabel.textContent = state.faceCarLabel || (driving ? "EXIT" : "CAR");
     if (btnCar) {
+      btnCar.dataset.role = "car";
       btnCar.classList.toggle("off", !carOn);
-      // Gold when exit is ready; still tappable while driving to trigger pull-over.
-      btnCar.classList.toggle("go", exitReady || (!driving && carOn));
-      btnCar.classList.toggle("arm", !!(driving && carOn && !state.parked));
-      btnCar.classList.toggle("hidden", false);
+      // Frosted glass only — never glow / highlight classes.
+      btnCar.classList.remove("go", "arm", "pulse", "serve");
     }
-    if (btnCrib) {
-      btnCrib.classList.toggle("off", !cribOn);
-      btnCrib.classList.toggle("go", cribOn);
-      btnCrib.classList.toggle("arm", !!(driving && cribOn));
-      btnCrib.classList.toggle("hidden", false);
+
+    if (btnXLabel) btnXLabel.textContent = driving ? (state.xLabel || "PULL") : "—";
+    if (btnX) {
+      btnX.dataset.role = driving ? "crib" : "reserved";
+      btnX.classList.toggle("off", driving ? !xOn : true);
+      btnX.classList.remove("go", "arm", "pulse", "serve");
+    }
+
+    if (driving) {
+      if (actionLabelEl) actionLabelEl.textContent = "U-TN";
+      if (btnAction) {
+        btnAction.dataset.role = "uturn";
+        btnAction.classList.toggle("off", !uturnOn);
+        btnAction.classList.remove("go", "arm", "pulse", "serve");
+      }
+      if (bLabelEl) bLabelEl.textContent = label;
+      if (btnB) {
+        btnB.dataset.role = "action";
+        btnB.classList.toggle("off", !actionOn);
+        btnB.classList.remove("go", "arm", "pulse", "serve");
+      }
+    } else {
+      if (actionLabelEl) actionLabelEl.textContent = label;
+      if (btnAction) {
+        btnAction.dataset.role = "action";
+        btnAction.classList.toggle("off", !actionOn);
+        btnAction.classList.remove("go", "arm", "pulse", "serve");
+      }
+      if (bLabelEl) bLabelEl.textContent = "RUN";
+      if (btnB) {
+        btnB.dataset.role = "run";
+        btnB.classList.toggle("off", false);
+        btnB.classList.remove("go", "arm", "pulse", "serve");
+      }
     }
     if (orderStrip) {
       const liveOrder = state.order && (state.order.phase === "active" || state.order.phase === "nudge");
@@ -369,15 +438,8 @@ export function createHud(opts = {}) {
         }
       }
     }
-    if (bLabelEl) bLabelEl.textContent = driving ? "—" : "RUN";
-    const btnB = document.getElementById("btn-b");
-    btnB?.classList.toggle("hidden", false);
-    btnB?.classList.toggle("off", !!driving);
-    btnB?.classList.toggle("go", false);
-    if (driving) btnB?.setAttribute("data-role", "run");
     document.getElementById("gb-btns")?.classList.toggle("hidden", false);
     document.getElementById("gb-face-grid")?.classList.toggle("driving", driving);
-    btnExit?.classList.toggle("hidden", !(driving || state.inCrib));
     if (btnStall) btnStall.classList.add("hidden");
     phoneDeal?.classList.toggle("hidden", !showAccept);
     btnAccept?.classList.toggle("hidden", !showAccept);

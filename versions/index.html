@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>BLOCK RUN 2.5D — Versions</title>
+  <meta name="theme-color" content="#07060c" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
+  <style>
+    :root {
+      --bg: #07060c;
+      --pink: #e21b7a;
+      --cyan: #3de0ff;
+      --gold: #f0c430;
+      --cream: #f4f0e8;
+      --muted: #8a8696;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      min-height: 100dvh;
+      background: var(--bg);
+      color: var(--cream);
+      font-family: "Press Start 2P", ui-monospace, monospace;
+    }
+    body {
+      padding: calc(18px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right))
+        calc(20px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
+      background:
+        radial-gradient(ellipse at 16% 0%, rgba(226, 27, 122, 0.18), transparent 46%),
+        radial-gradient(ellipse at 90% 100%, rgba(61, 224, 255, 0.12), transparent 42%),
+        var(--bg);
+    }
+    main { width: min(520px, 100%); margin: 0 auto; }
+    .tag { color: var(--cyan); font-size: 8px; letter-spacing: 3px; margin: 0 0 14px; }
+    h1 { margin: 0 0 8px; font-size: 18px; line-height: 1.35; letter-spacing: 2px; }
+    h1 span { color: var(--pink); }
+    .sub { color: var(--muted); font-size: 8px; line-height: 1.6; margin: 0 0 22px; }
+    .nav {
+      display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px;
+    }
+    .nav a {
+      color: var(--cream); text-decoration: none; font-size: 8px;
+      border: 2px solid #3a3644; background: #121018; padding: 10px 12px;
+    }
+    .nav a:hover { border-color: var(--cyan); color: var(--cyan); }
+    #list { display: flex; flex-direction: column; gap: 10px; }
+    a.ver {
+      display: block; text-decoration: none; color: var(--cream);
+      border: 3px solid #3a3644; background: #121018; padding: 14px 12px;
+    }
+    a.ver:hover, a.ver:focus-visible {
+      border-color: var(--gold);
+      box-shadow: 0 0 16px rgba(240, 196, 48, 0.22);
+      outline: none;
+    }
+    a.ver .meta {
+      display: flex; justify-content: space-between; gap: 10px;
+      font-size: 8px; color: var(--cyan); margin-bottom: 8px;
+    }
+    a.ver .note { font-size: 8px; line-height: 1.55; color: var(--cream); }
+    .empty { color: var(--muted); font-size: 8px; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="tag">TIME CAPSULE</p>
+    <h1>BLOCK RUN<br><span>VERSIONS</span></h1>
+    <p class="sub">Play any past merged 2.5D batch. Each archive is a frozen snapshot with its own saves.</p>
+    <div class="nav">
+      <a href="../">◀ MENU</a>
+      <a href="../block-run-25d/?v=78&fresh=clear">LATEST 2.5D</a>
+    </div>
+    <div id="list"><p class="empty">Loading…</p></div>
+  </main>
+  <script type="module">
+    const list = document.getElementById("list");
+    try {
+      const res = await fetch("./manifest.json", { cache: "no-store" });
+      const data = await res.json();
+      const versions = data.versions || [];
+      if (!versions.length) {
+        list.innerHTML = '<p class="empty">No snapshots yet.</p>';
+      } else {
+        list.innerHTML = versions.map((v) => `
+          <a class="ver" href="./${v.path}">
+            <div class="meta"><span>PR #${v.pr}</span><span>${v.date}</span></div>
+            <div class="note">${v.note}</div>
+          </a>
+        `).join("");
+      }
+    } catch (err) {
+      list.innerHTML = '<p class="empty">Could not load versions.</p>';
+      console.error(err);
+    }
+  </script>
+</body>
+</html>

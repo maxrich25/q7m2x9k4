@@ -16,7 +16,7 @@
   <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <!-- Cache bust: GitHub Pages max-age=600. Bump ?v= here, on js/main.js, and every relative import in js/*.js (see README). -->
-  <link rel="stylesheet" href="style.css?v=76" />
+  <link rel="stylesheet" href="style.css?v=78" />
   <script type="importmap">
   {
     "imports": {
@@ -30,19 +30,14 @@
     <!-- HUD lives outside #view so a canvas/DPR scale never softens DOM text in iOS standalone. -->
     <div id="hud" aria-live="polite">
       <div id="hud-top">
-        <div id="hud-top-row" aria-hidden="false">
+        <canvas id="hud-top-canvas" width="375" height="32" aria-hidden="true"></canvas>
+        <div id="hud-top-row" aria-hidden="true">
           <span id="hud-cash">$0130</span>
           <span id="hud-inv"><span class="g-grn">GRN 0</span> <span class="g-wht">WHT 0</span></span>
           <span id="hud-rep">REP 1</span>
         </div>
         <span id="hud-heat" class="hidden" title="heat"></span>
         <span id="hud-time" class="hud-sr">9:00 PM</span>
-      </div>
-      <div id="gb-sys">
-        <button type="button" id="btn-phone" class="gb-sys" data-role="phone">SELECT</button>
-        <button type="button" id="btn-zoom" class="gb-sys" data-role="zoom">ZOOM</button>
-        <button type="button" id="btn-pause" class="gb-sys" data-role="pause">START</button>
-        <button type="button" id="btn-exit" class="gb-sys hidden" data-role="exit">EXIT</button>
       </div>
     </div>
     <div id="view">
@@ -189,7 +184,8 @@
             <p id="overlay-sub">2.5D NIGHT BLOCK</p>
             <div id="cart-picks" class="hidden">
               <a class="cart-pick" href="../block-run/?v=58&fresh=clear">CLASSIC</a>
-              <a class="cart-pick on" href="../block-run-25d/?v=76&fresh=clear">2.5D</a>
+              <a class="cart-pick on" href="../block-run-25d/?v=78&fresh=clear">2.5D</a>
+              <a class="cart-pick" href="../versions/">VERSIONS</a>
             </div>
             <div id="overlay-body"></div>
             <p id="overlay-hi"></p>
@@ -197,6 +193,7 @@
             <div id="pause-actions" class="hidden">
               <button type="button" id="btn-resume">RESUME</button>
               <button type="button" id="btn-sound" data-role="mute">SOUND ON</button>
+              <a id="btn-versions" class="menu-link" href="../versions/">VERSIONS</a>
               <a id="btn-mainmenu" href="../">QUIT</a>
             </div>
           </div>
@@ -213,7 +210,6 @@
           </div>
         </div>
         <div id="pad-car" class="hidden">
-          <button type="button" class="pad-btn pad-uturn" data-role="uturn" aria-label="u-turn">U-TURN</button>
           <button type="button" class="pad-btn pad-pedal pad-brake" data-role="brake">BRAKE</button>
           <button type="button" class="pad-btn pad-pedal pad-gas" data-role="gas">GAS</button>
           <div id="shifter" data-role="shifter">
@@ -234,8 +230,8 @@
             <button type="button" id="btn-car" class="face-btn off" data-role="car">
               <em>Y</em><span id="btn-car-label">CAR</span>
             </button>
-            <button type="button" id="btn-crib" class="face-btn off" data-role="crib">
-              <em>X</em><span id="btn-crib-label">CRIB</span>
+            <button type="button" id="btn-x" class="face-btn off" data-role="reserved">
+              <em>X</em><span id="btn-x-label">—</span>
             </button>
             <button type="button" id="btn-action" class="face-btn off" data-role="action">
               <em>A</em><span id="btn-action-label">ACT</span>
@@ -244,11 +240,15 @@
               <em>B</em><span id="btn-b-label">RUN</span>
             </button>
           </div>
+          <div id="gb-sys" class="gb-sys-stack">
+            <button type="button" id="btn-pause" class="gb-sys vert" data-role="pause" aria-label="start"><span>STRT</span></button>
+            <button type="button" id="btn-phone" class="gb-sys vert" data-role="phone" aria-label="select"><span>SEL</span></button>
+          </div>
         </div>
       </div>
     </div>
   </div>
   <p id="status" class="sr-only">title</p>
-  <script type="module" src="js/main.js?v=76"></script>
+  <script type="module" src="js/main.js?v=78"></script>
 </body>
 </html>

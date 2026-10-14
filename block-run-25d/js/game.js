@@ -15,8 +15,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=76";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=76";
+} from "./config.js?v=78";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=78";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -172,24 +172,30 @@ export function createGame() {
       else if (nearPlug && !plugMeet) prompt = "TEXT";
       else if (nearPed && !nearCar && !nearHome) prompt = "HIT UP";
     }
-    // Face-grid ACT button: interact/sell/buy/text — never opens a popup menu.
+    // Face-grid ACT: crib enter/exit near door, plus interact/sell/buy/text.
     let actionLabel = "ACT";
     let actionOk = false;
     let actionKind = "";
     if (mode === "play" && !ui) {
       if (inCrib && nearWardrobe) { actionLabel = "CLOTHES"; actionOk = true; actionKind = "clothes"; }
+      else if (nearCribDoor) { actionLabel = "EXIT"; actionOk = true; actionKind = "crib"; }
+      else if (!inCar && !inCrib && nearHome) { actionLabel = "CRIB"; actionOk = true; actionKind = "crib"; }
       else if (canServe) { actionLabel = "SERVE"; actionOk = true; actionKind = "serve"; }
       else if (canBuy) { actionLabel = "BUY"; actionOk = true; actionKind = "buy"; }
       else if (nearPlug && !plugMeet) { actionLabel = "TEXT"; actionOk = true; actionKind = "text"; }
       else if (nearPed && !nearCar && !nearHome && !canBuy) { actionLabel = "HIT UP"; actionOk = true; actionKind = "talk"; }
     }
     const carLabel = inCar ? "EXIT" : "CAR";
-    const cribLabel = inCar ? "PULL" : (inCrib ? "EXIT" : "CRIB");
+    // Slot X: Pull Over while driving; reserved (grey) on foot.
+    const xLabel = inCar ? "PULL" : "—";
+    const xBtnOk = !!(inCar && pullOverOk);
+    const cribLabel = xLabel;
+    const uturnBtnOk = !!(inCar && car.gear === "D" && car.turnT <= 0 && (car.pullOverT || 0) <= 0);
     return {
       nearCar, nearPlug, nearHome, nearPed, nearCribDoor, nearWardrobe, exitOk, liveDeal, nearDeal, slowEnough,
       canServe, canBuy, offer, prompt, gate, actionLabel, actionOk, actionKind, picks: [],
-      parked, carBtnOk, cribBtnOk, carLabel, cribLabel,
-      pullOverOk,
+      parked, carBtnOk, cribBtnOk: xBtnOk, carLabel, cribLabel, xLabel, xBtnOk,
+      pullOverOk, uturnBtnOk,
     };
   }
 
@@ -221,7 +227,8 @@ export function createGame() {
     const {
       nearCar, nearPlug, nearHome, nearPed, nearCribDoor, nearWardrobe, exitOk, liveDeal, nearDeal, slowEnough,
       canServe, canBuy, offer, prompt, gate, actionLabel, actionOk, actionKind, picks,
-      parked, carBtnOk, cribBtnOk, carLabel: faceCarLabel, cribLabel: faceCribLabel, pullOverOk,
+      parked, carBtnOk, cribBtnOk, carLabel: faceCarLabel, cribLabel: faceCribLabel,
+      xLabel, xBtnOk, pullOverOk, uturnBtnOk,
     } = sense();
     const hour = wrapHour(timeHours);
     const dealD = liveDeal ? wrapDelta(player.x, order.x, WORLD) : 0;
@@ -254,8 +261,9 @@ export function createGame() {
       showGate: !!(gate && mode === "play" && !ui && !canServe),
       showHitUp: prompt === "HIT UP" || prompt === "TALK",
       actionLabel, actionOk, actionKind, picks, offer: !!offer,
-      carBtnOk, cribBtnOk, faceCarLabel, faceCribLabel, parked,
+      carBtnOk, cribBtnOk, faceCarLabel, faceCribLabel, xLabel, xBtnOk, parked,
       pullOverOk: !!pullOverOk,
+      uturnBtnOk: !!uturnBtnOk,
       turnOk: inCar && car.gear === "D" && car.turnT <= 0 && (car.pullOverT || 0) <= 0,
       holdLight, holdCar,
       stopped: inCar && Math.abs(car.vx) < CAR_STOP,
@@ -1111,6 +1119,7 @@ export function createGame() {
     if (a.actionKind === "accept") return acceptOrder();
     if (a.actionKind === "serve") return serve();
     if (a.actionKind === "clothes") return openOutfit();
+    if (a.actionKind === "crib") return doCribBtn();
     if (a.actionKind === "buy") return useGatePick("buy");
     if (a.actionKind === "text") return textPlug();
     if (a.actionKind === "talk") return solicit();
@@ -1131,6 +1140,7 @@ export function createGame() {
   }
 
   function doCribBtn() {
+    // While driving the X slot is Pull Over; on foot ACT handles crib enter/exit.
     if (inCar) return startPullOver();
     if (inCrib) {
       if (cribX < -2.55) { leaveCrib(); return true; }
@@ -2629,7 +2639,15 @@ export function createGame() {
       if (on && car.hp > 0) {
         enterLock = 0;
         enterCar();
-      } else if (inCar) leaveCar();
+      } else if (inCar) {
+        // Debug/helper path: force park so leaveCar is allowed.
+        car.parked = true;
+        car.gear = "P";
+        car.vx = 0;
+        car.lat = parkLat(car.facing);
+        car.pullOverT = 0;
+        leaveCar();
+      }
     },
     setBoardT(t) {
       boardT = Math.max(0, Number(t) || 0);

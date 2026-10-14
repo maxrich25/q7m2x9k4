@@ -644,13 +644,11 @@ export function paintClassicHero(g, pose = {}, wardrobe = {}) {
 
 export function paintClassicHeroSet(wardrobe = { hat: "beanie" }) {
   const look = classicHeroLook(wardrobe);
-  // Plant each walk/run frame so soles stay on the sheet floor (no shuffle float).
-  const walk = WALK_CYCLE_POSES.map((p) => plantStride(paintPersonLook(look, p), p));
-  const run = RUN_CYCLE_POSES.map((p) => plantStride(paintPersonLook(look, p), p));
+  // Fallback painted set (live hero prefers classic PNG billboards).
   return {
     idle: IDLE_POSES.map((p) => paintPersonLook(look, p)),
-    walk,
-    run,
+    walk: WALK_CYCLE_POSES.map((p) => paintPersonLook(look, p)),
+    run: RUN_CYCLE_POSES.map((p) => paintPersonLook(look, p)),
     jump: JUMP_POSES.map((p) => paintPersonLook(look, p)),
     shoot: SHOOT_POSES.map((p) => paintPersonLook(look, p)),
     turn: TURN_POSES.map((p) => paintPersonLook(look, p)),

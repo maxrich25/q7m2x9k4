@@ -102,6 +102,7 @@ html, body {
   pointer-events: none;
   transform: none !important;
   -webkit-transform: none !important;
+  zoom: 1;
   -webkit-font-smoothing: none;
   -moz-osx-font-smoothing: unset;
   text-rendering: geometricPrecision;
@@ -109,26 +110,29 @@ html, body {
   text-size-adjust: 100%;
   font-synthesis: none;
 }
-#hud-top-row {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 10px;
+#hud-top-canvas {
+  display: block;
+  width: 100%;
   height: 32px;
-  padding: 0 8px;
-  font-family: "Press Start 2P", monospace;
-  font-size: 16px;
-  line-height: 16px;
-  letter-spacing: 0;
-  white-space: nowrap;
-  transform: none;
-  -webkit-transform: none;
-  -webkit-font-smoothing: none;
-  font-smooth: never;
+  margin: 0;
+  padding: 0;
+  background: transparent;
   image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  transform: none !important;
+  -webkit-transform: none !important;
 }
-@media (max-width: 359px) {
-  #hud-top-row { font-size: 8px; line-height: 8px; gap: 6px; }
+#hud-top-row {
+  /* Screen-reader mirror of the crisp canvas HUD. */
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
 #hud-cash { color: #f0c430; flex: 0 0 auto; }
 #hud-inv { flex: 0 0 auto; }
@@ -286,20 +290,20 @@ html, body {
 #deal-pin { background: var(--gold); }
 #deal-home {
   position: absolute;
-  top: -3px;
-  width: 8px;
-  height: 10px;
-  margin-left: -4px;
+  top: -5px;
+  width: 12px;
+  height: 14px;
+  margin-left: -6px;
   background: var(--cyan);
-  box-shadow: 0 0 6px var(--cyan);
+  box-shadow: none;
 }
 #deal-home::after {
   content: "";
   position: absolute;
   left: 1px;
-  top: -4px;
-  width: 6px;
-  height: 4px;
+  top: -5px;
+  width: 10px;
+  height: 5px;
   background: var(--cyan);
 }
 
@@ -342,9 +346,9 @@ html, body {
   pointer-events: auto;
   font-family: var(--font);
   font-size: 8px;
-  color: var(--gold);
-  background: #2a2430;
-  border: 2px solid #3a3644;
+  color: var(--cream);
+  background: rgba(18, 16, 24, 0.38);
+  border: 2px solid rgba(244, 240, 232, 0.28);
   padding: 5px 6px;
   min-width: 32px;
   min-height: 26px;
@@ -353,15 +357,18 @@ html, body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-shadow: none;
+  text-shadow: none;
 }
-#btn-phone { color: var(--cyan); }
+#btn-phone, #btn-pause { color: var(--cream); }
 #btn-mute {
-  color: var(--cyan);
-  text-shadow: 0 0 8px var(--cyan);
+  color: var(--cream);
+  text-shadow: none;
 }
 #btn-mute.off {
-  color: var(--pink);
-  text-shadow: 0 0 8px var(--pink);
+  color: var(--muted);
+  text-shadow: none;
+  opacity: 0.5;
 }
 
 #pops {
@@ -500,6 +507,7 @@ html, body {
 #pause-actions #btn-sound.off { color: var(--cream); background: #2a1824; border-color: var(--pink); }
 #pause-actions #btn-restart { color: var(--cyan); }
 #pause-actions #btn-mainmenu { color: var(--pink); }
+#pause-actions #btn-versions { color: var(--gold); }
 #overlay-hi {
   color: var(--muted);
   font-size: 8px;
@@ -575,30 +583,24 @@ html, body {
 }
 #pad-car {
   display: grid;
-  grid-template-columns: 96px 0.72fr 0.72fr 64px;
-  grid-template-areas: "uturn brake gas shifter";
-  gap: 8px;
+  grid-template-columns: 1fr 1fr 72px;
+  grid-template-areas: "brake gas shifter";
+  gap: 10px;
   width: 100%;
   min-height: 156px;
 }
-#pad-car .pad-uturn { grid-area: uturn; }
+#pad-car .pad-uturn,
 #pad-car .pad-pullover { display: none !important; }
 #pad-car .pad-brake { grid-area: brake; }
 #pad-car .pad-gas { grid-area: gas; }
 #pad-car #shifter { grid-area: shifter; }
 .pad-pedal {
   min-height: 0;
-  font-size: 10px;
+  font-size: 12px;
 }
 .pad-brake { color: var(--pink); }
 .pad-gas { color: var(--gold); }
-.pad-uturn {
-  color: var(--cyan);
-  font-size: 9px;
-  line-height: 1.25;
-  min-height: 0;
-}
-.pad-uturn.off { opacity: 0.38; }
+.pad-uturn { display: none !important; }
 .pad-exit { font-size: 8px; min-height: 44px; color: var(--cream); width: 100%; }
 .pad-exit.off { opacity: 0.38; }
 #pad-car .pad-fire {
@@ -683,9 +685,10 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 .pad-btn.held {
-  color: #07060c;
-  background: var(--cream);
-  border-color: var(--cream);
+  color: var(--cream);
+  background: rgba(18, 16, 24, 0.52);
+  border-color: rgba(244, 240, 232, 0.42);
+  box-shadow: none;
 }
 .pad-jump { min-height: 82px; }
 .pad-fire {
@@ -964,11 +967,14 @@ html, body {
   #pad-car {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr auto;
+    grid-template-areas:
+      "brake gas"
+      "brake gas"
+      "shifter shifter";
     min-height: 0;
     height: 100%;
   }
-  #pad-car .pad-uturn { grid-column: 1 / -1; min-height: 48px; }
-  #shifter { grid-column: 1 / -1; min-height: 88px; }
+  #shifter { grid-area: shifter; min-height: 88px; }
 }
 
 @media (max-width: 400px) {
@@ -987,14 +993,9 @@ html, body {
   #app { flex-direction: column; }
 }
 
-#btn-phone.unread {
-  color: var(--gold);
-  box-shadow: 0 0 10px rgba(240, 196, 48, 0.7);
-  animation: ph-pulse 0.9s ease-in-out infinite;
-}
 @keyframes ph-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.08); }
+  0%, 100% { transform: none; }
+  50% { transform: none; }
 }
 .phone-tabs {
   display: grid;
@@ -1088,8 +1089,8 @@ html, body {
   min-height: 0;
 }
 #pad-car {
-  grid-template-columns: 96px 0.72fr 0.72fr 60px;
-  grid-template-areas: "uturn brake gas shifter";
+  grid-template-columns: 1fr 1fr 68px;
+  grid-template-areas: "brake gas shifter";
   min-height: 0;
   height: 100%;
 }
@@ -1097,50 +1098,71 @@ html, body {
   grid-column: 2;
   grid-row: 1 / span 2;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: stretch;
   justify-content: flex-end;
   gap: 8px;
-  width: 118px;
+  width: auto;
 }
 #pad.gb.driving #gb-btns {
-  width: 96px;
+  width: auto;
   gap: 6px;
+  flex-direction: row;
+  align-items: stretch;
 }
 #pad.gb.driving #pad-car {
   min-height: 0;
   transform: none;
 }
 #gb-sys {
-  position: absolute;
-  top: auto;
-  bottom: calc(176px + var(--sab));
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   z-index: 8;
   pointer-events: auto;
-  width: auto;
+  width: 36px;
+  flex: 0 0 36px;
 }
-.gb-sys {
-  flex: 1;
+.gb-sys-stack { display: flex; flex-direction: column; gap: 6px; }
+.gb-sys,
+#gb-sys .gb-sys,
+#btn-pause.gb-sys,
+#btn-phone.gb-sys {
+  flex: 1 1 auto;
   font-family: var(--font);
   font-size: 7px;
   letter-spacing: 0.4px;
-  color: var(--cream);
-  background: rgba(18, 16, 24, 0.45);
-  border: 2px solid rgba(58, 54, 68, 0.7);
+  color: var(--cream) !important;
+  background: rgba(18, 16, 24, 0.38);
+  -webkit-backdrop-filter: blur(10px) saturate(1.15);
+  backdrop-filter: blur(10px) saturate(1.15);
+  border: 2px solid rgba(244, 240, 232, 0.28);
   border-radius: 10px;
-  min-height: 32px;
-  min-width: 52px;
-  padding: 6px 8px;
+  min-height: 0;
+  min-width: 0;
+  padding: 4px 2px;
   pointer-events: auto;
-  opacity: 0.48;
+  opacity: 0.78;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  animation: none !important;
 }
-#btn-exit.hidden { display: none; }
+.gb-sys.vert span {
+  display: block;
+  transform: rotate(180deg);
+  letter-spacing: 1px;
+}
+#btn-exit, #btn-zoom { display: none !important; }
 #btn-phone.unread {
-  color: var(--gold);
-  border-color: var(--gold);
+  color: var(--cream);
+  border-color: rgba(244, 240, 232, 0.38);
+  box-shadow: none;
+  animation: none;
 }
 .face-grid {
   display: grid;
@@ -1148,9 +1170,10 @@ html, body {
   grid-template-rows: 1fr 1fr;
   gap: 8px;
   width: 128px;
+  flex: 0 0 auto;
 }
 .face-grid.driving {
-  width: 96px;
+  width: 108px;
   gap: 6px;
 }
 .face-btn {
@@ -1159,8 +1182,10 @@ html, body {
   width: 100%;
   height: 52px;
   min-height: 52px;
-  border: 3px solid rgba(58, 54, 68, 0.7);
-  background: rgba(42, 24, 36, 0.52);
+  border: 2px solid rgba(244, 240, 232, 0.28);
+  background: rgba(18, 16, 24, 0.38);
+  -webkit-backdrop-filter: blur(10px) saturate(1.15);
+  backdrop-filter: blur(10px) saturate(1.15);
   color: var(--cream);
   display: flex;
   flex-direction: column;
@@ -1169,7 +1194,9 @@ html, body {
   gap: 3px;
   pointer-events: auto;
   line-height: 1;
-  opacity: 0.42;
+  opacity: 0.72;
+  box-shadow: none;
+  text-shadow: none;
 }
 .face-grid.driving .face-btn {
   height: 44px;
@@ -1178,50 +1205,46 @@ html, body {
   border-width: 2px;
   gap: 2px;
 }
-.face-btn em { font-style: normal; font-size: 8px; color: var(--muted); }
+.face-btn em { font-style: normal; font-size: 8px; color: rgba(244, 240, 232, 0.72); }
 .face-btn span { font-size: 7px; }
 .face-grid.driving .face-btn em { font-size: 7px; }
 .face-grid.driving .face-btn span { font-size: 6px; }
+/* Active = same frosted look, a bit clearer. Never gold/cyan glow. */
 .face-btn:not(.off) {
-  opacity: 1;
-  background: var(--gold);
-  color: #07060c;
-  border-color: var(--gold);
+  opacity: 0.92;
+  background: rgba(18, 16, 24, 0.42);
+  color: var(--cream);
+  border-color: rgba(244, 240, 232, 0.38);
+  box-shadow: none;
 }
-.face-btn:not(.off) em { color: #3a2a10; }
-.face-btn.off { opacity: 0.38; pointer-events: none; }
-.face-btn.go, .face-btn.pulse {
-  background: rgba(240, 196, 48, 0.9);
-  color: #07060c;
-  border-color: #fff6b0;
-  opacity: 1;
+.face-btn:not(.off) em { color: rgba(244, 240, 232, 0.78); }
+.face-btn.off { opacity: 0.34; pointer-events: none; }
+.face-btn.go, .face-btn.pulse,
+.face-btn.arm:not(.off),
+.face-btn.arm:not(.off) em {
+  background: rgba(18, 16, 24, 0.42);
+  color: var(--cream);
+  border-color: rgba(244, 240, 232, 0.38);
+  opacity: 0.92;
+  box-shadow: none;
+  animation: none;
+  text-shadow: none;
 }
-.face-btn.arm:not(.off) {
-  background: rgba(61, 224, 255, 0.55);
-  color: #07060c;
-  border-color: var(--cyan);
-  opacity: 1;
-}
-.face-btn.arm:not(.off) em { color: #0a2a30; }
 /* legacy aliases kept for any leftover class toggles */
 .gb-ab { display: none; }
 .gb-a.serve, .gb-a.pulse.serve {
   width: 100%;
   height: 56px;
   min-height: 56px;
-  background: rgba(240, 196, 48, 0.78);
-  color: #07060c;
-  border-color: #fff6b0;
-  box-shadow: 0 0 18px rgba(240, 196, 48, 0.55);
-  animation: serve-pulse 0.7s ease-in-out infinite;
+  background: rgba(18, 16, 24, 0.42);
+  color: var(--cream);
+  border-color: rgba(244, 240, 232, 0.38);
+  box-shadow: none;
+  animation: none;
 }
 .gb-a.serve span { font-size: 9px; font-weight: 700; }
-@keyframes serve-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.08); }
-}
-.gb-b { color: var(--cyan); }
-.gb-b.held { background: var(--cyan); color: #07060c; }
+.gb-b { color: var(--cream); }
+.gb-b.held { background: rgba(18, 16, 24, 0.5); color: var(--cream); }
 .gb-b.hidden { display: none; }
 #gb-dpad {
   display: grid;
@@ -1244,27 +1267,19 @@ html, body {
   #gb-face { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
   #gb-btns { grid-column: 1; grid-row: 2; width: 100%; flex-direction: row; justify-content: flex-end; }
   #gb-ab { margin-left: auto; width: 120px; }
-  #pad-car { grid-template-columns: 1fr 1fr 1fr 56px; grid-template-areas: "uturn brake gas shifter"; }
-  #pad.gb.driving #gb-btns {
-    display: flex;
-    width: 96px;
-  }
+  #pad-car { grid-template-columns: 1fr 1fr 64px; grid-template-areas: "brake gas shifter"; }
   #pad.gb.driving #gb-face {
     grid-template-columns: 1fr auto;
     grid-template-rows: 1fr;
   }
   #pad.gb.driving #gb-btns {
+    display: flex;
     grid-column: 2;
     grid-row: 1;
-    flex-direction: column;
+    flex-direction: row;
+    align-items: stretch;
     justify-content: flex-end;
-  }
-  #gb-sys {
-    top: auto;
-    bottom: calc(12px + var(--sab));
-    left: auto;
-    right: calc(12px + var(--sar));
-    transform: none;
+    width: auto;
   }
 }
 
@@ -1293,110 +1308,175 @@ html, body {
   }
   #pad.gb.sa #pad-foot {
     position: absolute;
-    left: calc(8px + var(--sal));
-    bottom: calc(12px + var(--sab));
-    width: min(48vw, 196px);
-    height: 132px;
+    left: calc(6px + var(--sal));
+    bottom: calc(8px + var(--sab));
+    width: min(42vw, 168px);
+    height: 112px;
     pointer-events: auto;
   }
   #pad.gb.sa #gb-dpad {
-    gap: 12px;
-    height: 132px;
+    gap: 8px;
+    height: 112px;
   }
   #pad.gb.sa .gb-dir {
-    min-width: 88px;
-    min-height: 132px;
-    height: 132px;
-    font-size: 32px;
-    opacity: 0.55;
-    background: rgba(244, 240, 232, 0.16);
-    border: 3px solid rgba(244, 240, 232, 0.48);
-    border-radius: 18px;
+    min-width: 72px;
+    min-height: 112px;
+    height: 112px;
+    font-size: 26px;
+    opacity: 0.72;
+    background: rgba(18, 16, 24, 0.34);
+    -webkit-backdrop-filter: blur(10px) saturate(1.15);
+    backdrop-filter: blur(10px) saturate(1.15);
+    border: 2px solid rgba(244, 240, 232, 0.28);
+    border-radius: 16px;
     color: #f4f0e8;
+    box-shadow: none;
   }
+  /* Foot: face-grid + STRT/SEL stacked to the right of the dpad (top bar stays empty). */
   #pad.gb.sa #gb-btns {
     position: absolute;
-    left: calc(8px + var(--sal) + min(48vw, 196px) + 10px);
-    right: auto;
-    bottom: calc(12px + var(--sab));
-    width: 118px;
-    height: 132px;
+    left: auto;
+    right: calc(6px + var(--sar));
+    bottom: calc(8px + var(--sab));
+    width: auto;
+    height: 112px;
     pointer-events: auto;
-    flex-direction: column;
+    flex-direction: row;
     align-items: stretch;
-    justify-content: stretch;
-    gap: 12px;
+    justify-content: flex-end;
+    gap: 5px;
   }
-  #pad.gb.sa #gb-ab {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    width: 100%;
+  #pad.gb.sa #gb-ab { display: none; }
+  #pad.gb.sa .face-grid {
+    width: 108px;
     height: 100%;
+    gap: 5px;
   }
-  #pad.gb.sa .gb-ab {
-    width: 100%;
-    height: 60px;
-    min-height: 60px;
-    border-radius: 16px;
-    opacity: 0.52;
+  #pad.gb.sa .face-btn {
+    height: auto;
+    min-height: 0;
     flex: 1 1 auto;
   }
-  /* Drive pad ~75% size; face-grid stays on the right for Exit / Pull Over. */
+  #pad.gb.sa #gb-sys {
+    width: 30px;
+    height: 100%;
+  }
+  /* Drive pad: gas/brake/shifter; face-grid + STRT/SEL on the right. Fit 375×667. */
   #pad.gb.sa.driving #pad-car {
     position: absolute;
-    left: calc(8px + var(--sal));
-    bottom: calc(12px + var(--sab));
-    right: calc(8px + var(--sar) + 104px);
+    left: calc(6px + var(--sal));
+    bottom: calc(8px + var(--sab));
+    right: calc(6px + var(--sar) + 142px);
     width: auto;
-    height: 111px;
-    grid-template-columns: 86px 0.68fr 0.68fr 50px;
-    grid-template-areas: "uturn brake gas shifter";
+    height: 108px;
+    grid-template-columns: 1fr 1fr 56px;
+    grid-template-areas: "brake gas shifter";
     pointer-events: auto;
     background: transparent;
-    gap: 6px;
+    gap: 5px;
   }
-  #pad.gb.sa.driving .pad-uturn { grid-area: uturn; font-size: 8px; }
   #pad.gb.sa.driving .pad-brake { grid-area: brake; }
   #pad.gb.sa.driving #shifter { grid-area: shifter; }
   #pad.gb.sa.driving .pad-gas {
     grid-area: gas;
-    min-height: 111px;
-    height: 111px;
+    min-height: 108px;
+    height: 108px;
     font-size: 10px;
   }
   #pad.gb.sa.driving .pad-pedal,
-  #pad.gb.sa.driving .pad-uturn,
   #pad.gb.sa.driving #shifter {
-    opacity: 0.5;
-    background: rgba(18, 16, 24, 0.42);
+    opacity: 0.78;
+    background: rgba(18, 16, 24, 0.38);
+    -webkit-backdrop-filter: blur(10px) saturate(1.15);
+    backdrop-filter: blur(10px) saturate(1.15);
+    border: 2px solid rgba(244, 240, 232, 0.28);
+    box-shadow: none;
+    min-height: 0;
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+  }
+  #pad.gb.sa.driving #shift-track {
+    height: 100%;
+    min-height: 0;
+    padding: 2px 2px 3px 3px;
+  }
+  #pad.gb.sa.driving .gear {
+    min-height: 0;
+    padding: 1px 0;
+    font-size: 7px;
+    flex: 1 1 auto;
+  }
+  #pad.gb.sa.driving #shift-knob {
+    height: 8px;
   }
   #pad.gb.sa.driving #gb-btns {
     display: flex;
     position: absolute;
     left: auto;
-    right: calc(8px + var(--sar));
-    bottom: calc(12px + var(--sab));
-    width: 96px;
-    height: 111px;
+    right: calc(6px + var(--sar));
+    bottom: calc(8px + var(--sab));
+    width: auto;
+    height: 108px;
     pointer-events: auto;
-    flex-direction: column;
+    flex-direction: row;
     align-items: stretch;
-    justify-content: stretch;
-    gap: 6px;
+    justify-content: flex-end;
+    gap: 4px;
   }
   #pad.gb.sa.driving .face-grid {
-    width: 100%;
+    width: 100px;
     height: 100%;
-    gap: 6px;
+    gap: 4px;
   }
   #pad.gb.sa.driving .face-btn {
     height: auto;
-    min-height: 44px;
+    min-height: 0;
     flex: 1 1 auto;
   }
-  #gb-sys {
-    bottom: calc(136px + var(--sab));
-    top: auto;
+  #pad.gb.sa.driving #gb-sys {
+    width: 28px;
+    height: 100%;
   }
+}
+
+/* Short phones (iPhone SE 375×667 and similar): keep pad fully on-screen. */
+@media (orientation: portrait) and (max-height: 700px) {
+  #pad.gb.sa #pad-foot,
+  #pad.gb.sa #gb-btns {
+    height: 96px;
+    bottom: calc(6px + var(--sab));
+  }
+  #pad.gb.sa #pad-foot { width: min(40vw, 148px); left: calc(4px + var(--sal)); }
+  #pad.gb.sa #gb-dpad { height: 96px; gap: 6px; }
+  #pad.gb.sa .gb-dir {
+    min-width: 64px;
+    min-height: 96px;
+    height: 96px;
+    font-size: 22px;
+    border-radius: 14px;
+  }
+  #pad.gb.sa .face-grid { width: 96px; gap: 4px; }
+  #pad.gb.sa #gb-sys { width: 26px; }
+  #pad.gb.sa.driving #pad-car {
+    height: 96px;
+    bottom: calc(6px + var(--sab));
+    left: calc(4px + var(--sal));
+    right: calc(4px + var(--sar) + 138px);
+    grid-template-columns: 1fr 1fr 48px;
+    gap: 4px;
+  }
+  #pad.gb.sa.driving .pad-gas { min-height: 96px; height: 96px; font-size: 9px; }
+  #pad.gb.sa.driving #shifter { min-height: 0; height: 100%; max-height: 100%; }
+  #pad.gb.sa.driving .gear { font-size: 6px; padding: 0; }
+  #pad.gb.sa.driving #gb-btns {
+    height: 96px;
+    bottom: calc(6px + var(--sab));
+    right: calc(4px + var(--sar));
+    gap: 3px;
+  }
+  #pad.gb.sa.driving .face-grid { width: 92px; gap: 3px; }
+  #pad.gb.sa.driving #gb-sys { width: 24px; }
+  #pad.gb.sa.driving .face-btn em { font-size: 6px; }
+  #pad.gb.sa.driving .face-btn span { font-size: 5px; }
 }
