@@ -15,11 +15,12 @@ export const CAR_TURN_ARC = 3.9;
 export const CAR_STOP = 8;
 /** US right-hand traffic: +X uses the camera-side (near) lane.
  *  Road: curb z=2.95, dashes z=7.55, near edge ~12.15. Centers sit mid-lane.
- *  Place z = 4.95 + lat, so park lats sit on the curb/shoulder. */
+ *  Place z = 4.95 + lat. Pull over to the RIGHT of travel so parked cars
+ *  face with their lane's traffic (+X → near shoulder, −X → far curb). */
 export const CAR_LANE_NEAR = 4.9;
 export const CAR_LANE_FAR = 0.3;
-export const PARK_LAT_NEAR = -1.45;
-export const PARK_LAT_FAR = -0.55;
+export const PARK_LAT_NEAR = 6.4;
+export const PARK_LAT_FAR = -1.45;
 /** Pull-over steer + brake clip length, seconds. */
 export const PULL_OVER_T = 1.15;
 /** Door-open + walk-turn-sit clip length, seconds. */

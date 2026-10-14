@@ -1,0 +1,100 @@
+import { WEAPONS } from "./config.js";
+import { isMuted, isUnlocked } from "./audio.js";
+
+export function createHud() {
+  const cashEl = document.getElementById("hud-cash");
+  const gunEl = document.getElementById("hud-gun");
+  const heatEl = document.getElementById("hud-heat");
+  const hpEl = document.getElementById("hud-hp");
+  const waveEl = document.getElementById("hud-wave");
+  const muteBtn = document.getElementById("btn-mute");
+  const overlay = document.getElementById("overlay");
+  const titleEl = document.getElementById("overlay-title");
+  const subEl = document.getElementById("overlay-sub");
+  const bodyEl = document.getElementById("overlay-body");
+  const hiEl = document.getElementById("overlay-hi");
+  const promptEl = document.getElementById("overlay-prompt");
+  const popsEl = document.getElementById("pops");
+  const status = document.getElementById("status");
+
+  function pips(el, count, filled, cls) {
+    while (el.children.length < count) {
+      const d = document.createElement("span");
+      d.className = "pip";
+      el.appendChild(d);
+    }
+    [...el.children].forEach((n, i) => {
+      n.className = "pip" + (i < filled ? ` on ${cls}` : "");
+    });
+  }
+
+  let popNodes = [];
+
+  function sync(state, project) {
+    cashEl.textContent = "$" + String(state.cash).padStart(4, "0");
+    if (state.carrying) {
+      gunEl.textContent = "PACK";
+      gunEl.classList.add("pack");
+    } else {
+      gunEl.textContent = WEAPONS[state.gun].label;
+      gunEl.classList.remove("pack");
+    }
+    pips(heatEl, 3, Math.min(3, Math.ceil(state.heat)), "heat");
+    pips(hpEl, 3, state.hp, "hp");
+    waveEl.textContent = "W" + state.wave;
+    muteBtn.textContent = isMuted() ? "OFF" : "ON";
+
+    const show = state.mode !== "play";
+    overlay.classList.toggle("hidden", !show);
+    titleEl.classList.remove("wasted", "clear");
+    if (state.mode === "title") {
+      titleEl.innerHTML = "BLOCK<br><span>RUN</span>";
+      subEl.textContent = "2.5D NIGHT BLOCK";
+      bodyEl.innerHTML = "JUMP TO DODGE<br>SELL PACKS  BUY GUNS<br>HEAT CALLS COPS";
+      hiEl.textContent = "HI $" + state.hi;
+      promptEl.textContent = isUnlocked() ? "PRESS START" : "TAP FOR SOUND";
+    } else if (state.mode === "dead") {
+      titleEl.textContent = "WASTED";
+      titleEl.classList.add("wasted");
+      subEl.textContent = "";
+      bodyEl.textContent = "CASH $" + state.cash;
+      hiEl.textContent = "HI $" + state.hi;
+      promptEl.textContent = "TAP TO RESTART";
+    } else if (state.mode === "clear") {
+      titleEl.innerHTML = "STAGE<br>CLEAR";
+      titleEl.classList.add("clear");
+      subEl.textContent = "";
+      bodyEl.textContent = "CASH $" + state.cash;
+      hiEl.textContent = "GUN " + WEAPONS[state.gun].label;
+      promptEl.textContent = "TAP FOR WAVE " + (state.wave + 1);
+    }
+
+    if (status) {
+      status.textContent = `${state.mode}  $${state.cash}  hp ${state.hp}  ${WEAPONS[state.gun].label}`;
+    }
+
+    while (popNodes.length < state.pops.length) {
+      const n = document.createElement("div");
+      n.className = "pop";
+      popsEl.appendChild(n);
+      popNodes.push(n);
+    }
+    popNodes.forEach((n, i) => {
+      const p = state.pops[i];
+      if (!p) {
+        n.style.display = "none";
+        return;
+      }
+      n.style.display = "block";
+      n.textContent = p.text;
+      if (project) {
+        const s = project(p.x, p.y);
+        n.style.left = s.x + "px";
+        n.style.top = s.y + "px";
+        n.style.opacity = String(Math.max(0, p.life / 0.8));
+      }
+    });
+  }
+
+  return { sync };
+}

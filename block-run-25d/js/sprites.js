@@ -2,8 +2,8 @@ import * as THREE from "three";
 import {
   pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, WALK_CYCLE_POSES, RUN_CYCLE_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
-  paintClassicHeroSet,
-} from "./paint.js?v=76";
+  paintClassicHeroSet, classicWithoutHat,
+} from "./paint.js?v=78";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -150,8 +150,45 @@ export async function loadSprites() {
     };
   }
 
-  const playerHat = finishSet(paintClassicHeroSet({ hat: "beanie", top: "hoodie", bottom: "jeans", shoes: "reds" }));
-  const playerBare = finishSet(paintClassicHeroSet({ hat: "none", top: "hoodie", bottom: "jeans", shoes: "reds" }));
+  // Classic pixel sheets from block-run/sprites/ (read-only) as billboard frames.
+  const idleSrc = idleImgs.filter(Boolean);
+  const walkSrc = walkImgs.filter(Boolean);
+  const shootSrc = shootImgs.filter(Boolean);
+  let playerHat;
+  let playerBare;
+  if (idleSrc.length) {
+    const idleC = idleSrc.map(toCanvas);
+    const walkC = (walkSrc.length ? walkSrc : idleSrc).map(toCanvas);
+    const shootC = (shootSrc.length ? shootSrc : idleSrc).map(toCanvas);
+    const frames = (canvases, hatOn) => canvases.map((c) => texturize(hatOn ? c : classicWithoutHat(c), true));
+    const idleHat = frames(idleC, true);
+    const walkHat = frames(walkC, true);
+    const shootHat = frames(shootC, true);
+    const idleBare = frames(idleC, false);
+    const walkBare = frames(walkC, false);
+    const shootBare = frames(shootC, false);
+    playerHat = {
+      idle: idleHat,
+      walk: walkHat,
+      run: walkHat,
+      jump: JUMP_POSES.map((p) => texturize(derivePose(idleC[0], p), true)),
+      shoot: shootHat,
+      turn: idleHat,
+      sit: idleHat,
+    };
+    playerBare = {
+      idle: idleBare,
+      walk: walkBare,
+      run: walkBare,
+      jump: JUMP_POSES.map((p) => texturize(derivePose(classicWithoutHat(idleC[0]), p), true)),
+      shoot: shootBare,
+      turn: idleBare,
+      sit: idleBare,
+    };
+  } else {
+    playerHat = finishSet(paintClassicHeroSet({ hat: "beanie", top: "hoodie", bottom: "jeans", shoes: "reds" }));
+    playerBare = finishSet(paintClassicHeroSet({ hat: "none", top: "hoodie", bottom: "jeans", shoes: "reds" }));
+  }
   const player = playerHat;
   const outfits = [playerHat];
   const hero = { beanie: playerHat, none: playerBare };

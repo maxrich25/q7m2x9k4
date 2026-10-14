@@ -4,9 +4,8 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=76";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=76";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=76";
+} from "./config.js?v=78";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=78";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -1250,30 +1249,31 @@ function makeCribRoom() {
   );
   mirrorSheen2.position.set(2.55, 1.7, -1.904);
   g.add(mirrorSheen2);
+  // Bed on the right wall so the EXIT door path at x≈-2.65 stays clear.
   const bed = new THREE.Mesh(
     new THREE.BoxGeometry(2.4, 0.42, 1.55),
     new THREE.MeshLambertMaterial({ color: 0x1a2438 }),
   );
-  bed.position.set(-1.4, 0.28, -0.85);
+  bed.position.set(1.55, 0.28, -0.85);
   g.add(bed);
   const pillow = new THREE.Mesh(
     new THREE.BoxGeometry(0.55, 0.14, 0.42),
     new THREE.MeshLambertMaterial({ color: 0xe8d8c8 }),
   );
-  pillow.position.set(-2.0, 0.58, -0.95);
+  pillow.position.set(2.15, 0.58, -0.95);
   g.add(pillow);
   const blanket = new THREE.Mesh(
     new THREE.BoxGeometry(1.6, 0.08, 1.2),
     new THREE.MeshLambertMaterial({ color: 0x2a3048 }),
   );
-  blanket.position.set(-1.1, 0.52, -0.85);
+  blanket.position.set(1.25, 0.52, -0.85);
   g.add(blanket);
-  // Bedside lamp sits on the right of the bed — never next to EXIT (was reading as an up-arrow box).
+  // Bedside lamp on the inner side of the bed — never next to EXIT.
   const lamp = new THREE.Mesh(
     new THREE.BoxGeometry(0.18, 0.45, 0.18),
     new THREE.MeshBasicMaterial({ color: 0xc4a878 }),
   );
-  lamp.position.set(-0.35, 0.85, -1.55);
+  lamp.position.set(0.45, 0.85, -1.55);
   g.add(lamp);
   const win = new THREE.Mesh(
     new THREE.PlaneGeometry(1.8, 1.1),
@@ -1332,7 +1332,7 @@ function makeCribRoom() {
   cribLight.position.set(0.2, 4.4, 1.6);
   g.add(cribLight);
   const bedLamp = new THREE.PointLight(0xffcc88, 2.2, 8, 1.3);
-  bedLamp.position.set(-0.35, 1.45, -1.1);
+  bedLamp.position.set(0.45, 1.45, -1.1);
   g.add(bedLamp);
   const wardLamp = new THREE.PointLight(0xffd4a0, 1.6, 7, 1.6);
   wardLamp.position.set(3.4, 2.15, 0.9);
@@ -1349,8 +1349,8 @@ export function createWorld(canvas, sprites) {
     stencil: false,
     depth: true,
   });
-  // Integer DPR keeps the WebGL buffer aligned to CSS pixels (avoids soft scale in iOS standalone).
-  renderer.setPixelRatio(Math.max(1, Math.min(3, Math.round(window.devicePixelRatio || 1))));
+  // Match devicePixelRatio so the WebGL buffer isn't upscaled blurry in iOS standalone.
+  renderer.setPixelRatio(Math.max(1, Math.min(3, window.devicePixelRatio || 1)));
   renderer.setClearColor(0x0c1428, 1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
@@ -1642,17 +1642,19 @@ export function createWorld(canvas, sprites) {
     { x: 48.4, w: 3.4, h: 4.6, d: 2.2 },
   ];
 
-  function addNeon(text, color, x, y, z, lit = false) {
+  function addNeon(text, color, x, y, z, lit = false, size = null) {
     const tex = neonTex(text, color);
     tex.wrapS = THREE.ClampToEdgeWrapping;
     tex.wrapT = THREE.ClampToEdgeWrapping;
+    const w = size?.w || 3.6;
+    const h = size?.h || 0.9;
     const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(3.6, 0.9),
+      new THREE.PlaneGeometry(w, h),
       new THREE.MeshBasicMaterial({ map: tex, transparent: true }),
     );
     sign.position.set(x, y, z);
     city.add(sign);
-    const glow = glowSprite(color, 3.4);
+    const glow = glowSprite(color, Math.max(3.4, w * 0.95));
     glow.position.set(x, y, z + 0.05);
     city.add(glow);
     if (lit) {
@@ -1689,6 +1691,8 @@ export function createWorld(canvas, sprites) {
         pane.position.set(x - 1.7 + i * 1.12, 1.55, -0.52);
         city.add(pane);
       }
+      // Neon sits on the liquor facade, not floating above it.
+      addNeon("LIQUOR", "#e21b7a", x, 3.55, -0.48, true);
     } else if (theme.id === "motel") {
       propBox(16.5, 2.5, 2.3, 0x3a3048, x + 1, 1.25, -1.85);
       propBox(16.9, 0.18, 2.7, 0x2a2438, x + 1, 2.6, -1.85);
@@ -1765,7 +1769,11 @@ export function createWorld(canvas, sprites) {
       city.add(mesh);
     }
     stampLandmark(theme, xOff);
-    addNeon(theme.neon[0], theme.neon[1], 24.4 + xOff, theme.park ? 3.8 : 5.05, -2.15, lit);
+    // Liquor neon is attached on the prop in stampLandmark; others sit on facade height.
+    if (theme.id !== "liquor") {
+      const neonY = theme.park ? 3.8 : theme.id === "motel" ? 3.55 : Math.min(4.6, 3.2 + (theme.id === "gas" ? 0.2 : 0.8));
+      addNeon(theme.neon[0], theme.neon[1], 24.4 + xOff, neonY, -2.15, lit);
+    }
     if (theme.graf) {
       const grafWall = new THREE.Mesh(
         new THREE.BoxGeometry(7.2, 3.2, 0.45),
@@ -1780,12 +1788,15 @@ export function createWorld(canvas, sprites) {
       graffiti.position.set(26 + xOff, 1.7, -1.1);
       city.add(graffiti);
     }
-    // Curb/sidewalk only — clear of facade volumes and gas canopies.
+    // Curb/sidewalk only — clear of facade volumes, gas canopies, and the crib.
+    const homeWX = gameToWorldX(HOME_X);
     const palms = [[5.2, 0.92], [12.4, 0.88], [19.6, 0.92], [33.8, 0.88], [42.2, 0.92]];
     for (const [x, z] of palms) {
+      const px = x + xOff;
+      if (Math.abs(px - homeWX) < 9.5) continue;
       const palm = makePalm();
-      palm.position.set(x + xOff, 0, z);
-      palm.scale.setScalar(1.28 + ((x + xOff) % 3) * 0.04);
+      palm.position.set(px, 0, z);
+      palm.scale.setScalar(1.28 + (px % 3) * 0.04);
       city.add(palm);
     }
     const lamp = makeLamp();
@@ -1802,9 +1813,13 @@ export function createWorld(canvas, sprites) {
   for (let i = 0; i < blockCount; i++) {
     stampTheme(THEMES[i % THEMES.length], i * BLOCK_LEN, i === 0);
   }
+  const homeWXCurb = gameToWorldX(HOME_X);
   for (let i = 0; i < blockCount * 2; i++) {
+    const px = (i + 0.42) * (BLOCK_LEN / 2);
+    // Keep palm fronds clear of the crib facade.
+    if (Math.abs(px - homeWXCurb) < 10) continue;
     const curbPalm = makePalm();
-    curbPalm.position.set((i + 0.42) * (BLOCK_LEN / 2), 0, 0.55);
+    curbPalm.position.set(px, 0, 0.55);
     curbPalm.scale.setScalar(1.45 + (i % 3) * 0.05);
     city.add(curbPalm);
   }
@@ -1891,7 +1906,7 @@ export function createWorld(canvas, sprites) {
   // Height is oversized so perspective still reads door≳1.3× / house≳2.5× on screen.
   homeHouse.position.set(gameToWorldX(HOME_X), 0, -0.85);
   city.add(homeHouse);
-  addNeon("HOME", "#3de0ff", gameToWorldX(HOME_X), 12.2, 1.05, true);
+  addNeon("HOME", "#3de0ff", gameToWorldX(HOME_X), 12.6, 1.15, true, { w: 5.4, h: 1.35 });
   addNeon("PLUG", "#e21b7a", gameToWorldX(PLUG_X), 2.55, 0.15, true);
   const caliX = gameToWorldX(HOME_X + 340);
   const caliPole = new THREE.Mesh(
@@ -1946,18 +1961,19 @@ export function createWorld(canvas, sprites) {
   const playerCar = makeBeaterCar();
   const carMarker = new THREE.Group();
   const markStem = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.03, 0.03, 0.35, 6),
+    new THREE.CylinderGeometry(0.05, 0.05, 0.55, 6),
     new THREE.MeshBasicMaterial({ color: 0x3de0ff }),
   );
-  markStem.position.y = 0.22;
+  markStem.position.y = 0.34;
   carMarker.add(markStem);
   const markHead = new THREE.Mesh(
-    new THREE.ConeGeometry(0.22, 0.38, 4),
+    new THREE.ConeGeometry(0.38, 0.62, 4),
     new THREE.MeshBasicMaterial({ color: 0x3de0ff }),
   );
   markHead.rotation.x = Math.PI;
-  markHead.position.y = -0.08;
+  markHead.position.y = -0.12;
   carMarker.add(markHead);
+  carMarker.scale.setScalar(1.55);
   scene.add(carMarker);
   scene.add(playerCar);
   const lightMeshes = [];
@@ -2010,7 +2026,7 @@ export function createWorld(canvas, sprites) {
   const plugLabel = makeLabel("PLUG", "#e21b7a");
   scene.add(plugLabel);
   const stashLabel = makeLabel("STASH", "#f0c430");
-  stashLabel.scale.set(1.7, 0.4, 1);
+  stashLabel.scale.set(2.55, 0.62, 1);
   scene.add(stashLabel);
   const youLabel = makeLabel("YOU", "#3de0ff");
   youLabel.scale.set(1.35, 0.32, 1);
@@ -2030,12 +2046,9 @@ export function createWorld(canvas, sprites) {
   let lookAim = 0;
   let lookAimV = 0;
 
-  // Empty rows under soles (~4–5/40). Extra sink closes the look-down gap
-  // measured at ~0.18 world units in close-up captures.
-  const FOOT_PAD = 4.5 / 40;
-  const GROUND_SINK = 0.3;
-  const playerSprite = makeBillboard(sprites.idle[0], 3.05);
-  playerSprite.userData.footPad = playerSprite.userData.height * FOOT_PAD + GROUND_SINK;
+  // Classic PNG billboard: origin at soles (PlaneGeometry translate). No sink.
+  const playerSprite = makeBillboard(sprites.idle[0], 2.85);
+  playerSprite.userData.footPad = 0;
   playerSprite.material.depthTest = true;
   playerSprite.material.depthWrite = false;
   playerSprite.renderOrder = 46;
@@ -2109,9 +2122,12 @@ export function createWorld(canvas, sprites) {
     const vv = window.visualViewport;
     const w = Math.max(1, parent.clientWidth || Math.round(vv?.width || window.innerWidth));
     const h = Math.max(1, parent.clientHeight || Math.round(vv?.height || window.innerHeight));
-    const dpr = Math.max(1, Math.min(3, Math.round(window.devicePixelRatio || 1)));
+    // Use true devicePixelRatio (no floor) so 2x standalone isn't drawn at 1x then stretched.
+    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
     renderer.setPixelRatio(dpr);
     renderer.setSize(w, h, false);
+    canvas.style.width = w + "px";
+    canvas.style.height = h + "px";
     camera.aspect = w / h;
     camera.fov = w > h ? 42 : 52;
     camera.updateProjectionMatrix();
@@ -2381,9 +2397,7 @@ export function createWorld(canvas, sprites) {
     const sprFace = turning && p.turnFrom != null && turnU < 0.55
       ? (p.turnFrom < 0 ? -1 : 1)
       : (p.facing < 0 ? -1 : 1);
-    const strideLen = running ? RUN_STRIDE_CYCLE : STRIDE_CYCLE;
-    const walkClock = walking ? (p.stride || 0) / strideLen : p.anim;
-    setBillboardFrame(playerSprite, frameAt(animSet, walkClock, rate), sprFace);
+    setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate), sprFace);
     const carZ = 4.95 + (state.car?.lat || 0);
     const doorStandZ = carZ + 0.55;
     const seatZ = carZ + 0.16;
@@ -2414,8 +2428,8 @@ export function createWorld(canvas, sprites) {
     } else {
       place(playerSprite, px, GROUND_Y, camX, footZ);
     }
-    // Sidewalk plane sits at y≈0.03 — park soles on that surface.
-    playerSprite.position.y = 0.03 - (playerSprite.userData.footPad || 0);
+    // Sidewalk plane sits at y≈0.03 — soles on that surface (no sink).
+    playerSprite.position.y = 0.03;
     const doorAmt = !boarding ? 0
       : enter
         ? (boardU < 0.26 ? 0
@@ -2509,7 +2523,7 @@ export function createWorld(canvas, sprites) {
       youLabel.visible = false;
       carMarker.visible = state.car.hp > 0 && !state.inCar;
       const bob = Math.sin(performance.now() * 0.004) * 0.12;
-      carMarker.position.set(playerCar.position.x, 2.35 + bob, playerCar.position.z);
+      carMarker.position.set(playerCar.position.x, 2.85 + bob, playerCar.position.z);
       carMarker.rotation.y = camera.rotation.y;
       const speed = Math.min(1, Math.abs(state.car.vx) / 180);
       speedStreaks.forEach((streak, i) => {
@@ -2621,7 +2635,7 @@ export function createWorld(canvas, sprites) {
     place(plugLabel, plugX, 154, camX, 1.15);
     plugLabel.position.y = 2.85;
     place(stashLabel, HOME_X, 154, camX, 1.15);
-    stashLabel.position.y = 2.42;
+    stashLabel.position.y = 2.95;
     if (state.plugMeet) {
       plugSprite.visible = true;
       const pset = sprites.plug || sprites.buyers[0];
@@ -2667,7 +2681,7 @@ export function createWorld(canvas, sprites) {
       if (inCrib) break;
       const spr = take(pedPool, () => {
         const s = makeBillboard(looks[0]?.walk?.[0] || sprites.idle[0], 2.85);
-        s.userData.footPad = s.userData.height * FOOT_PAD + GROUND_SINK;
+        s.userData.footPad = 0;
         scene.add(s);
         const sh = new THREE.Mesh(shadowGeo, shadowMat.clone());
         sh.rotation.x = -Math.PI / 2;
@@ -2685,13 +2699,11 @@ export function createWorld(canvas, sprites) {
         ? (pedRunning ? (set.run || set.walk || set.idle) : (set.walk || set.idle))
         : (set.idle || set.walk);
       const nPed = (frames && frames.length) || 8;
-      const pedStride = pedRunning ? RUN_STRIDE_CYCLE : STRIDE_CYCLE;
-      const pedClock = pedMoving ? (ped.stride || 0) / pedStride : (ped.anim || 0);
       const pedRate = pedMoving ? nPed : 3;
-      setBillboardFrame(spr, frameAt(frames, pedClock, pedRate), ped.facing);
+      setBillboardFrame(spr, frameAt(frames, ped.anim || 0, pedRate), ped.facing);
       const pedZ = 1.15 + (ped.lane || 0) + (ped.side || 0);
       place(spr, ped.x, GROUND_Y, camX, pedZ);
-      spr.position.y = 0.03 - (spr.userData.footPad || 0);
+      spr.position.y = 0.03;
       spr.renderOrder = Math.round(pedZ * 40);
       orientBillboard(spr, camera);
       spr.material.color.setHex(0xffffff);
