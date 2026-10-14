@@ -78,20 +78,46 @@ html, body {
   right: 0;
   z-index: 6;
   display: block;
-  padding: calc(8px + var(--sat)) 0 0 0;
+  padding-top: calc(8px + var(--sat));
   background: linear-gradient(to bottom, rgba(7, 6, 12, 0.9), rgba(7, 6, 12, 0));
   min-width: 0;
   min-height: calc(40px + var(--sat));
   pointer-events: none;
   transform: none;
   -webkit-transform: none;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  text-rendering: geometricPrecision;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  font-synthesis: none;
 }
-#hud-top-canvas {
-  display: block !important;
-  width: 100%;
+#hud-top-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
   height: 32px;
-  image-rendering: auto;
+  padding: 0 8px;
+  font-family: "Press Start 2P", monospace;
+  font-size: 16px;
+  line-height: 16px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  transform: none;
+  -webkit-transform: none;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+  image-rendering: pixelated;
 }
+@media (max-width: 359px) {
+  #hud-top-row { font-size: 8px; line-height: 8px; gap: 6px; }
+}
+#hud-cash { color: #f0c430; flex: 0 0 auto; }
+#hud-inv { flex: 0 0 auto; }
+#hud-rep { color: var(--muted); white-space: nowrap; flex: 0 0 auto; }
+.g-grn { color: #3dff7a; }
+.g-wht { color: #f4f0e8; }
 #hud-top > span.hud-sr {
   position: absolute !important;
   width: 1px !important;
@@ -103,9 +129,6 @@ html, body {
   white-space: nowrap !important;
   border: 0 !important;
 }
-.g-grn { color: #3dff7a; }
-.g-wht { color: #f4f0e8; }
-#hud-rep { color: var(--muted); white-space: nowrap; }
 #hud-time { display: none !important; }
 #hud-heat, #hud-hp {
   display: flex;

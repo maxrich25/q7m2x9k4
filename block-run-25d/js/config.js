@@ -34,6 +34,9 @@ export const ZOOM_CONT_KEY = "block-run-25d-zoom-cont-v1";
 export const CAR_KINDS = {
   beater: { accel: 160, max: 142, creep: 18, color: 0xc45a28 },
   luxury: { accel: 260, max: 220, creep: 23, color: 0x121214 },
+  hatch: { accel: 190, max: 160, creep: 20, color: 0x2a5a3a },
+  suv: { accel: 140, max: 130, creep: 16, color: 0x3a2a68 },
+  van: { accel: 120, max: 118, creep: 14, color: 0x3a4a38 },
 };
 export const GEARS = ["P", "R", "N", "D"];
 /** Keep enemy/gun/wave code compiled; off for the dealing-loop build. */

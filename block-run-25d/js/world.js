@@ -4,9 +4,9 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=74";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=74";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=74";
+} from "./config.js?v=75";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=75";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=75";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -784,10 +784,95 @@ function makeBeaterCar() {
   return g;
 }
 
+function makeHatchCar() {
+  const g = makeBeaterCar();
+  // Shorter hatch: pull the deck forward and raise a stubby rear.
+  g.traverse((o) => {
+    if (!o.isMesh) return;
+    if (o.geometry?.type === "BoxGeometry" && o.position.x < -1.1 && o.position.y > 0.6) {
+      o.scale.x *= 0.72;
+      o.position.x += 0.28;
+      o.position.y += 0.08;
+    }
+  });
+  g.userData.kind = "hatch";
+  return g;
+}
+
+function makeSuvCar() {
+  const g = makeBeaterCar();
+  g.traverse((o) => {
+    if (!o.isMesh) return;
+    if (o.name === "body") {
+      o.scale.y = 1.35;
+      o.position.y += 0.12;
+    }
+    if (o.position.y > 0.85) {
+      o.position.y += 0.22;
+      o.scale.y *= 1.15;
+    }
+  });
+  g.userData.kind = "suv";
+  return g;
+}
+
+function makeVanCar() {
+  const g = new THREE.Group();
+  const paint = new THREE.MeshLambertMaterial({ color: 0x3a4a38 });
+  const tint = new THREE.MeshBasicMaterial({ color: 0x152028 });
+  const chrome = new THREE.MeshBasicMaterial({ color: 0xd0d6de });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(4.4, 1.05, 1.55), paint);
+  body.position.y = 0.85;
+  body.name = "body";
+  g.add(body);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.7, 1.5), paint);
+  cabin.position.set(1.1, 1.55, 0);
+  g.add(cabin);
+  const wind = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.45, 1.4), tint);
+  wind.position.set(1.7, 1.5, 0);
+  wind.rotation.z = -0.35;
+  g.add(wind);
+  const bumperF = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 1.5), chrome);
+  bumperF.position.set(2.25, 0.35, 0);
+  g.add(bumperF);
+  const bumperR = bumperF.clone();
+  bumperR.position.x = -2.25;
+  g.add(bumperR);
+  for (const [name, z] of [["headL", -0.48], ["headR", 0.48]]) {
+    const lamp = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 0.1, 0.22),
+      new THREE.MeshBasicMaterial({ color: 0xfff2b0 }),
+    );
+    lamp.name = name;
+    lamp.position.set(2.22, 0.55, z);
+    g.add(lamp);
+  }
+  const headBar = new THREE.Mesh(
+    new THREE.BoxGeometry(0.06, 0.04, 1.0),
+    new THREE.MeshBasicMaterial({ color: 0xc8e8ff }),
+  );
+  headBar.name = "headBar";
+  headBar.position.set(2.2, 0.68, 0);
+  g.add(headBar);
+  const headGlow = glowSprite("#fff2b0", 1.1);
+  headGlow.name = "headGlow";
+  headGlow.position.set(2.35, 0.55, 0);
+  headGlow.visible = false;
+  g.add(headGlow);
+  addHeadBeams(g, 2.22, 0.48, 0.55);
+  for (const [x, z] of [[-1.35, 0.72], [-1.35, -0.72], [1.35, 0.72], [1.35, -0.72]]) {
+    g.add(chromeRim(x, z, 0.32, true));
+  }
+  g.userData.kind = "van";
+  return g;
+}
+
 function makeStreetCar(kind) {
-  const mesh = kind === "luxury" ? makeLuxuryCar() : makeBeaterCar();
-  mesh.userData.kind = kind === "luxury" ? "luxury" : "beater";
-  return mesh;
+  if (kind === "luxury") return makeLuxuryCar();
+  if (kind === "hatch") return makeHatchCar();
+  if (kind === "suv") return makeSuvCar();
+  if (kind === "van") return makeVanCar();
+  return makeBeaterCar();
 }
 
 function makeTrafficLight() {
@@ -992,84 +1077,40 @@ function makeLamp() {
 }
 
 function skylineTex() {
-  const tex = canvasTex(1280, 360, (g, w, h) => {
+  // Clean layered silhouettes: hills, then blocky downtown, no palm clutter.
+  const tex = canvasTex(1280, 220, (g, w, h) => {
     g.clearRect(0, 0, w, h);
-    const coast = g.createLinearGradient(0, h * 0.55, 0, h * 0.86);
-    coast.addColorStop(0, "rgba(20, 28, 48, 0)");
-    coast.addColorStop(1, "rgba(16, 22, 36, 0.2)");
-    g.fillStyle = coast;
-    g.fillRect(0, h * 0.5, w, h * 0.4);
-    g.fillStyle = "#f4f0e8";
-    for (let i = 0; i < 70; i++) {
-      const x = (i * 97 + 21) % w;
-      const y = 10 + ((i * 37) % 110);
-      const s = i % 9 === 0 ? 2 : 1;
-      g.fillRect(x, y, s, s);
-    }
-    g.fillStyle = "#c8d8ff";
-    for (let i = 0; i < 22; i++) {
-      g.fillRect((i * 83 + 40) % w, 16 + (i % 7) * 16, 1, 1);
-    }
-
-    function hill(pts, fill) {
-      g.fillStyle = fill;
-      g.beginPath();
-      g.moveTo(0, h);
-      g.lineTo(pts[0], pts[1]);
-      for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]);
-      g.lineTo(w, h);
-      g.closePath();
-      g.fill();
-    }
-    function rolling(amp, baseY, fill, phase) {
+    function band(amp, baseY, fill, phase) {
       g.fillStyle = fill;
       g.beginPath();
       g.moveTo(0, h);
       g.lineTo(0, baseY);
-      for (let x = 0; x <= w; x += 8) {
-        const y = baseY - Math.sin((x / w) * Math.PI * 1.15 + phase) * amp;
-        g.lineTo(x, y);
+      for (let x = 0; x <= w; x += 10) {
+        g.lineTo(x, baseY - Math.sin((x / w) * Math.PI * 1.1 + phase) * amp);
       }
       g.lineTo(w, h);
       g.closePath();
       g.fill();
     }
-    rolling(14, 188, "#2c3348", 0.2);
-    rolling(10, 214, "#1a2030", 1.1);
-    rolling(7, 236, "#12161f", 0.4);
-    g.fillStyle = "#10131a";
-    g.fillRect(0, 268, w, h - 268);
-    const cityBase = 278;
-    for (let i = 0; i < 14; i++) {
-      const x = 40 + i * 90 + ((i * 13) % 20);
-      const bw = 18 + (i % 3) * 8;
-      const bh = 28 + ((i * 17) % 40);
-      g.fillStyle = i % 2 ? "#141018" : "#1c1428";
+    band(10, 70, "#2a3348", 0.2);
+    band(8, 100, "#1a2234", 1.1);
+    band(5, 128, "#121820", 0.5);
+    const cityBase = 168;
+    g.fillStyle = "#0e121a";
+    g.fillRect(0, cityBase, w, h - cityBase);
+    for (let i = 0; i < 18; i++) {
+      const x = 20 + i * 70 + ((i * 11) % 18);
+      const bw = 16 + (i % 4) * 7;
+      const bh = 22 + ((i * 13) % 48);
+      g.fillStyle = i % 3 === 0 ? "#161c28" : "#10161f";
       g.fillRect(x, cityBase - bh, bw, bh);
-      g.fillStyle = i % 2 ? "#f0c430" : "#3de0ff";
-      for (let n = 0; n < 4; n++) {
-        if ((i + n) % 3 === 0) continue;
-        g.fillRect(x + 3 + (n % 2) * 6, cityBase - bh + 4 + n * 7, 2, 3);
+      if (i % 2 === 0) {
+        g.fillStyle = i % 4 === 0 ? "#3a4a28" : "#2a3848";
+        for (let n = 0; n < 3; n++) {
+          g.fillRect(x + 3 + (n % 2) * 5, cityBase - bh + 5 + n * 8, 2, 2);
+        }
       }
     }
-
-    function palmSil(x, s) {
-      g.fillStyle = "#100c18";
-      const tx = Math.round(x);
-      const top = 210 - 28 * s;
-      g.beginPath();
-      g.moveTo(tx, top + 52 * s);
-      g.quadraticCurveTo(tx + 8 * s, top + 28 * s, tx + 4 * s, top);
-      g.quadraticCurveTo(tx - 2 * s, top + 24 * s, tx - 1, top + 52 * s);
-      g.fill();
-      g.fillRect(tx - 14 * s, top + 2, 14 * s, 3);
-      g.fillRect(tx + 2, top + 2, 14 * s, 3);
-      g.fillRect(tx - 10 * s, top + 10, 10 * s, 2);
-      g.fillRect(tx + 2, top + 10, 10 * s, 2);
-    }
-    palmSil(180, 0.7);
-    palmSil(920, 0.62);
-    palmSil(1100, 0.55);
   });
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -1334,17 +1375,36 @@ export function createWorld(canvas, sprites) {
   neonFill.position.set(6, 4, 10);
   scene.add(neonFill);
 
-  const stars = canvasTex(256, 256, (g, w, h) => {
+  // Texture aspect matches the sky plane so dots stay round, not stretched lines.
+  const STAR_W = 440;
+  const STAR_H = 160;
+  function paintStars(g, w, h, phase = 0) {
     g.clearRect(0, 0, w, h);
-    for (let i = 0; i < 90; i++) {
-      g.fillStyle = i % 7 === 0 ? "#3de0ff" : "#f4f0e8";
-      g.fillRect((i * 47) % w, (i * 89) % h, i % 5 === 0 ? 2 : 1, i % 5 === 0 ? 2 : 1);
+    for (let i = 0; i < 22; i++) {
+      const x = ((i * 97 + 23) % (w - 12)) + 6;
+      const y = ((i * 53 + 17) % (h - 28)) + 10;
+      const tw = 0.5 + 0.5 * Math.abs(Math.sin(phase * 2.1 + i * 1.1));
+      const r = i % 6 === 0 ? 2.2 : 1.4;
+      g.fillStyle = i % 8 === 0
+        ? `rgba(190,220,255,${(0.5 * tw).toFixed(2)})`
+        : `rgba(244,240,232,${(0.75 * tw).toFixed(2)})`;
+      g.beginPath();
+      g.arc(x, y, r, 0, Math.PI * 2);
+      g.fill();
     }
-  });
+  }
+  const STAR_FRAMES = 5;
+  const STAR_TEX = [];
+  for (let i = 0; i < STAR_FRAMES; i++) {
+    const tex = canvasTex(STAR_W, STAR_H, (g, w, h) => paintStars(g, w, h, i / STAR_FRAMES));
+    tex.magFilter = THREE.LinearFilter;
+    tex.minFilter = THREE.LinearFilter;
+    STAR_TEX.push(tex);
+  }
   const sky = new THREE.Mesh(
     new THREE.PlaneGeometry(220, 80),
     new THREE.MeshBasicMaterial({
-      map: stars, transparent: true, depthWrite: false, depthTest: true, fog: false,
+      map: STAR_TEX[0], transparent: true, depthWrite: false, depthTest: true, fog: false,
     }),
   );
   sky.position.set(0, 28, -90);
@@ -1388,20 +1448,19 @@ export function createWorld(canvas, sprites) {
     depthTest: true,
     side: THREE.DoubleSide,
   });
-  const skyline = new THREE.Mesh(new THREE.PlaneGeometry(260, 14), skylineMat);
-  skyline.position.set(0, 6.4, -52);
+  const skyline = new THREE.Mesh(new THREE.PlaneGeometry(260, 11), skylineMat);
+  skyline.position.set(0, 5.8, -52);
   skyline.renderOrder = -12;
   skyline.visible = true;
   scene.add(skyline);
 
   function horizonTex() {
-    const tex = canvasTex(1400, 260, (g, w, h) => {
+    const tex = canvasTex(1400, 160, (g, w, h) => {
       g.clearRect(0, 0, w, h);
       const skyGlow = g.createLinearGradient(0, 0, 0, h);
       skyGlow.addColorStop(0, "rgba(14,18,40,0)");
-      skyGlow.addColorStop(0.42, "rgba(28,32,58,0.45)");
-      skyGlow.addColorStop(0.72, "rgba(22,24,40,0.82)");
-      skyGlow.addColorStop(1, "rgba(10,10,16,0.96)");
+      skyGlow.addColorStop(0.5, "rgba(22,28,48,0.55)");
+      skyGlow.addColorStop(1, "rgba(10,12,18,0.95)");
       g.fillStyle = skyGlow;
       g.fillRect(0, 0, w, h);
       function lowHill(amp, base, fill, phase) {
@@ -1409,25 +1468,16 @@ export function createWorld(canvas, sprites) {
         g.beginPath();
         g.moveTo(0, h);
         g.lineTo(0, base);
-        for (let x = 0; x <= w; x += 8) {
-          const y = base - Math.sin((x / w) * Math.PI * 1.4 + phase) * amp
-            - Math.sin((x / w) * Math.PI * 0.55 + phase * 0.7) * amp * 0.35;
-          g.lineTo(x, y);
+        for (let x = 0; x <= w; x += 10) {
+          g.lineTo(x, base - Math.sin((x / w) * Math.PI * 1.15 + phase) * amp);
         }
         g.lineTo(w, h);
         g.closePath();
         g.fill();
       }
-      lowHill(18, 78, "#3a445c", 0.3);
-      lowHill(14, 108, "#2a3348", 1.2);
-      lowHill(10, 136, "#1a2233", 0.5);
-      g.fillStyle = "#141a28";
-      for (let i = 0; i < 8; i++) {
-        const x = 70 + i * 170;
-        const bw = 26 + (i % 3) * 12;
-        const bh = 22 + (i % 4) * 10;
-        g.fillRect(x, 118 - bh, bw, bh + 30);
-      }
+      lowHill(12, 48, "#2a3348", 0.3);
+      lowHill(9, 78, "#1a2234", 1.1);
+      lowHill(6, 108, "#10161f", 0.4);
     });
     tex.magFilter = THREE.LinearFilter;
     tex.minFilter = THREE.LinearFilter;
@@ -1436,12 +1486,12 @@ export function createWorld(canvas, sprites) {
     return tex;
   }
   const horizon = new THREE.Mesh(
-    new THREE.PlaneGeometry(300, 12),
+    new THREE.PlaneGeometry(300, 9),
     new THREE.MeshBasicMaterial({
       map: horizonTex(), transparent: true, depthWrite: false, depthTest: true, fog: false, side: THREE.DoubleSide,
     }),
   );
-  horizon.position.set(0, 5.6, -28);
+  horizon.position.set(0, 4.8, -34);
   horizon.renderOrder = -14;
   scene.add(horizon);
 
@@ -1484,12 +1534,13 @@ export function createWorld(canvas, sprites) {
   hazeBand.visible = true;
   scene.add(hazeBand);
   const farPalms = [];
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 12; i++) {
     const palm = makePalm();
     palm.visible = false;
-    palm.scale.setScalar(1.7 + (i % 3) * 0.28);
+    // Distant palms stay smaller than curb/foreground palms (~1.3–1.45).
+    palm.scale.setScalar(0.48 + (i % 3) * 0.08);
     scene.add(palm);
-    farPalms.push({ mesh: palm, dx: (i - 7.5) * 9.4 + (i % 2) * 2.1, z: -14.5 - (i % 4) * 1.1 });
+    farPalms.push({ mesh: palm, dx: (i - 5.5) * 11.2 + (i % 2) * 2.4, z: -18.5 - (i % 3) * 1.4 });
   }
 
   const city = new THREE.Group();
@@ -1623,6 +1674,9 @@ export function createWorld(canvas, sprites) {
 
   function stampLandmark(theme, xOff) {
     const x = xOff + 26;
+    // Keep short liquor/motel props from crowding the tall crib at HOME.
+    const homeWX = gameToWorldX(HOME_X);
+    if (Math.abs(x - homeWX) < 14) return;
     if (theme.id === "liquor") {
       propBox(5.4, 3.1, 2.0, 0x4a2030, x, 1.55, -1.55);
       propBox(5.8, 0.14, 2.5, 0xe21b7a, x, 3.2, -1.4);
@@ -1780,44 +1834,63 @@ export function createWorld(canvas, sprites) {
     city.add(edgeNear);
   }
   function makeSafeHouse() {
+    // On-screen vs player (3.05 @ sidewalk): door ~1.3×+, house ~2.5×+.
+    // Built oversized in world space and pulled toward the curb so perspective
+    // doesn't shrink it next to the closer billboard.
     const g = new THREE.Group();
+    const houseH = 10.8;
+    const doorH = 3.7;
     const body = new THREE.Mesh(
-      new THREE.BoxGeometry(3.8, 2.6, 2.4),
+      new THREE.BoxGeometry(5.6, houseH, 3.4),
       new THREE.MeshLambertMaterial({ color: 0x3a3048 }),
     );
-    body.position.y = 1.3;
+    body.position.y = houseH / 2;
     g.add(body);
     const roof = new THREE.Mesh(
-      new THREE.BoxGeometry(4.2, 0.28, 2.8),
+      new THREE.BoxGeometry(6.2, 0.42, 3.9),
       new THREE.MeshLambertMaterial({ color: 0x1a1424 }),
     );
-    roof.position.y = 2.7;
+    roof.position.y = houseH + 0.2;
     g.add(roof);
+    const doorFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(2.05, doorH + 0.4, 0.14),
+      new THREE.MeshLambertMaterial({ color: 0x1a2430 }),
+    );
+    doorFrame.position.set(0, doorH / 2 + 0.05, 1.72);
+    g.add(doorFrame);
     const door = new THREE.Mesh(
-      new THREE.BoxGeometry(0.85, 1.45, 0.08),
+      new THREE.BoxGeometry(1.7, doorH, 0.1),
+      new THREE.MeshBasicMaterial({ color: 0x2a5060 }),
+    );
+    door.position.set(0, doorH / 2, 1.78);
+    g.add(door);
+    const doorTrim = new THREE.Mesh(
+      new THREE.BoxGeometry(1.7, doorH, 0.02),
       new THREE.MeshBasicMaterial({ color: 0x3de0ff }),
     );
-    door.position.set(0, 0.72, 1.24);
-    g.add(door);
+    doorTrim.position.set(0, doorH / 2, 1.84);
+    g.add(doorTrim);
     const pane = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.05, 0.85),
+      new THREE.PlaneGeometry(1.45, 1.25),
       new THREE.MeshBasicMaterial({ color: 0xf0c430, side: THREE.DoubleSide }),
     );
     pane.name = "homePane";
-    pane.position.set(1.2, 1.55, 1.22);
+    pane.position.set(1.85, 7.2, 1.74);
     g.add(pane);
     const stoop = new THREE.Mesh(
-      new THREE.BoxGeometry(1.4, 0.12, 0.7),
+      new THREE.BoxGeometry(2.4, 0.18, 1.15),
       new THREE.MeshLambertMaterial({ color: 0x2a2438 }),
     );
-    stoop.position.set(0, 0.06, 1.5);
+    stoop.position.set(0, 0.09, 2.2);
     g.add(stoop);
     return g;
   }
   const homeHouse = makeSafeHouse();
-  homeHouse.position.set(gameToWorldX(HOME_X), 0, -1.05);
+  // Stay behind the sidewalk billboard (player z≈1.15) so the door never occludes him.
+  // Height is oversized so perspective still reads door≳1.3× / house≳2.5× on screen.
+  homeHouse.position.set(gameToWorldX(HOME_X), 0, -0.85);
   city.add(homeHouse);
-  addNeon("HOME", "#3de0ff", gameToWorldX(HOME_X), 4.85, 0.85, true);
+  addNeon("HOME", "#3de0ff", gameToWorldX(HOME_X), 12.2, 1.05, true);
   addNeon("PLUG", "#e21b7a", gameToWorldX(PLUG_X), 2.55, 0.15, true);
   const caliX = gameToWorldX(HOME_X + 340);
   const caliPole = new THREE.Mesh(
@@ -1956,7 +2029,12 @@ export function createWorld(canvas, sprites) {
   let lookAim = 0;
   let lookAimV = 0;
 
+  // Empty rows under soles (~4–5/40). Extra sink closes the look-down gap
+  // measured at ~0.18 world units in close-up captures.
+  const FOOT_PAD = 4.5 / 40;
+  const GROUND_SINK = 0.3;
   const playerSprite = makeBillboard(sprites.idle[0], 3.05);
+  playerSprite.userData.footPad = playerSprite.userData.height * FOOT_PAD + GROUND_SINK;
   playerSprite.material.depthTest = true;
   playerSprite.material.depthWrite = false;
   playerSprite.renderOrder = 46;
@@ -1970,12 +2048,12 @@ export function createWorld(canvas, sprites) {
   const shotPool = [];
   const boomPool = [];
   const bitPool = [];
-  const shadowGeo = new THREE.CircleGeometry(0.42, 12);
-  const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.55, depthWrite: false, depthTest: true });
+  const shadowGeo = new THREE.CircleGeometry(0.36, 14);
+  const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.88, depthWrite: false, depthTest: true });
   const playerShadow = new THREE.Mesh(shadowGeo, shadowMat);
   playerShadow.rotation.x = -Math.PI / 2;
-  playerShadow.position.y = 0.025;
-  playerShadow.scale.set(1.25, 1, 0.55);
+  playerShadow.position.y = 0.045;
+  playerShadow.scale.set(1.0, 1, 0.4);
   scene.add(playerShadow);
 
   let bossSprite = null;
@@ -2079,7 +2157,8 @@ export function createWorld(canvas, sprites) {
     amb.color.setHex(inCrib ? 0xffe6c8 : 0x2a1838);
     hemi.intensity = inCrib ? 0.9 : 0.55;
     const camZ = ((portrait ? 15.8 : 14.2) + carCam * 0.7) * zoomMul;
-    const camY = ((portrait ? 2.92 : 3.15) + carCam * 0.22) * (0.92 + zoomMul * 0.08);
+    // Keep on-foot cam lower so billboard soles don't read as floating above the curb.
+    const camY = ((portrait ? 2.55 : 2.78) + carCam * 0.35) * (0.92 + zoomMul * 0.08);
     const wantFace = p.facing < 0 ? -1 : 1;
     if (state.inCar) lookFace = wantFace;
     else lookFace += (wantFace - lookFace) * (1 - Math.exp(-Math.max(stepDt, 0.0001) / 0.22));
@@ -2123,7 +2202,8 @@ export function createWorld(canvas, sprites) {
         lookAim += lookAimV * dampDt;
       }
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.12, camZ);
-      tmp.set(camX + face * lookAim, 1.22 + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 2.15);
+      const lookY = state.inCar ? 1.22 : 0.92;
+      tmp.set(camX + face * lookAim, lookY + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 2.15);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt * 0.25;
     } else {
@@ -2153,14 +2233,21 @@ export function createWorld(canvas, sprites) {
     moonGlow.position.copy(moon.position);
     moon.visible = !inCrib;
     moonGlow.visible = !inCrib;
-    skyline.position.set(camX, 6.4, -52);
+    skyline.position.set(camX, 5.8, -52);
     skyline.visible = !inCrib;
-    horizon.position.set(camX, 5.6, -28);
+    horizon.position.set(camX, 4.8, -34);
     horizon.visible = !inCrib;
     if (!inCrib) camera.far = 240;
     hazeBand.position.set(camX, 7.2, -34);
     hazeBand.visible = !inCrib;
     sky.position.set(camX, 28, -90);
+    {
+      const si = Math.floor((performance.now() / 420) % STAR_FRAMES);
+      if (sky.material.map !== STAR_TEX[si]) {
+        sky.material.map = STAR_TEX[si];
+        sky.material.needsUpdate = true;
+      }
+    }
     dtla.position.set(camX + 0.8, 0, -36);
     for (const t of dtla.children) {
       t.position.x = t.userData.dx || 0;
@@ -2244,7 +2331,7 @@ export function createWorld(canvas, sprites) {
     const leave = boarding && !state.inCar;
     const walking = spd > 3 && !boarding && !state.inCar;
     const running = walking && !!(state.runHeld);
-    const turning = false;
+    const turning = !boarding && !airborne && (p.turnT || 0) > 0;
     let boardPose = null;
     if (enter) {
       if (boardU < 0.30) boardPose = "walk";
@@ -2270,11 +2357,17 @@ export function createWorld(canvas, sprites) {
       : boardPose === "sit" ? 4
       : boardPose === "turn" ? 6
       : boardPose === "walk" ? nWalk
-      : turning ? 7
+      : turning ? 5
       : running ? nWalk
       : walking ? nWalk
       : 3;
-    const sprFace = p.facing < 0 ? -1 : 1;
+    // Hold the old facing through the first half of the turn, then ease to the new one.
+    const turnU = turning && (p.turnT || 0) > 0
+      ? 1 - Math.min(1, (p.turnT || 0) / 0.52)
+      : 1;
+    const sprFace = turning && p.turnFrom != null && turnU < 0.55
+      ? (p.turnFrom < 0 ? -1 : 1)
+      : (p.facing < 0 ? -1 : 1);
     const strideLen = running ? RUN_STRIDE_CYCLE : STRIDE_CYCLE;
     const walkClock = walking ? (p.stride || 0) / strideLen : p.anim;
     setBillboardFrame(playerSprite, frameAt(animSet, walkClock, rate), sprFace);
@@ -2308,7 +2401,8 @@ export function createWorld(canvas, sprites) {
     } else {
       place(playerSprite, px, GROUND_Y, camX, footZ);
     }
-    playerSprite.position.y = 0;
+    // Sidewalk plane sits at y≈0.03 — park soles on that surface.
+    playerSprite.position.y = 0.03 - (playerSprite.userData.footPad || 0);
     const doorAmt = !boarding ? 0
       : enter
         ? (boardU < 0.26 ? 0
@@ -2365,8 +2459,10 @@ export function createWorld(canvas, sprites) {
 
     playerShadow.visible = inCrib || !state.inCar || boarding;
     playerShadow.position.x = playerSprite.position.x;
-    playerShadow.position.z = playerSprite.position.z;
-    playerShadow.scale.set(1.25, 1, 0.55);
+    playerShadow.position.y = 0.045;
+    // Bias slightly toward camera so the contact blob sits under foreshortened soles.
+    playerShadow.position.z = playerSprite.position.z + 0.18;
+    playerShadow.scale.set(0.95, 1, 0.4);
     if (p.y < 198) playerShadow.scale.multiplyScalar(0.7);
 
     if (!state.car) {
@@ -2438,7 +2534,7 @@ export function createWorld(canvas, sprites) {
 
     let ti = 0;
     for (const t of (inCrib ? [] : state.traffic) || []) {
-      const kind = t.kind === "luxury" ? "luxury" : "beater";
+      const kind = ["luxury", "hatch", "suv", "van"].includes(t.kind) ? t.kind : "beater";
       let mesh = trafficPool[ti];
       if (!mesh || mesh.userData.kind !== kind) {
         if (mesh) {
@@ -2448,6 +2544,7 @@ export function createWorld(canvas, sprites) {
           });
         }
         mesh = makeStreetCar(kind);
+        mesh.userData.kind = kind;
         scene.add(mesh);
         trafficPool[ti] = mesh;
       }
@@ -2457,11 +2554,9 @@ export function createWorld(canvas, sprites) {
       mesh.position.y = 0;
       mesh.renderOrder = Math.round(mesh.position.z * 40);
       mesh.rotation.y = t.facing < 0 ? Math.PI : 0;
+      const hex = typeof t.color === "string" ? parseInt(String(t.color).slice(1), 16) : (t.color || 0x2a3048);
       const body = mesh.getObjectByName("body");
-      if (body) {
-        const hex = typeof t.color === "string" ? parseInt(String(t.color).slice(1), 16) : (t.color || 0x2a3048);
-        body.material.color.setHex(hex);
-      }
+      if (body?.material?.color) body.material.color.setHex(hex);
       setCarLights(mesh, !!(skyInfo && skyInfo.headlights));
     }
     hideFrom(trafficPool, ti);
@@ -2559,11 +2654,12 @@ export function createWorld(canvas, sprites) {
       if (inCrib) break;
       const spr = take(pedPool, () => {
         const s = makeBillboard(looks[0]?.walk?.[0] || sprites.idle[0], 2.85);
+        s.userData.footPad = s.userData.height * FOOT_PAD + GROUND_SINK;
         scene.add(s);
         const sh = new THREE.Mesh(shadowGeo, shadowMat.clone());
         sh.rotation.x = -Math.PI / 2;
-        sh.position.y = 0.025;
-        sh.scale.set(1.15, 1, 0.5);
+        sh.position.y = 0.04;
+        sh.scale.set(0.9, 1, 0.34);
         scene.add(sh);
         s.userData.shadow = sh;
         return s;
@@ -2582,15 +2678,16 @@ export function createWorld(canvas, sprites) {
       setBillboardFrame(spr, frameAt(frames, pedClock, pedRate), ped.facing);
       const pedZ = 1.15 + (ped.lane || 0) + (ped.side || 0);
       place(spr, ped.x, GROUND_Y, camX, pedZ);
-      spr.position.y = 0;
+      spr.position.y = 0.03 - (spr.userData.footPad || 0);
       spr.renderOrder = Math.round(pedZ * 40);
       orientBillboard(spr, camera);
       spr.material.color.setHex(0xffffff);
       if (spr.userData.shadow) {
         spr.userData.shadow.visible = true;
         spr.userData.shadow.position.x = spr.position.x;
-        spr.userData.shadow.position.z = spr.position.z;
-        spr.userData.shadow.scale.set(1.15, 1, 0.5);
+        spr.userData.shadow.position.y = 0.045;
+        spr.userData.shadow.position.z = spr.position.z + 0.18;
+        spr.userData.shadow.scale.set(0.9, 1, 0.38);
       }
     }
     hideFrom(pedPool, pedI);
