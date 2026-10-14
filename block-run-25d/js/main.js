@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=75";
-import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=75";
-import { createInput } from "./input.js?v=75";
-import { createGame } from "./game.js?v=75";
-import { loadSprites } from "./sprites.js?v=75";
-import { createWorld } from "./world.js?v=75";
-import { createHud } from "./hud.js?v=75";
+import { TICK } from "./config.js?v=76";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=76";
+import { createInput } from "./input.js?v=76";
+import { createGame } from "./game.js?v=76";
+import { loadSprites } from "./sprites.js?v=76";
+import { createWorld } from "./world.js?v=76";
+import { createHud } from "./hud.js?v=76";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -70,7 +70,8 @@ try {
 
 const PULSE_KEYS = [
   "shoot", "jump", "start", "mute", "pause", "exit", "gearTap", "shiftStep",
-  "accept", "decline", "action", "serve", "gate", "hitup", "uturn", "phone", "phoneClose",
+  "accept", "decline", "action", "carBtn", "cribBtn", "pullover",
+  "serve", "gate", "hitup", "uturn", "phone", "phoneClose",
   "textPlug", "pingContact", "pingContactId", "buyGreen", "buyWhite", "buyTier", "buyProduct", "buyTierId", "buyClose", "stashClose",
   "inventory", "invClose", "phoneTab",
   "stashInCash", "stashOutCash", "stashInGreen", "stashOutGreen",
@@ -164,11 +165,16 @@ window.__br = {
   waitCrib: () => game.waitCrib(),
   saveCrib: () => game.saveCrib(),
   doAction: () => game.doAction(),
+  doCarBtn: () => game.doCarBtn?.(),
+  doCribBtn: () => game.doCribBtn?.(),
+  startPullOver: () => game.startPullOver?.(),
   setTimeHours: (h) => game.setTimeHours(h),
   setOutfit: (i) => game.setOutfit(i),
   setWardrobe: (slot, id) => game.setWardrobe?.(slot, id),
   useGate: () => game.useGate(),
   doUTurn: () => game.doUTurn(),
+  setCarLat: (n) => game.setCarLat?.(n),
+  setParked: (on) => game.setParked?.(on),
   addContact: (n, look) => game.addContact(n, look),
   startUTurn: (dir) => game.startUTurn(dir),
   setTurnMid: () => game.setTurnMid(),
