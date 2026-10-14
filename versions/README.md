@@ -2,6 +2,8 @@
 
 Static snapshots of `block-run-25d/` from each merged playtest PR, newest first on [index.html](./index.html).
 
+Includes pre-reset builds (PR #14–#35) with the bouncing lowrider, earlier ped/deal loop, and pad experiments, plus every post-reset batch through the latest merge.
+
 ## Play an old build
 
 Open `/versions/` (or tap **VERSIONS** on the main menu / pause screen), then pick a PR. Each archive is self-contained for GitHub Pages and uses a separate `localStorage` key prefix (`br25d-pr<N>-…`) so saves never collide with the live game.

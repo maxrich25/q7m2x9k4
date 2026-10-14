@@ -92,11 +92,158 @@
       "sha": "1fa2cd634bd4"
     },
     {
+      "pr": 35,
+      "date": "2026-10-10",
+      "note": "Clear B off the shifter while driving",
+      "path": "pr-35/",
+      "sha": "e460d5f3ea30"
+    },
+    {
+      "pr": 34,
+      "date": "2026-10-10",
+      "note": "SA-style pad, unstuck menus, and auto-stop at lights",
+      "path": "pr-34/",
+      "sha": "528f2d2f794e"
+    },
+    {
+      "pr": 33,
+      "date": "2026-10-10",
+      "note": "Game Boy pad, phone orders, and traffic that waits then passes",
+      "path": "pr-33/",
+      "sha": "d0d0dc7b9999"
+    },
+    {
+      "pr": 32,
+      "date": "2026-10-10",
+      "note": "Fix ACCEPT, ACTION pad, and play-feel clutter",
+      "path": "pr-32/",
+      "sha": "fbb98a688bae"
+    },
+    {
+      "pr": 31,
+      "date": "2026-10-10",
+      "note": "Pad ACCEPT/ENTER, cart picker, Park-only exit",
+      "path": "pr-31/",
+      "sha": "88d342c10a37"
+    },
+    {
+      "pr": 30,
+      "date": "2026-10-10",
+      "note": "Start on foot, split car controls, ping contacts before orders",
+      "path": "pr-30/",
+      "sha": "8fdec70faebe"
+    },
+    {
+      "pr": 29,
+      "date": "2026-10-10",
+      "note": "Make sky, SERVE, and DTLA readable on phone",
+      "path": "pr-29/",
+      "sha": "13aa553286ea"
+    },
+    {
+      "pr": 28,
+      "date": "2026-10-10",
+      "note": "Fix classic sky key: solid buildings, no moon square",
+      "path": "pr-28/",
+      "sha": "73ff1fb90dd3"
+    },
+    {
+      "pr": 27,
+      "date": "2026-10-10",
+      "note": "Clean classic sky key: no specks, moon remnant, or box edge",
+      "path": "pr-27/",
+      "sha": "a17e259e84d5"
+    },
+    {
+      "pr": 26,
+      "date": "2026-10-10",
+      "note": "Polish classic day-night sky into the LA skyline",
+      "path": "pr-26/",
+      "sha": "46ac22bfec71"
+    },
+    {
+      "pr": 25,
+      "date": "2026-10-10",
+      "note": "Day-night cycle in both Block Run carts",
+      "path": "pr-25/",
+      "sha": "a8f507ee76b7"
+    },
+    {
+      "pr": 24,
+      "date": "2026-10-10",
+      "note": "Make crib and HUD clock/rep readable on phone",
+      "path": "pr-24/",
+      "sha": "e010a6553902"
+    },
+    {
+      "pr": 23,
+      "date": "2026-10-10",
+      "note": "Restore SOUND ON/OFF mute toggle in both carts",
+      "path": "pr-23/",
+      "sha": "125f16231729"
+    },
+    {
+      "pr": 22,
+      "date": "2026-10-10",
+      "note": "Fix moons, HOME sign, DTLA skyline; crib clothes/sleep and day-night",
+      "path": "pr-22/",
+      "sha": "6f8c0b3acd69"
+    },
+    {
+      "pr": 21,
+      "date": "2026-10-10",
+      "note": "A+B: US traffic, beater, HUD, phone, stall",
+      "path": "pr-21/",
+      "sha": "da69ac0e7a33"
+    },
+    {
+      "pr": 20,
+      "date": "2026-10-10",
+      "note": "Classic 2D on the shared 2.5D dealing loop",
+      "path": "pr-20/",
+      "sha": "dc220ccb7d91"
+    },
+    {
+      "pr": 19,
+      "date": "2026-10-10",
+      "note": "SERVE, phone ledger, U-TURN pad, GREEN/WHITE economy",
+      "path": "pr-19/",
+      "sha": "17d1d6e6c1e3"
+    },
+    {
       "pr": 18,
       "date": "2026-10-10",
       "note": "dealing loop, peds, lights, modern car",
       "path": "pr-18/",
       "sha": "36b2130250ef"
+    },
+    {
+      "pr": 17,
+      "date": "2026-10-09",
+      "note": "real-car PRND shifter, pedals, and steer",
+      "path": "pr-17/",
+      "sha": "7c599c68bd3f"
+    },
+    {
+      "pr": 16,
+      "date": "2026-10-09",
+      "note": "Pause, luxury sedan, sidewalk lanes, and a root arcade menu",
+      "path": "pr-16/",
+      "sha": "face042ab4a4"
+    },
+    {
+      "pr": 15,
+      "date": "2026-10-09",
+      "note": "Restore the original player sprite and stretch the street so deals ne...",
+      "path": "pr-15/",
+      "sha": "59a68ec409a9"
+    },
+    {
+      "pr": 14,
+      "date": "2026-10-09",
+      "note": "Walk cycles, distinct buyers, lowrider, and drive-bys",
+      "path": "pr-14/",
+      "sha": "56648e21ad98"
     },
     {
       "pr": 13,
