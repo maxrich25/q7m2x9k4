@@ -1,4 +1,4 @@
-import { unlockAudio } from "./audio.js?v=76";
+import { unlockAudio } from "./audio.js?v=77";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyS", "KeyB", "KeyJ", "KeyK", "KeyZ", "KeyX",
@@ -176,9 +176,26 @@ export function createInput(root = document) {
   function onPointerDown(e) {
     const role = roleOf(e.target);
     if (!role) {
-      if (e.target.closest("#btn-mute, #btn-pause, #pause-actions, a.menu-link, a.cart-pick, #cart-picks, .sheet, #ctx, #pad-ctx, #pad")) return;
+      if (e.target.closest("#btn-mute, #btn-pause, #btn-phone, #pause-actions, a.menu-link, a.cart-pick, #cart-picks, .sheet, #ctx, #pad-ctx, #pad, #gb-btns, #gb-sys")) {
+        return;
+      }
       if (e.target.closest("#overlay.pause-mode")) return;
-      if (e.target.closest("#view")) startPulse = true;
+      // Vertical swipe zoom on any non-button area (street or crib).
+      if (e.target.closest("#view, #scene, canvas, #app")) {
+        unlockAudio();
+        pointers.set(e.pointerId, {
+          role: "zoomSwipe",
+          startX: e.clientX,
+          startY: e.clientY,
+          curY: e.clientY,
+          zoomLastY: e.clientY,
+          zoomSwiped: false,
+          moved: 0,
+          tapKey: null,
+        });
+        try { e.target.setPointerCapture(e.pointerId); } catch {}
+        return;
+      }
       unlockAudio();
       return;
     }
@@ -240,7 +257,7 @@ export function createInput(root = document) {
     if (rec.role === "brake") {
       rec.brakeAmt = brakeAmtFromY(e.clientY, root);
     }
-    if (rec.role === "zoom") {
+    if (rec.role === "zoom" || rec.role === "zoomSwipe") {
       rec.curY = e.clientY;
       if (Math.abs(e.clientY - rec.startY) > 8) rec.zoomSwiped = true;
     }
@@ -251,11 +268,16 @@ export function createInput(root = document) {
     pointers.delete(e.pointerId);
     const role = rec?.role;
     const still = [...pointers.values()].some((p) => p.role === role);
-    if (!still && role && role !== "shifter") {
+    if (!still && role && role !== "shifter" && role !== "zoomSwipe") {
       const btn = root.querySelector(`[data-role="${role}"]`);
       if (btn) btn.classList.remove("held");
     }
-    if (rec?.role === "exit" || rec?.role === "zoom") return;
+    // Short tap on empty view still starts / dismisses overlays.
+    if (rec?.role === "zoomSwipe" && (rec.moved || 0) < 10) {
+      startPulse = true;
+      return;
+    }
+    if (rec?.role === "exit" || rec?.role === "zoom" || rec?.role === "zoomSwipe") return;
     if (rec?.tapKey && (rec.moved || 0) < 10) fireTap(rec);
   }
 
@@ -333,10 +355,11 @@ export function createInput(root = document) {
       if (rec.role === "exit" || rec.role === "gate") exitHeld = true;
       if (rec.role === "uturn") uturnHeld = true;
       if (rec.role === "shifter" && rec.gear) shiftGear = rec.gear;
-      if (rec.role === "zoom") {
+      if (rec.role === "zoom" || rec.role === "zoomSwipe") {
         zoomHeld = true;
         const last = rec.zoomLastY ?? rec.curY ?? rec.startY;
         const cur = rec.curY ?? rec.startY;
+        // Finger down (positive dy) = zoom out; finger up = zoom in.
         zoomAnalog += cur - last;
         rec.zoomLastY = cur;
       }
