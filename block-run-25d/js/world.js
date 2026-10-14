@@ -4,8 +4,8 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=78";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=78";
+} from "./config.js?v=79";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=79";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -160,16 +160,30 @@ function graffitiTex() {
 function neonTex(text, color) {
   return canvasTex(256, 64, (g, w, h) => {
     g.clearRect(0, 0, w, h);
-    g.font = "bold 28px 'Press Start 2P', monospace";
+    // Prefer pixel font when loaded; monospace fallback still draws legible SHOP/LIQUOR.
+    g.font = "bold 26px 'Press Start 2P', 'Courier New', monospace";
     g.textAlign = "center";
     g.textBaseline = "middle";
     g.shadowColor = color;
-    g.shadowBlur = 18;
+    g.shadowBlur = 14;
     g.fillStyle = color;
     g.fillText(text, w / 2, h / 2 + 2);
     g.shadowBlur = 0;
     g.fillStyle = "#ffffff";
     g.fillText(text, w / 2, h / 2);
+    // If the glyph path was empty (font race), stamp a block label so facade signs never vanish.
+    const sample = g.getImageData(w / 2 - 4, h / 2 - 4, 8, 8).data;
+    let lit = 0;
+    for (let i = 3; i < sample.length; i += 4) if (sample[i] > 20) lit += 1;
+    if (lit < 4) {
+      g.fillStyle = color;
+      g.fillRect(24, 16, w - 48, h - 32);
+      g.fillStyle = "#07060c";
+      g.font = "bold 22px monospace";
+      g.fillText(text, w / 2, h / 2 + 1);
+      g.fillStyle = "#ffffff";
+      g.fillText(text, w / 2, h / 2);
+    }
   });
 }
 
@@ -1019,15 +1033,16 @@ function makeKiosk() {
   );
   body.position.y = 1.18;
   g.add(body);
+  // Dark awning shelf — neon SHOP sits on this, so the awning itself is not a floating cyan bar.
   const awning = new THREE.Mesh(
-    new THREE.BoxGeometry(2.85, 0.1, 1.15),
-    new THREE.MeshLambertMaterial({ color: 0x3de0ff }),
+    new THREE.BoxGeometry(2.85, 0.12, 1.15),
+    new THREE.MeshLambertMaterial({ color: 0x2a2038 }),
   );
   awning.position.set(0, 2.42, 0.42);
   g.add(awning);
   const awningDrop = new THREE.Mesh(
     new THREE.BoxGeometry(2.85, 0.28, 0.08),
-    new THREE.MeshLambertMaterial({ color: 0x2a2038 }),
+    new THREE.MeshLambertMaterial({ color: 0x1a1420 }),
   );
   awningDrop.position.set(0, 2.28, 0.95);
   g.add(awningDrop);
@@ -1654,7 +1669,8 @@ export function createWorld(canvas, sprites) {
     );
     sign.position.set(x, y, z);
     city.add(sign);
-    const glow = glowSprite(color, Math.max(3.4, w * 0.95));
+    // Glow tracks sign size so compact facade neons don't float a huge aura above the roof.
+    const glow = glowSprite(color, Math.max(w * 1.05, h * 3.2));
     glow.position.set(x, y, z + 0.05);
     city.add(glow);
     if (lit) {
@@ -1920,7 +1936,8 @@ export function createWorld(canvas, sprites) {
   const shop = makeKiosk();
   shop.position.set(gameToWorldX(SHOP_X), 0, 0.12);
   city.add(shop);
-  addNeon("SHOP", "#3de0ff", gameToWorldX(SHOP_X), 3.55, 1.22, true);
+  // Seat on the awning shelf (y≈2.42): compact plane whose bottom rests on the ledge.
+  addNeon("SHOP", "#3de0ff", gameToWorldX(SHOP_X), 2.55, 0.78, true, { w: 2.4, h: 0.36 });
 
   const dump = makeDumpsterMesh();
   dump.position.set(gameToWorldX(DUMPSTER_X), 0, -0.45);
@@ -2046,9 +2063,12 @@ export function createWorld(canvas, sprites) {
   let lookAim = 0;
   let lookAimV = 0;
 
-  // Classic PNG billboard: origin at soles (PlaneGeometry translate). No sink.
-  const playerSprite = makeBillboard(sprites.idle[0], 2.85);
-  playerSprite.userData.footPad = 0;
+  // Classic PNG billboard: origin at plane bottom. ~3px empty under soles in 40px sheet.
+  const PLAYER_H = 2.85;
+  // Empty pad under soles + foreshortening bias so feet read planted on the sidewalk/crib floor.
+  const FOOT_PAD_FRAC = 7 / 40;
+  const playerSprite = makeBillboard(sprites.idle[0], PLAYER_H);
+  playerSprite.userData.footPad = PLAYER_H * FOOT_PAD_FRAC;
   playerSprite.material.depthTest = true;
   playerSprite.material.depthWrite = false;
   playerSprite.renderOrder = 46;
@@ -2063,11 +2083,15 @@ export function createWorld(canvas, sprites) {
   const boomPool = [];
   const bitPool = [];
   const shadowGeo = new THREE.CircleGeometry(0.36, 14);
-  const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.88, depthWrite: false, depthTest: true });
+  const shadowMat = new THREE.MeshBasicMaterial({
+    color: 0x000000, transparent: true, opacity: 0.95,
+    depthWrite: false, depthTest: false,
+  });
   const playerShadow = new THREE.Mesh(shadowGeo, shadowMat);
   playerShadow.rotation.x = -Math.PI / 2;
-  playerShadow.position.y = 0.045;
-  playerShadow.scale.set(1.0, 1, 0.4);
+  playerShadow.position.y = 0.06;
+  playerShadow.scale.set(1.1, 1, 0.45);
+  playerShadow.renderOrder = 8;
   scene.add(playerShadow);
 
   let bossSprite = null;
@@ -2422,14 +2446,19 @@ export function createWorld(canvas, sprites) {
       }
     }
     const footZ = inCrib ? 1.45 : boardZ;
+    const footPad = playerSprite.userData.footPad
+      || (playerSprite.userData.height || PLAYER_H) * FOOT_PAD_FRAC;
+    playerSprite.userData.footPad = footPad;
     if (inCrib) {
       playerSprite.visible = true;
       playerSprite.position.set(Number(state.cribX) || 0, 0, footZ);
     } else {
       place(playerSprite, px, GROUND_Y, camX, footZ);
     }
-    // Sidewalk plane sits at y≈0.03 — soles on that surface (no sink).
-    playerSprite.position.y = 0.03;
+    // Plant soles on the sidewalk/crib floor: sink empty pad (+ foreshortening bias) below y≈0.03.
+    const groundY = 0.03 - footPad;
+    playerSprite.position.y = groundY;
+    // Keep contact shadow glued under the billboard even if depth fights the walk mesh.
     const doorAmt = !boarding ? 0
       : enter
         ? (boardU < 0.26 ? 0
@@ -2450,13 +2479,13 @@ export function createWorld(canvas, sprites) {
       if (boardU < 0.30) playerSprite.position.x = carWx + face * (1.4 - 0.72 * toDoor);
       else if (boardU < 0.52) playerSprite.position.x = carWx + face * 0.68;
       else playerSprite.position.x = carWx + face * (0.68 - 0.58 * intoSeat);
-      playerSprite.position.y = intoSeat * 0.4;
+      playerSprite.position.y = groundY + intoSeat * 0.4;
     } else if (leave) {
       const rise = Math.min(1, Math.max(0, (boardU - 0.18) / 0.28));
       const out = Math.min(1, Math.max(0, (boardU - 0.22) / 0.55));
       nest = 1 - rise;
       playerSprite.position.x = carWx + face * (hingeX * 0.2 + 1.15 * out);
-      playerSprite.position.y = (1 - rise) * 0.4;
+      playerSprite.position.y = groundY + (1 - rise) * 0.4;
     }
     const doorNear = playerCar.getObjectByName("doorNear");
     const doorFar = playerCar.getObjectByName("doorFar");
@@ -2486,10 +2515,10 @@ export function createWorld(canvas, sprites) {
 
     playerShadow.visible = inCrib || !state.inCar || boarding;
     playerShadow.position.x = playerSprite.position.x;
-    playerShadow.position.y = 0.045;
+    playerShadow.position.y = inCrib ? 0.05 : 0.06;
     // Bias slightly toward camera so the contact blob sits under foreshortened soles.
-    playerShadow.position.z = playerSprite.position.z + 0.18;
-    playerShadow.scale.set(0.95, 1, 0.4);
+    playerShadow.position.z = playerSprite.position.z + 0.28;
+    playerShadow.scale.set(1.15, 1, 0.48);
     if (p.y < 198) playerShadow.scale.multiplyScalar(0.7);
 
     if (!state.car) {
@@ -2680,13 +2709,15 @@ export function createWorld(canvas, sprites) {
     for (const ped of state.peds || []) {
       if (inCrib) break;
       const spr = take(pedPool, () => {
-        const s = makeBillboard(looks[0]?.walk?.[0] || sprites.idle[0], 2.85);
-        s.userData.footPad = 0;
+        // Same billboard height / foot pad as the hero so peds share scale + contact.
+        const s = makeBillboard(looks[0]?.walk?.[0] || sprites.idle[0], PLAYER_H);
+        s.userData.footPad = PLAYER_H * FOOT_PAD_FRAC;
         scene.add(s);
         const sh = new THREE.Mesh(shadowGeo, shadowMat.clone());
         sh.rotation.x = -Math.PI / 2;
-        sh.position.y = 0.04;
-        sh.scale.set(0.9, 1, 0.34);
+        sh.position.y = 0.06;
+        sh.scale.set(1.05, 1, 0.42);
+        sh.renderOrder = 8;
         scene.add(sh);
         s.userData.shadow = sh;
         return s;
@@ -2702,17 +2733,18 @@ export function createWorld(canvas, sprites) {
       const pedRate = pedMoving ? nPed : 3;
       setBillboardFrame(spr, frameAt(frames, ped.anim || 0, pedRate), ped.facing);
       const pedZ = 1.15 + (ped.lane || 0) + (ped.side || 0);
+      const pedPad = spr.userData.footPad || PLAYER_H * FOOT_PAD_FRAC;
       place(spr, ped.x, GROUND_Y, camX, pedZ);
-      spr.position.y = 0.03;
+      spr.position.y = 0.03 - pedPad;
       spr.renderOrder = Math.round(pedZ * 40);
       orientBillboard(spr, camera);
       spr.material.color.setHex(0xffffff);
       if (spr.userData.shadow) {
         spr.userData.shadow.visible = true;
         spr.userData.shadow.position.x = spr.position.x;
-        spr.userData.shadow.position.y = 0.045;
-        spr.userData.shadow.position.z = spr.position.z + 0.18;
-        spr.userData.shadow.scale.set(0.9, 1, 0.38);
+        spr.userData.shadow.position.y = 0.06;
+        spr.userData.shadow.position.z = spr.position.z + 0.28;
+        spr.userData.shadow.scale.set(1.05, 1, 0.42);
       }
     }
     hideFrom(pedPool, pedI);

@@ -1,6 +1,6 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=78";
-import { paintClassicHero } from "./paint.js?v=78";
-import { isUnlocked } from "./audio.js?v=78";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=79";
+import { paintClassicHero } from "./paint.js?v=79";
+import { isUnlocked } from "./audio.js?v=79";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -248,7 +248,7 @@ export function createHud(opts = {}) {
   const hudCanvas = document.getElementById("hud-top-canvas");
 
   function paintHudTop(state) {
-    // Draw HUD at true devicePixelRatio so iOS standalone doesn't stretch 1x → 2x blur.
+    // Crisp DOM HUD (integer px, no scale/zoom). Canvas backup paints at integer DPR.
     const host = document.getElementById("hud-top");
     if (host) {
       const pad = parseFloat(getComputedStyle(host).paddingTop) || 0;
@@ -264,51 +264,51 @@ export function createHud(opts = {}) {
     if (invEl) invEl.innerHTML = invHtml(state);
     if (repEl) repEl.textContent = rep;
     if (hudTime) hudTime.textContent = "";
+
+    // Integer-DPR canvas HUD: draw text in CSS px via setTransform so SE standalone stays sharp.
     if (!hudCanvas || !host) return;
     const cssW = Math.max(1, Math.round(host.clientWidth || window.innerWidth || 375));
     const cssH = 32;
-    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-    const fontReady = !!(document.fonts?.check?.('11px "Press Start 2P"'));
-    const sig = [cash, grn, wht, rep, cssW, cssH, dpr, fontReady ? 1 : 0].join("|");
-    if (sig === hudCanvasSig
-      && hudCanvas.width === Math.round(cssW * dpr)
-      && hudCanvas.height === Math.round(cssH * dpr)) {
-      return;
-    }
+    const dpr = Math.max(1, Math.round(Math.min(3, window.devicePixelRatio || 1)));
+    const sig = [cash, grn, wht, rep, cssW, cssH, dpr].join("|");
+    if (sig === hudCanvasSig && hudCanvas.width === cssW * dpr) return;
     hudCanvasSig = sig;
-    hudCanvas.width = Math.round(cssW * dpr);
-    hudCanvas.height = Math.round(cssH * dpr);
+    hudCanvas.width = cssW * dpr;
+    hudCanvas.height = cssH * dpr;
     hudCanvas.style.width = cssW + "px";
     hudCanvas.style.height = cssH + "px";
     const ctx = hudCanvas.getContext("2d");
     if (!ctx) return;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, hudCanvas.width, hudCanvas.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
-    // Keep HUD glyphs on an integer pixel grid at the device DPR.
+    ctx.clearRect(0, 0, cssW, cssH);
     const fontPx = cssW < 360 ? 8 : 10;
-    ctx.font = fontPx + 'px "Press Start 2P", ui-monospace, monospace';
+    ctx.font = fontPx + 'px "Press Start 2P", monospace';
     ctx.textBaseline = "middle";
     ctx.textAlign = "left";
     const y = Math.round(cssH / 2);
-    const gap = cssW < 360 ? 6 : 8;
     let x = 8;
-    const parts = [
-      [cash, "#f0c430"],
-      [grn, "#3dff7a"],
-      [wht, "#f4f0e8"],
-      [rep, "#8a8696"],
-    ];
-    for (const [text, color] of parts) {
-      // Crisp shadow (no blur) so thin pixel fonts stay readable on night sky.
+    const gap = 8;
+    for (const [text, color] of [[cash, "#f0c430"], [grn, "#3dff7a"], [wht, "#f4f0e8"], [rep, "#8a8696"]]) {
       ctx.fillStyle = "#07060c";
       ctx.fillText(text, x + 1, y + 1);
       ctx.fillStyle = color;
       ctx.fillText(text, x, y);
-      const w = Math.ceil(ctx.measureText(text).width);
-      x += w + gap;
-      if (x > cssW - 8) break;
+      x += Math.ceil(ctx.measureText(text).width) + gap;
+    }
+    // Prefer canvas on high-DPR standalone where DOM text softens; else crisp DOM row.
+    const standalone = !!(window.navigator.standalone
+      || window.matchMedia("(display-mode: standalone)").matches);
+    if (standalone && dpr >= 2) {
+      hudCanvas.style.display = "block";
+      if (document.getElementById("hud-top-row")) {
+        document.getElementById("hud-top-row").style.visibility = "hidden";
+      }
+    } else {
+      hudCanvas.style.display = "none";
+      if (document.getElementById("hud-top-row")) {
+        document.getElementById("hud-top-row").style.visibility = "visible";
+      }
     }
   }
 
@@ -370,58 +370,52 @@ export function createHud(opts = {}) {
       ctx.innerHTML = "";
     }
 
-    // Face grid:
-    //   foot:    Y CAR | X —(reserved)
-    //            A ACT | B RUN
-    //   driving: Y EXIT | X PULL
-    //            A U-TURN | B ACT
-    const carOn = !!(state.carBtnOk && state.mode === "play");
-    const xOn = !!(driving && state.xBtnOk && state.mode === "play");
-    const uturnOn = !!(driving && state.uturnBtnOk && state.mode === "play");
-    const label = state.actionLabel || "ACT";
-    const actionOn = !!(state.actionOk && state.mode === "play");
+    // Face grid (no letter labels):
+    //   Y blank/unlit unless CAR (near car) or EXIT (parked in car)
+    //   X PHONE   A action word when available   B RUN
+    const carOn = !!(state.carBtnOk && state.mode === "play" && state.faceCarLabel);
+    const label = state.actionLabel || "";
+    const actionOn = !!(state.actionOk && state.mode === "play" && label);
 
-    if (btnCarLabel) btnCarLabel.textContent = state.faceCarLabel || (driving ? "EXIT" : "CAR");
+    if (btnCarLabel) btnCarLabel.textContent = carOn ? (state.faceCarLabel || "") : "";
     if (btnCar) {
       btnCar.dataset.role = "car";
       btnCar.classList.toggle("off", !carOn);
-      // Frosted glass only — never glow / highlight classes.
       btnCar.classList.remove("go", "arm", "pulse", "serve");
     }
 
-    if (btnXLabel) btnXLabel.textContent = driving ? (state.xLabel || "PULL") : "—";
+    if (btnXLabel) btnXLabel.textContent = "PHONE";
     if (btnX) {
-      btnX.dataset.role = driving ? "crib" : "reserved";
-      btnX.classList.toggle("off", driving ? !xOn : true);
+      btnX.dataset.role = "quick-phone";
+      btnX.classList.toggle("off", false);
       btnX.classList.remove("go", "arm", "pulse", "serve");
     }
 
-    if (driving) {
-      if (actionLabelEl) actionLabelEl.textContent = "U-TN";
-      if (btnAction) {
-        btnAction.dataset.role = "uturn";
-        btnAction.classList.toggle("off", !uturnOn);
-        btnAction.classList.remove("go", "arm", "pulse", "serve");
-      }
-      if (bLabelEl) bLabelEl.textContent = label;
-      if (btnB) {
-        btnB.dataset.role = "action";
-        btnB.classList.toggle("off", !actionOn);
-        btnB.classList.remove("go", "arm", "pulse", "serve");
-      }
-    } else {
-      if (actionLabelEl) actionLabelEl.textContent = label;
-      if (btnAction) {
-        btnAction.dataset.role = "action";
-        btnAction.classList.toggle("off", !actionOn);
-        btnAction.classList.remove("go", "arm", "pulse", "serve");
-      }
-      if (bLabelEl) bLabelEl.textContent = "RUN";
-      if (btnB) {
-        btnB.dataset.role = "run";
-        btnB.classList.toggle("off", false);
-        btnB.classList.remove("go", "arm", "pulse", "serve");
-      }
+    if (actionLabelEl) actionLabelEl.textContent = actionOn ? label : "";
+    if (btnAction) {
+      btnAction.dataset.role = "action";
+      btnAction.classList.toggle("off", !actionOn);
+      btnAction.classList.remove("go", "arm", "pulse", "serve");
+    }
+    if (bLabelEl) bLabelEl.textContent = "RUN";
+    if (btnB) {
+      btnB.dataset.role = "run";
+      btnB.classList.toggle("off", false);
+      btnB.classList.remove("go", "arm", "pulse", "serve");
+    }
+
+    const quickPhone = document.getElementById("quick-phone");
+    const showQuick = state.ui === "quickPhone";
+    quickPhone?.classList.toggle("hidden", !showQuick);
+    if (showQuick) {
+      const clock = document.getElementById("quick-phone-clock");
+      const qCash = document.getElementById("quick-phone-cash");
+      const qStash = document.getElementById("quick-phone-stash");
+      const qInv = document.getElementById("quick-phone-inv");
+      if (clock) clock.textContent = state.timeLabel || "9 PM";
+      if (qCash) qCash.textContent = "CASH $" + String(state.cash).padStart(4, "0");
+      if (qStash) qStash.textContent = "STASH $" + String(state.stash || 0);
+      if (qInv) qInv.textContent = invLine(state);
     }
     if (orderStrip) {
       const liveOrder = state.order && (state.order.phase === "active" || state.order.phase === "nudge");
