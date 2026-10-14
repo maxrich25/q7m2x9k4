@@ -1,6 +1,6 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=74";
-import { paintClassicHero } from "./paint.js?v=74";
-import { isUnlocked } from "./audio.js?v=74";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=75";
+import { paintClassicHero } from "./paint.js?v=75";
+import { isUnlocked } from "./audio.js?v=75";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -242,102 +242,16 @@ export function createHud(opts = {}) {
 
   let popNodes = [];
 
-  let hudScratch = null;
-  function hudPixelRatio() {
-    const vv = window.visualViewport;
-    const scale = vv && vv.scale > 0 ? vv.scale : 1;
-    // iOS reports screen.width in CSS pixels, so screen/innerWidth is ~1 and
-    // must not replace devicePixelRatio. Standalone stays crisp when the
-    // backing store matches the real DPR and we blit nearest-neighbor.
-    const dpr = (window.devicePixelRatio || 1) / scale;
-    return Math.max(1, Math.min(4, dpr));
-  }
-  function nearestBlit(src, dst, dw, dh) {
-    const sw = src.width;
-    const sh = src.height;
-    const sd = src.getContext("2d").getImageData(0, 0, sw, sh).data;
-    const g = dst.getContext("2d");
-    const out = g.createImageData(dw, dh);
-    const od = out.data;
-    for (let y = 0; y < dh; y++) {
-      const sy = Math.min(sh - 1, (y * sh / dh) | 0);
-      const row = sy * sw;
-      for (let x = 0; x < dw; x++) {
-        const sx = Math.min(sw - 1, (x * sw / dw) | 0);
-        const si = (row + sx) * 4;
-        const di = (y * dw + x) * 4;
-        od[di] = sd[si];
-        od[di + 1] = sd[si + 1];
-        od[di + 2] = sd[si + 2];
-        od[di + 3] = sd[si + 3];
-      }
-    }
-    g.putImageData(out, 0, 0);
-  }
   function paintHudTop(state) {
+    // DOM text stays crisp in iOS standalone (canvas upscales blur there).
     const host = document.getElementById("hud-top");
-    const c = document.getElementById("hud-top-canvas");
-    if (!host || !c) return;
-    const pad = parseFloat(getComputedStyle(host).paddingTop) || 0;
-    const padR = Math.round(pad);
-    if (Math.abs(pad - padR) > 0.01) host.style.paddingTop = padR + "px";
-    const cssW = Math.max(1, Math.round(host.clientWidth || c.clientWidth || 390));
-    const cssH = 32;
-    const dpr = hudPixelRatio();
-    const bw = Math.max(1, Math.round(cssW * dpr));
-    const bh = Math.max(1, Math.round(cssH * dpr));
-    if (c.width !== bw || c.height !== bh) {
-      c.width = bw;
-      c.height = bh;
+    if (host) {
+      const pad = parseFloat(getComputedStyle(host).paddingTop) || 0;
+      const padR = Math.round(pad);
+      if (Math.abs(pad - padR) > 0.01) host.style.paddingTop = padR + "px";
     }
-    c.style.width = cssW + "px";
-    c.style.height = cssH + "px";
-    if (!hudScratch) hudScratch = document.createElement("canvas");
-    if (hudScratch.width !== cssW || hudScratch.height !== cssH) {
-      hudScratch.width = cssW;
-      hudScratch.height = cssH;
-    }
-    const tg = hudScratch.getContext("2d", { willReadFrequently: true });
-    tg.setTransform(1, 0, 0, 1, 0, 0);
-    tg.imageSmoothingEnabled = false;
-    tg.clearRect(0, 0, cssW, cssH);
-    const fs = cssW < 360 ? 8 : 16;
-    tg.font = fs + "px \"Press Start 2P\", monospace";
-    tg.textBaseline = "top";
-    tg.textAlign = "left";
-    const y = Math.round((cssH - fs) / 2);
-    let x = 8;
     const cash = "$" + String(state.cash).padStart(4, "0");
-    tg.fillStyle = "#f0c430";
-    tg.fillText(cash, x, y);
-    x += Math.ceil(tg.measureText(cash).width) + 10;
-    const inv = state.inv || {};
-    const grn = "GRN " + fmtGrams(inv.GREEN);
-    tg.fillStyle = "#3dff7a";
-    tg.fillText(grn, x, y);
-    x += Math.ceil(tg.measureText(grn).width) + 10;
-    const wht = "WHT " + fmtGrams(inv.WHITE);
-    tg.fillStyle = "#f4f0e8";
-    tg.fillText(wht, x, y);
-    x += Math.ceil(tg.measureText(wht).width) + 10;
     const rep = "REP " + Math.round(state.rep || 0);
-    tg.fillStyle = "#8a8696";
-    tg.fillText(rep, x, y);
-    const img = tg.getImageData(0, 0, cssW, cssH);
-    const d = img.data;
-    for (let i = 0; i < d.length; i += 4) {
-      if (d[i + 3] < 140) {
-        d[i] = 0; d[i + 1] = 0; d[i + 2] = 0; d[i + 3] = 0;
-      } else {
-        d[i + 3] = 255;
-      }
-    }
-    tg.putImageData(img, 0, 0);
-    const g = c.getContext("2d", { willReadFrequently: true });
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    g.imageSmoothingEnabled = false;
-    if (bw === cssW && bh === cssH) g.drawImage(hudScratch, 0, 0);
-    else nearestBlit(hudScratch, c, bw, bh);
     if (cashEl) cashEl.textContent = cash;
     if (invEl) invEl.innerHTML = invHtml(state);
     if (repEl) repEl.textContent = rep;
