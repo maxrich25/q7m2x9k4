@@ -1,6 +1,6 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=76";
-import { paintClassicHero } from "./paint.js?v=76";
-import { isUnlocked } from "./audio.js?v=76";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=77";
+import { paintClassicHero } from "./paint.js?v=77";
+import { isUnlocked } from "./audio.js?v=77";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -40,14 +40,13 @@ export function createHud(opts = {}) {
   const padCar = document.getElementById("pad-car");
   const shiftKnob = document.getElementById("shift-knob");
   const shiftHint = document.getElementById("shift-hint");
-  const padUturn = document.querySelector('[data-role="uturn"]');
-  const padPullover = document.querySelector('[data-role="pullover"]');
   const ctx = document.getElementById("pad-ctx") || document.getElementById("ctx");
   const btnAction = document.getElementById("btn-action");
   const btnCar = document.getElementById("btn-car");
-  const btnCrib = document.getElementById("btn-crib");
+  const btnX = document.getElementById("btn-x");
+  const btnB = document.getElementById("btn-b");
   const btnCarLabel = document.getElementById("btn-car-label");
-  const btnCribLabel = document.getElementById("btn-crib-label");
+  const btnXLabel = document.getElementById("btn-x-label");
   const btnStall = document.getElementById("btn-stall");
   const btnAccept = document.getElementById("btn-accept");
   const btnServe = document.getElementById("btn-serve");
@@ -65,7 +64,6 @@ export function createHud(opts = {}) {
   const sheetOutfit = document.getElementById("sheet-outfit");
   const outfitHero = document.getElementById("outfit-hero");
   const outfitHatBtn = document.getElementById("outfit-hat");
-  const btnExit = document.getElementById("btn-exit");
   const cribClock = document.getElementById("crib-clock");
   const cribTime = document.getElementById("crib-time");
   const cribRep = document.getElementById("crib-rep");
@@ -306,16 +304,10 @@ export function createHud(opts = {}) {
     });
     if (driving) placeKnob(gear);
     shiftHint?.classList.toggle("hidden", !(driving && (state.car?.shiftHint || 0) > 0));
-    padUturn?.classList.toggle("off", driving && !state.turnOk);
-    padUturn?.classList.toggle("hidden", !driving);
-    // Pull Over lives on the face-grid while driving (not on the pedal strip).
-    padPullover?.classList.add("hidden");
     btnPhone?.classList.toggle("unread", !!state.unread);
 
     const playUi = state.mode === "play" && !state.ui;
     const offer = !!(state.offer || state.order?.phase === "offer" || state.order?.phase === "stalling");
-    const padEl = document.getElementById("pad");
-    const padOn = !!(padEl && window.getComputedStyle(padEl).display !== "none");
     const showAccept = !!(offer && state.mode === "play");
     const showServe = !!(playUi && !offer && state.showServe);
     const showGate = !!(playUi && !offer && state.showGate);
@@ -326,33 +318,73 @@ export function createHud(opts = {}) {
       ctx.setAttribute("hidden", "");
       ctx.innerHTML = "";
     }
+
+    // Face grid:
+    //   foot:    Y CAR | X —(reserved)
+    //            A ACT | B RUN
+    //   driving: Y EXIT | X PULL
+    //            A U-TURN | B ACT
+    const carOn = !!(state.carBtnOk && state.mode === "play");
+    const exitReady = !!(driving && state.parked);
+    const xOn = !!(driving && state.xBtnOk && state.mode === "play");
+    const uturnOn = !!(driving && state.uturnBtnOk && state.mode === "play");
     const label = state.actionLabel || "ACT";
     const actionOn = !!(state.actionOk && state.mode === "play");
-    if (actionLabelEl) actionLabelEl.textContent = label;
-    else if (btnAction) btnAction.textContent = label;
-    if (btnAction) {
-      btnAction.classList.toggle("off", !actionOn);
-      btnAction.classList.toggle("go", actionOn);
-      btnAction.classList.toggle("pulse", showServe && label === "SERVE");
-      btnAction.classList.toggle("serve", showServe && label === "SERVE");
-    }
-    const carOn = !!(state.carBtnOk && state.mode === "play");
-    const cribOn = !!(state.cribBtnOk && state.mode === "play");
-    const exitReady = !!(driving && state.parked);
-    if (btnCarLabel) btnCarLabel.textContent = state.faceCarLabel || (state.inCar ? "EXIT" : "CAR");
-    if (btnCribLabel) btnCribLabel.textContent = state.faceCribLabel || (state.inCar ? "PULL" : (state.inCrib ? "EXIT" : "CRIB"));
+
+    if (btnCarLabel) btnCarLabel.textContent = state.faceCarLabel || (driving ? "EXIT" : "CAR");
     if (btnCar) {
+      btnCar.dataset.role = "car";
       btnCar.classList.toggle("off", !carOn);
-      // Gold when exit is ready; still tappable while driving to trigger pull-over.
       btnCar.classList.toggle("go", exitReady || (!driving && carOn));
       btnCar.classList.toggle("arm", !!(driving && carOn && !state.parked));
-      btnCar.classList.toggle("hidden", false);
     }
-    if (btnCrib) {
-      btnCrib.classList.toggle("off", !cribOn);
-      btnCrib.classList.toggle("go", cribOn);
-      btnCrib.classList.toggle("arm", !!(driving && cribOn));
-      btnCrib.classList.toggle("hidden", false);
+
+    if (btnXLabel) btnXLabel.textContent = driving ? (state.xLabel || "PULL") : "—";
+    if (btnX) {
+      btnX.dataset.role = driving ? "crib" : "reserved";
+      btnX.classList.toggle("off", driving ? !xOn : true);
+      btnX.classList.toggle("go", false);
+      btnX.classList.toggle("arm", !!xOn);
+    }
+
+    if (driving) {
+      if (actionLabelEl) actionLabelEl.textContent = "U-TN";
+      if (btnAction) {
+        btnAction.dataset.role = "uturn";
+        btnAction.classList.toggle("off", !uturnOn);
+        btnAction.classList.toggle("go", uturnOn);
+        btnAction.classList.toggle("arm", uturnOn);
+        btnAction.classList.toggle("pulse", false);
+        btnAction.classList.toggle("serve", false);
+      }
+      if (bLabelEl) bLabelEl.textContent = label;
+      if (btnB) {
+        btnB.dataset.role = "action";
+        btnB.classList.toggle("off", !actionOn);
+        btnB.classList.toggle("go", actionOn);
+        btnB.classList.toggle("arm", false);
+        btnB.classList.toggle("pulse", showServe && label === "SERVE");
+        btnB.classList.toggle("serve", showServe && label === "SERVE");
+      }
+    } else {
+      if (actionLabelEl) actionLabelEl.textContent = label;
+      if (btnAction) {
+        btnAction.dataset.role = "action";
+        btnAction.classList.toggle("off", !actionOn);
+        btnAction.classList.toggle("go", actionOn);
+        btnAction.classList.toggle("arm", false);
+        btnAction.classList.toggle("pulse", showServe && label === "SERVE");
+        btnAction.classList.toggle("serve", showServe && label === "SERVE");
+      }
+      if (bLabelEl) bLabelEl.textContent = "RUN";
+      if (btnB) {
+        btnB.dataset.role = "run";
+        btnB.classList.toggle("off", false);
+        btnB.classList.toggle("go", false);
+        btnB.classList.toggle("arm", false);
+        btnB.classList.toggle("pulse", false);
+        btnB.classList.toggle("serve", false);
+      }
     }
     if (orderStrip) {
       const liveOrder = state.order && (state.order.phase === "active" || state.order.phase === "nudge");
@@ -369,15 +401,8 @@ export function createHud(opts = {}) {
         }
       }
     }
-    if (bLabelEl) bLabelEl.textContent = driving ? "—" : "RUN";
-    const btnB = document.getElementById("btn-b");
-    btnB?.classList.toggle("hidden", false);
-    btnB?.classList.toggle("off", !!driving);
-    btnB?.classList.toggle("go", false);
-    if (driving) btnB?.setAttribute("data-role", "run");
     document.getElementById("gb-btns")?.classList.toggle("hidden", false);
     document.getElementById("gb-face-grid")?.classList.toggle("driving", driving);
-    btnExit?.classList.toggle("hidden", !(driving || state.inCrib));
     if (btnStall) btnStall.classList.add("hidden");
     phoneDeal?.classList.toggle("hidden", !showAccept);
     btnAccept?.classList.toggle("hidden", !showAccept);
