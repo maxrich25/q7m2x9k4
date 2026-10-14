@@ -4,9 +4,9 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=73";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=73";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=73";
+} from "./config.js?v=74";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=74";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=74";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -217,85 +217,105 @@ function bezPt(t, p0, p1, p2, p3) {
   const u = 1 - t;
   return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
 }
-function bezTan(t, p0, p1, p2, p3) {
-  const u = 1 - t;
-  return 3 * u * u * (p1 - p0) + 6 * u * t * (p2 - p1) + 3 * t * t * (p3 - p2);
-}
-
 function paintPalmFrame(g, w, h, bend, frondBend = 0) {
   g.clearRect(0, 0, w, h);
   g.imageSmoothingEnabled = true;
-  const baseX = w * 0.5;
-  const baseY = h - 6;
-  const height = h * 0.62;
-  // Soft static lean on the trunk; breeze mostly moves the fronds.
-  const trunkBend = 0.55 + bend * 0.12;
+  const baseX = w * 0.48;
+  const baseY = h - 4;
+  const height = h * 0.56;
+  // Trunk stays nearly still. The breeze is in the fronds.
+  const trunkBend = 0.22 + bend * 0.03;
   const p0x = baseX;
   const p0y = baseY;
-  const p1x = baseX + trunkBend * 8;
-  const p1y = baseY - height * 0.32;
-  const p2x = baseX + trunkBend * 14;
-  const p2y = baseY - height * 0.68;
-  const p3x = baseX + trunkBend * 18;
+  const p1x = baseX + trunkBend * 3;
+  const p1y = baseY - height * 0.34;
+  const p2x = baseX + trunkBend * 5;
+  const p2y = baseY - height * 0.7;
+  const p3x = baseX + trunkBend * 6;
   const p3y = baseY - height;
   g.lineCap = "round";
   g.lineJoin = "round";
-  const trunkPasses = [
-    { w: 13, col: "#4a2c1c" },
-    { w: 10, col: "#6a4428" },
-    { w: 6.5, col: "#8a6440" },
-    { w: 3, col: "#a07850" },
-  ];
-  for (const pass of trunkPasses) {
-    g.strokeStyle = pass.col;
-    g.lineWidth = pass.w;
+  const rings = 9;
+  for (let i = 0; i <= rings; i++) {
+    const t = i / rings;
+    const y0 = bezPt(t, p0y, p1y, p2y, p3y);
+    const x0 = bezPt(t, p0x, p1x, p2x, p3x);
+    const y1 = bezPt(Math.min(1, t + 0.08), p0y, p1y, p2y, p3y);
+    const thick = 11 * (1 - t * 0.62);
+    g.strokeStyle = i % 2 === 0 ? "#5c3a24" : "#3e2818";
+    g.lineWidth = thick;
     g.beginPath();
-    g.moveTo(p0x, p0y);
-    g.bezierCurveTo(p1x, p1y, p2x, p2y, p3x, p3y);
+    g.moveTo(x0, y0);
+    g.lineTo(x0, y1);
     g.stroke();
   }
+  g.strokeStyle = "#7a5a3c";
+  g.lineWidth = 2.2;
+  g.beginPath();
+  g.moveTo(p0x - 1, p0y);
+  g.bezierCurveTo(p1x - 1, p1y, p2x, p2y, p3x, p3y);
+  g.stroke();
   const cx = p3x;
   const cy = p3y;
-  const tipAng = Math.atan2(bezTan(1, p0y, p1y, p2y, p3y), bezTan(1, p0x, p1x, p2x, p3x));
-  const blades = [
-    { a: -1.57, len: 34, ww: 6.2, col: "#344830" },
-    { a: -2.18, len: 36, ww: 5.8, col: "#283a28" },
-    { a: -0.96, len: 36, ww: 5.8, col: "#283a28" },
-    { a: -2.68, len: 38, ww: 5.6, col: "#223224" },
-    { a: -0.46, len: 38, ww: 5.6, col: "#223224" },
-    { a: 3.22, len: 37, ww: 5.2, col: "#1c2c20" },
-    { a: -0.02, len: 37, ww: 5.2, col: "#1c2c20" },
-    { a: 2.72, len: 30, ww: 4.6, col: "#283a28" },
-    { a: 0.4, len: 30, ww: 4.6, col: "#283a28" },
+  // Long arching crowns: rise, then droop, with leaflets along each rib.
+  const fronds = [
+    { a: -2.55, len: 86, droop: 48, rib: "#1a4024", leaf: "#2d6a38" },
+    { a: -2.05, len: 96, droop: 54, rib: "#1e4c2c", leaf: "#3a7a44" },
+    { a: -1.55, len: 92, droop: 50, rib: "#245832", leaf: "#348044" },
+    { a: -1.05, len: 78, droop: 36, rib: "#1e4c2c", leaf: "#2f743c" },
+    { a: -0.55, len: 70, droop: 28, rib: "#16381f", leaf: "#2a6234" },
+    { a: 2.85, len: 80, droop: 46, rib: "#1a4024", leaf: "#2d6a38" },
+    { a: 2.35, len: 88, droop: 50, rib: "#16381f", leaf: "#245830" },
+    { a: 3.35, len: 64, droop: 34, rib: "#1e4c2c", leaf: "#2f743c" },
   ];
-  const lean = tipAng + Math.PI / 2;
-  for (const f of blades) {
-    // Few degrees of frond sway — subtle breeze, not a pendulum.
-    const a = f.a + lean * 0.28 + frondBend * 0.085;
-    const droop = 14 + Math.abs(frondBend) * 2;
-    const mx = cx + Math.cos(a) * f.len * 0.48;
-    const my = cy + Math.sin(a) * f.len * 0.48 + droop * 0.4;
-    const ex = cx + Math.cos(a) * f.len;
-    const ey = cy + Math.sin(a) * f.len + droop;
-    const nx = Math.cos(a + Math.PI / 2) * f.ww * 0.55;
-    const ny = Math.sin(a + Math.PI / 2) * f.ww * 0.55;
-    g.fillStyle = f.col;
-    g.beginPath();
-    g.moveTo(cx, cy);
-    g.quadraticCurveTo(mx + nx, my + ny, ex, ey);
-    g.quadraticCurveTo(mx - nx, my - ny, cx, cy);
-    g.closePath();
-    g.fill();
-    g.strokeStyle = f.col;
-    g.lineWidth = Math.max(2.5, f.ww * 0.45);
+  function qPoint(t, x0, y0, mx, my, ex, ey) {
+    const u = 1 - t;
+    return {
+      x: u * u * x0 + 2 * u * t * mx + t * t * ex,
+      y: u * u * y0 + 2 * u * t * my + t * t * ey,
+    };
+  }
+  for (const f of fronds) {
+    const a = f.a + frondBend * 0.16;
+    const reach = f.len;
+    const ex = cx + Math.cos(a) * reach;
+    const ey = cy + Math.sin(a) * reach * 0.22 + f.droop + frondBend * 4;
+    const mx = cx + Math.cos(a) * reach * 0.52;
+    const my = cy - 16 + Math.sin(a) * reach * 0.08 + frondBend * 2;
+    g.strokeStyle = f.rib;
+    g.lineWidth = 2.4;
     g.beginPath();
     g.moveTo(cx, cy);
     g.quadraticCurveTo(mx, my, ex, ey);
     g.stroke();
+    const steps = 8;
+    for (let i = 1; i <= steps; i++) {
+      const t = i / (steps + 0.4);
+      const p = qPoint(t, cx, cy, mx, my, ex, ey);
+      const prev = qPoint(Math.max(0, t - 0.08), cx, cy, mx, my, ex, ey);
+      const ang = Math.atan2(p.y - prev.y, p.x - prev.x);
+      const leafLen = 14 * (1.05 - t * 0.45);
+      for (const side of [-1, 1]) {
+        const la = ang + side * (1.05 - t * 0.25);
+        const tipX = p.x + Math.cos(la) * leafLen;
+        const tipY = p.y + Math.sin(la) * leafLen * 0.55 + 4 + t * 3;
+        g.strokeStyle = side < 0 ? f.leaf : f.rib;
+        g.lineWidth = 1.35;
+        g.beginPath();
+        g.moveTo(p.x, p.y);
+        g.quadraticCurveTo(
+          p.x + Math.cos(la) * leafLen * 0.55,
+          p.y + Math.sin(la) * leafLen * 0.2 + 1,
+          tipX,
+          tipY,
+        );
+        g.stroke();
+      }
+    }
   }
-  g.fillStyle = "#2e422c";
+  g.fillStyle = "#1a3a24";
   g.beginPath();
-  g.ellipse(cx, cy, 7, 8, 0, 0, Math.PI * 2);
+  g.ellipse(cx, cy + 2, 8, 6, 0, 0, Math.PI * 2);
   g.fill();
 }
 
@@ -303,9 +323,8 @@ const PALM_FRAMES = 7;
 const PALM_TEX = [];
 for (let i = 0; i < PALM_FRAMES; i++) {
   const u = i / (PALM_FRAMES - 1) - 0.5;
-  // Trunk flex is tiny; frond bend carries the breeze.
-  const bend = 0.9 + u * 0.18;
-  const frondBend = u * 1.15;
+  const bend = 0.4 + u * 0.04;
+  const frondBend = u * 1.05;
   const tex = canvasTex(120, 240, (g, w, h) => paintPalmFrame(g, w, h, bend, frondBend));
   tex.magFilter = THREE.LinearFilter;
   tex.minFilter = THREE.LinearFilter;
@@ -975,13 +994,11 @@ function makeLamp() {
 function skylineTex() {
   const tex = canvasTex(1280, 360, (g, w, h) => {
     g.clearRect(0, 0, w, h);
-    const coast = g.createLinearGradient(0, h * 0.42, 0, h * 0.78);
-    coast.addColorStop(0, "rgba(40, 24, 70, 0)");
-    coast.addColorStop(0.45, "rgba(90, 50, 88, 0.35)");
-    coast.addColorStop(0.72, "rgba(180, 90, 70, 0.28)");
-    coast.addColorStop(1, "rgba(40, 20, 50, 0)");
+    const coast = g.createLinearGradient(0, h * 0.55, 0, h * 0.86);
+    coast.addColorStop(0, "rgba(20, 28, 48, 0)");
+    coast.addColorStop(1, "rgba(16, 22, 36, 0.2)");
     g.fillStyle = coast;
-    g.fillRect(w * 0.55, h * 0.4, w * 0.45, h * 0.4);
+    g.fillRect(0, h * 0.5, w, h * 0.4);
     g.fillStyle = "#f4f0e8";
     for (let i = 0; i < 70; i++) {
       const x = (i * 97 + 21) % w;
@@ -1009,22 +1026,18 @@ function skylineTex() {
       g.beginPath();
       g.moveTo(0, h);
       g.lineTo(0, baseY);
-      for (let x = 0; x <= w; x += 6) {
-        const y = baseY
-          - Math.sin((x / w) * Math.PI * 2.8 + phase) * amp
-          - Math.sin((x / w) * Math.PI * 1.3 + phase * 1.4) * amp * 0.5
-          - Math.cos((x / w) * Math.PI * 4.6 + phase * 0.5) * amp * 0.25;
+      for (let x = 0; x <= w; x += 8) {
+        const y = baseY - Math.sin((x / w) * Math.PI * 1.15 + phase) * amp;
         g.lineTo(x, y);
       }
       g.lineTo(w, h);
       g.closePath();
       g.fill();
     }
-    rolling(55, 120, "#7a5a88", 0.15);
-    rolling(50, 155, "#5a3c6c", 1.0);
-    rolling(44, 195, "#3a2458", 1.9);
-    rolling(36, 235, "#241830", 0.6);
-    g.fillStyle = "#1a1020";
+    rolling(14, 188, "#2c3348", 0.2);
+    rolling(10, 214, "#1a2030", 1.1);
+    rolling(7, 236, "#12161f", 0.4);
+    g.fillStyle = "#10131a";
     g.fillRect(0, 268, w, h - 268);
     const cityBase = 278;
     for (let i = 0; i < 14; i++) {
@@ -1054,9 +1067,9 @@ function skylineTex() {
       g.fillRect(tx - 10 * s, top + 10, 10 * s, 2);
       g.fillRect(tx + 2, top + 10, 10 * s, 2);
     }
-    for (let i = 0; i < 16; i++) {
-      palmSil(24 + i * 80 + ((i * 13) % 21), 0.85 + (i % 3) * 0.18);
-    }
+    palmSil(180, 0.7);
+    palmSil(920, 0.62);
+    palmSil(1100, 0.55);
   });
   tex.wrapS = THREE.ClampToEdgeWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -1081,16 +1094,16 @@ function makeCribRoom() {
   rug.position.set(0.4, 0.02, 1.5);
   g.add(rug);
   const back = new THREE.Mesh(
-    new THREE.BoxGeometry(10.4, 4.2, 0.18),
+    new THREE.BoxGeometry(10.4, 6.6, 0.18),
     new THREE.MeshBasicMaterial({ color: 0x1e1830 }),
   );
-  back.position.set(0, 2.1, -2.05);
+  back.position.set(0, 3.3, -2.05);
   g.add(back);
   const left = new THREE.Mesh(
-    new THREE.BoxGeometry(0.18, 4.2, 7.2),
+    new THREE.BoxGeometry(0.18, 6.6, 7.2),
     new THREE.MeshBasicMaterial({ color: 0x1a1428 }),
   );
-  left.position.set(-5.1, 2.1, 1.4);
+  left.position.set(-5.1, 3.3, 1.4);
   g.add(left);
   const right = left.clone();
   right.position.x = 5.1;
@@ -1098,28 +1111,28 @@ function makeCribRoom() {
   // Exit door faces the camera on the back wall (left) — clear doorway, not a mystery box.
   const exitX = -2.65;
   const doorFrame = new THREE.Mesh(
-    new THREE.BoxGeometry(1.55, 2.7, 0.18),
+    new THREE.BoxGeometry(1.7, 4.45, 0.18),
     new THREE.MeshLambertMaterial({ color: 0x1a2430 }),
   );
-  doorFrame.position.set(exitX, 1.35, -1.95);
+  doorFrame.position.set(exitX, 2.22, -1.95);
   g.add(doorFrame);
   const door = new THREE.Mesh(
-    new THREE.BoxGeometry(1.25, 2.4, 0.12),
+    new THREE.BoxGeometry(1.38, 4.05, 0.12),
     new THREE.MeshLambertMaterial({ color: 0x2a4050 }),
   );
-  door.position.set(exitX, 1.2, -1.88);
+  door.position.set(exitX, 2.05, -1.88);
   g.add(door);
   const doorPane = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.05, 1.85),
+    new THREE.PlaneGeometry(1.12, 3.2),
     new THREE.MeshBasicMaterial({ color: 0x143040, side: THREE.DoubleSide }),
   );
-  doorPane.position.set(exitX, 1.35, -1.81);
+  doorPane.position.set(exitX, 2.15, -1.81);
   g.add(doorPane);
   const doorKnob = new THREE.Mesh(
     new THREE.SphereGeometry(0.08, 8, 8),
     new THREE.MeshBasicMaterial({ color: 0xf0c430 }),
   );
-  doorKnob.position.set(exitX + 0.42, 1.15, -1.76);
+  doorKnob.position.set(exitX + 0.48, 1.7, -1.76);
   g.add(doorKnob);
   const exitPlate = neonTex("EXIT", "#3de0ff");
   exitPlate.wrapS = THREE.ClampToEdgeWrapping;
@@ -1128,13 +1141,13 @@ function makeCribRoom() {
     new THREE.PlaneGeometry(1.0, 0.6),
     new THREE.MeshBasicMaterial({ map: exitPlate, transparent: true, side: THREE.DoubleSide }),
   );
-  exitOnDoor.position.set(exitX, 1.6, -1.77);
+  exitOnDoor.position.set(exitX, 3.15, -1.77);
   g.add(exitOnDoor);
   const exitSign = new THREE.Mesh(
     new THREE.PlaneGeometry(1.55, 0.5),
     new THREE.MeshBasicMaterial({ map: exitPlate, transparent: true, side: THREE.DoubleSide }),
   );
-  exitSign.position.set(exitX, 2.7, -1.76);
+  exitSign.position.set(exitX, 4.55, -1.76);
   g.add(exitSign);
   const exitMat = neonTex("EXIT", "#3de0ff");
   const exitFloor = new THREE.Mesh(
@@ -1225,13 +1238,13 @@ function makeCribRoom() {
     new THREE.PlaneGeometry(1.8, 1.1),
     new THREE.MeshBasicMaterial({ color: 0x1a1028 }),
   );
-  win.position.set(0.6, 2.35, -1.94);
+  win.position.set(0.6, 4.15, -1.94);
   g.add(win);
   const winGlow = new THREE.Mesh(
     new THREE.PlaneGeometry(1.6, 0.9),
     new THREE.MeshBasicMaterial({ color: 0x3a2048 }),
   );
-  winGlow.position.set(0.6, 2.35, -1.93);
+  winGlow.position.set(0.6, 4.15, -1.93);
   g.add(winGlow);
   const lampShade = new THREE.Mesh(
     new THREE.CylinderGeometry(0.2, 0.28, 0.22, 10),
@@ -1246,10 +1259,10 @@ function makeCribRoom() {
   lampGlow.position.set(-0.35, 1.15, -1.35);
   g.add(lampGlow);
   const ceiling = new THREE.Mesh(
-    new THREE.BoxGeometry(14, 0.5, 10),
+    new THREE.BoxGeometry(18, 0.5, 18),
     new THREE.MeshBasicMaterial({ color: 0x0c0a12 }),
   );
-  ceiling.position.set(0, 4.15, 1.4);
+  ceiling.position.set(0, 6.7, 2);
   g.add(ceiling);
   // Fill outside the room so zoom never shows whitish ceiling seams / skyline.
   const voidFill = new THREE.Mesh(
@@ -1262,7 +1275,7 @@ function makeCribRoom() {
     new THREE.BoxGeometry(60, 2, 40),
     new THREE.MeshBasicMaterial({ color: 0x07060c }),
   );
-  voidTop.position.set(0, 6.5, 0);
+  voidTop.position.set(0, 9.2, 0);
   g.add(voidTop);
   const voidBot = new THREE.Mesh(
     new THREE.BoxGeometry(60, 2, 40),
@@ -1275,7 +1288,7 @@ function makeCribRoom() {
   const cribHemi = new THREE.HemisphereLight(0xffe8d0, 0x4a3020, 0.85);
   g.add(cribHemi);
   const cribLight = new THREE.PointLight(0xffe2b8, 2.6, 16, 1.4);
-  cribLight.position.set(0.2, 2.8, 1.6);
+  cribLight.position.set(0.2, 4.4, 1.6);
   g.add(cribLight);
   const bedLamp = new THREE.PointLight(0xffcc88, 2.2, 8, 1.3);
   bedLamp.position.set(-0.35, 1.45, -1.1);
@@ -1296,12 +1309,12 @@ export function createWorld(canvas, sprites) {
     depth: true,
   });
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-  renderer.setClearColor(COLORS.bg, 1);
+  renderer.setClearColor(0x0c1428, 1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x0a0814, 0.016);
-  scene.background = new THREE.Color(0x0a0716);
+  scene.fog = new THREE.FogExp2(0x101628, 0.014);
+  scene.background = new THREE.Color(0x0c1428);
 
   const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 180);
   camera.far = 240;
@@ -1339,7 +1352,7 @@ export function createWorld(canvas, sprites) {
   scene.add(sky);
 
   const moon = new THREE.Mesh(
-    new THREE.SphereGeometry(1.35, 16, 16),
+    new THREE.SphereGeometry(1.7, 16, 16),
     new THREE.MeshBasicMaterial({
       color: 0xf4f0e8, transparent: true, fog: false, depthWrite: false, depthTest: true,
     }),
@@ -1375,8 +1388,8 @@ export function createWorld(canvas, sprites) {
     depthTest: true,
     side: THREE.DoubleSide,
   });
-  const skyline = new THREE.Mesh(new THREE.PlaneGeometry(260, 36), skylineMat);
-  skyline.position.set(0, 12.2, -52);
+  const skyline = new THREE.Mesh(new THREE.PlaneGeometry(260, 14), skylineMat);
+  skyline.position.set(0, 6.4, -52);
   skyline.renderOrder = -12;
   skyline.visible = true;
   scene.add(skyline);
@@ -1385,63 +1398,35 @@ export function createWorld(canvas, sprites) {
     const tex = canvasTex(1400, 260, (g, w, h) => {
       g.clearRect(0, 0, w, h);
       const skyGlow = g.createLinearGradient(0, 0, 0, h);
-      skyGlow.addColorStop(0, "rgba(90,50,110,0)");
-      skyGlow.addColorStop(0.35, "rgba(160,80,100,0.35)");
-      skyGlow.addColorStop(0.7, "rgba(60,32,70,0.82)");
-      skyGlow.addColorStop(1, "rgba(18,10,28,0.98)");
+      skyGlow.addColorStop(0, "rgba(14,18,40,0)");
+      skyGlow.addColorStop(0.42, "rgba(28,32,58,0.45)");
+      skyGlow.addColorStop(0.72, "rgba(22,24,40,0.82)");
+      skyGlow.addColorStop(1, "rgba(10,10,16,0.96)");
       g.fillStyle = skyGlow;
       g.fillRect(0, 0, w, h);
-      function rollingHill(amp, base, fill, phase = 0, freq = 2.6) {
+      function lowHill(amp, base, fill, phase) {
         g.fillStyle = fill;
         g.beginPath();
         g.moveTo(0, h);
         g.lineTo(0, base);
-        for (let x = 0; x <= w; x += 6) {
-          const y = base
-            - Math.sin((x / w) * Math.PI * freq + phase) * amp
-            - Math.sin((x / w) * Math.PI * (freq * 0.45) + phase * 1.7) * amp * 0.55
-            - Math.cos((x / w) * Math.PI * (freq * 1.6) + phase * 0.6) * amp * 0.28;
+        for (let x = 0; x <= w; x += 8) {
+          const y = base - Math.sin((x / w) * Math.PI * 1.4 + phase) * amp
+            - Math.sin((x / w) * Math.PI * 0.55 + phase * 0.7) * amp * 0.35;
           g.lineTo(x, y);
         }
         g.lineTo(w, h);
         g.closePath();
         g.fill();
       }
-      // Layered hills — lighter toward the horizon, darker in front.
-      rollingHill(58, 72, "#8a6a90", 0.15, 2.4);
-      rollingHill(52, 108, "#5a3a68", 1.05, 2.8);
-      rollingHill(46, 142, "#342048", 1.9, 3.1);
-      rollingHill(38, 176, "#1a1028", 0.65, 2.6);
-      const coast = g.createRadialGradient(w * 0.78, h * 0.82, 10, w * 0.78, h * 0.82, 280);
-      coast.addColorStop(0, "rgba(255,150,90,0.34)");
-      coast.addColorStop(0.4, "rgba(90,50,100,0.16)");
-      coast.addColorStop(1, "rgba(40,20,50,0)");
-      g.fillStyle = coast;
-      g.fillRect(0, 0, w, h);
-      function ridgePalm(x, s, ridgeY) {
-        g.fillStyle = "#0a0610";
-        const top = ridgeY - 44 * s;
-        g.beginPath();
-        g.moveTo(x, ridgeY);
-        g.quadraticCurveTo(x + 3.5 * s, top + 20 * s, x + 2.2 * s, top);
-        g.quadraticCurveTo(x - 1.2 * s, top + 18 * s, x - 1.2, ridgeY);
-        g.fill();
-        for (const a of [-1.35, -0.7, 0.7, 1.35, 0, -1.85, 1.85]) {
-          g.beginPath();
-          g.moveTo(x + 1, top + 2);
-          g.quadraticCurveTo(
-            x + Math.cos(a) * 20 * s, top + 10 * s,
-            x + Math.cos(a) * 30 * s, top + 22 * s + Math.abs(a) * 4,
-          );
-          g.lineTo(x + Math.cos(a) * 24 * s, top + 24 * s);
-          g.closePath();
-          g.fill();
-        }
-      }
-      for (let i = 0; i < 22; i++) {
-        const x = 28 + i * 62 + ((i * 19) % 27);
-        const ridgeY = 100 + Math.sin(i * 0.85) * 14 + (i % 2) * 6;
-        ridgePalm(x, 0.75 + (i % 3) * 0.22, ridgeY);
+      lowHill(18, 78, "#3a445c", 0.3);
+      lowHill(14, 108, "#2a3348", 1.2);
+      lowHill(10, 136, "#1a2233", 0.5);
+      g.fillStyle = "#141a28";
+      for (let i = 0; i < 8; i++) {
+        const x = 70 + i * 170;
+        const bw = 26 + (i % 3) * 12;
+        const bh = 22 + (i % 4) * 10;
+        g.fillRect(x, 118 - bh, bw, bh + 30);
       }
     });
     tex.magFilter = THREE.LinearFilter;
@@ -1451,12 +1436,12 @@ export function createWorld(canvas, sprites) {
     return tex;
   }
   const horizon = new THREE.Mesh(
-    new THREE.PlaneGeometry(300, 42),
+    new THREE.PlaneGeometry(300, 12),
     new THREE.MeshBasicMaterial({
       map: horizonTex(), transparent: true, depthWrite: false, depthTest: true, fog: false, side: THREE.DoubleSide,
     }),
   );
-  horizon.position.set(0, 11.2, -22);
+  horizon.position.set(0, 5.6, -28);
   horizon.renderOrder = -14;
   scene.add(horizon);
 
@@ -2100,16 +2085,14 @@ export function createWorld(canvas, sprites) {
     else lookFace += (wantFace - lookFace) * (1 - Math.exp(-Math.max(stepDt, 0.0001) / 0.22));
     if (playing && inCrib) {
       const cx = Number(state.cribX) || 0;
-      const cribZoom = Math.min(1.05, zoomMul);
-      // Clamp so the lens never peeks above the ceiling seam.
-      const cribCamY = Math.min(2.55, Math.max(1.85, 2.15 * cribZoom));
-      const cribCamZ = Math.min(6.8, Math.max(5.2, 5.8 * cribZoom));
-      // Follow cribX more so the EXIT door on the left stays framed.
-      camera.position.set(cx * 0.42, cribCamY, cribCamZ);
-      tmp.set(cx * 0.7, 1.3, 0.2);
+      const cribZoom = Math.min(1.34, Math.max(0.9, zoomMul));
+      const cribCamY = Math.min(3.35, Math.max(2.15, 2.2 * cribZoom));
+      const cribCamZ = Math.min(9.4, Math.max(6.4, 7.4 * cribZoom));
+      camera.position.set(cx * 0.55, cribCamY, cribCamZ);
+      tmp.set(cx * 0.85, 1.85, -0.4);
       camera.lookAt(tmp);
       camera.rotation.z = 0;
-      camera.far = 28;
+      camera.far = 36;
     } else if (playing) {
       const dampDt = Math.min(1 / 30, Math.max(0, stepDt));
       const vFov = THREE.MathUtils.degToRad(camera.fov);
@@ -2166,13 +2149,13 @@ export function createWorld(canvas, sprites) {
       if (beam) beam.visible = on;
     }
 
-    moon.position.set(camX - 14, 18.5, -78);
+    moon.position.set(camX - 2.2, 16.2, -48);
     moonGlow.position.copy(moon.position);
     moon.visible = !inCrib;
     moonGlow.visible = !inCrib;
-    skyline.position.set(camX, 12.2, -52);
+    skyline.position.set(camX, 6.4, -52);
     skyline.visible = !inCrib;
-    horizon.position.set(camX, 11.2, -22);
+    horizon.position.set(camX, 5.6, -28);
     horizon.visible = !inCrib;
     if (!inCrib) camera.far = 240;
     hazeBand.position.set(camX, 7.2, -34);
@@ -2261,7 +2244,7 @@ export function createWorld(canvas, sprites) {
     const leave = boarding && !state.inCar;
     const walking = spd > 3 && !boarding && !state.inCar;
     const running = walking && !!(state.runHeld);
-    const turning = !inCrib && !state.inCar && !boarding && !airborne && !walking && Math.abs(lookFace) < 0.62;
+    const turning = false;
     let boardPose = null;
     if (enter) {
       if (boardU < 0.30) boardPose = "walk";
@@ -2291,9 +2274,7 @@ export function createWorld(canvas, sprites) {
       : running ? nWalk
       : walking ? nWalk
       : 3;
-    const sprFace = (walking || boardPose === "walk" || boardPose === "turn")
-      ? (p.facing < 0 ? -1 : 1)
-      : (lookFace < 0 ? -1 : 1);
+    const sprFace = p.facing < 0 ? -1 : 1;
     const strideLen = running ? RUN_STRIDE_CYCLE : STRIDE_CYCLE;
     const walkClock = walking ? (p.stride || 0) / strideLen : p.anim;
     setBillboardFrame(playerSprite, frameAt(animSet, walkClock, rate), sprFace);
@@ -2377,7 +2358,6 @@ export function createWorld(canvas, sprites) {
     } else if (leave && boardU < 0.12) {
       playerSprite.material.opacity = (blink ? 0.4 : 1) * (boardU / 0.12);
     }
-    if (turning) playerSprite.rotation.y += lookFace * 0.18;
     playerSprite.material.color.set(p.flash > 0 ? 0xffffff : 0xffffff);
     if (p.flash > 0) playerSprite.material.color.setHex(0xffc8e8);
     else playerSprite.material.color.setHex(0xffffff);

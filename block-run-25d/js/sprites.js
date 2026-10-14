@@ -2,8 +2,8 @@ import * as THREE from "three";
 import {
   pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, WALK_CYCLE_POSES, RUN_CYCLE_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
-  paintClassicHeroSet, restyleFor25d,
-} from "./paint.js?v=73";
+  paintClassicHeroSet,
+} from "./paint.js?v=74";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -138,16 +138,7 @@ export async function loadSprites() {
   ]);
 
   function finishSet(set) {
-    const tex = (c) => {
-      const t = texturize(restyleFor25d(c), true);
-      t.magFilter = THREE.LinearFilter;
-      t.minFilter = THREE.LinearFilter;
-      if (t.userData.flipped) {
-        t.userData.flipped.magFilter = THREE.LinearFilter;
-        t.userData.flipped.minFilter = THREE.LinearFilter;
-      }
-      return t;
-    };
+    const tex = (c) => texturize(c, true);
     return {
       idle: set.idle.map(tex),
       walk: set.walk.map(tex),
@@ -174,17 +165,10 @@ export async function loadSprites() {
 
   const cop = setFromOriginal(paintCopFig());
   function softTex(c) {
-    const t = texturize(restyleFor25d(c), true);
-    t.magFilter = THREE.LinearFilter;
-    t.minFilter = THREE.LinearFilter;
-    if (t.userData.flipped) {
-      t.userData.flipped.magFilter = THREE.LinearFilter;
-      t.userData.flipped.minFilter = THREE.LinearFilter;
-    }
-    return t;
+    return texturize(c, true);
   }
   const buyers = PED_LOOKS.map((_, i) => {
-    const src = restyleFor25d(paintLook(i));
+    const src = paintLook(i);
     const walks = paintWalkLook(i, WALK_CYCLE_POSES).map(softTex);
     const runs = paintWalkLook(i, RUN_CYCLE_POSES).map(softTex);
     const idles = IDLE_POSES.map((p) => softTex(paintLook(i, p)));

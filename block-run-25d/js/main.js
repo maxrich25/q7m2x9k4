@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=73";
-import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=73";
-import { createInput } from "./input.js?v=73";
-import { createGame } from "./game.js?v=73";
-import { loadSprites } from "./sprites.js?v=73";
-import { createWorld } from "./world.js?v=73";
-import { createHud } from "./hud.js?v=73";
+import { TICK } from "./config.js?v=74";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=74";
+import { createInput } from "./input.js?v=74";
+import { createGame } from "./game.js?v=74";
+import { loadSprites } from "./sprites.js?v=74";
+import { createWorld } from "./world.js?v=74";
+import { createHud } from "./hud.js?v=74";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -187,6 +187,7 @@ window.__br = {
   setCarVx: (n) => game.setCarVx(n),
   setPassLane: (on) => game.setPassLane(on),
   placeTrafficAhead: () => game.placeTrafficAhead(),
+  placeCars: (list) => game.placeCars?.(list),
   getView: () => world?.getView?.() || view,
   resetCam: () => world?.resetCam?.(),
   unlockAudio,
