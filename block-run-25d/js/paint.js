@@ -153,20 +153,58 @@ export function frameAt(frames, anim, rate) {
   return frames[i];
 }
 
+/** Ped looks — same 40×40 classic pixel figure, outline, and palette family as the hero. */
 export const PED_LOOKS = [
-  { skin: "#f1c27d", shirt: "#c4283a", pants: "#2a2a38", hair: "#1a1210", accent: "#8a1020", hat: "beanie", shoes: "#1a1a22" },
-  { skin: "#e0ac69", shirt: "#2a8a8a", pants: "#3a3048", hair: "#2a1a10", accent: "#f0c430", hat: "none", shoes: "#f4f0e8" },
-  { skin: "#c68642", shirt: "#f4f0e8", pants: "#1a1a22", hair: "#1a1210", accent: "#f0c430", hat: "cap", shoes: "#2a2430", chain: true },
-  { skin: "#8d5524", shirt: "#5a2a8a", pants: "#3a3020", hair: "#1a1210", accent: "#c8a0e8", hat: "durag", shoes: "#1a1210" },
-  { skin: "#d4a574", shirt: "#f0c430", pants: "#2a2438", hair: "#1a1210", accent: "#e21b7a", hat: "afro", shoes: "#c4283a" },
-  { skin: "#ffdbac", shirt: "#1a3a68", pants: "#f4f0e8", hair: "#6a4430", accent: "#3de0ff", hat: "none", shoes: "#1a1a22" },
-  { skin: "#a36c41", shirt: "#2a2438", pants: "#1a1a22", hair: "#1a1210", accent: "#f4f0e8", hat: "beanie", shoes: "#c4283a" },
-  { skin: "#e8be8a", shirt: "#e21b7a", pants: "#3a3048", hair: "#2a1a10", accent: "#f0c430", hat: "cap", shoes: "#f4f0e8" },
-  { skin: "#c68642", shirt: "#4a3020", pants: "#1c51a1", hair: "#1a1210", accent: "#c4283a", hat: "none", shoes: "#1a1a22" },
-  { skin: "#f1c27d", shirt: "#3a5a38", pants: "#2a2430", hair: "#2a1a10", accent: "#f0c430", hat: "cap", shoes: "#c4283a" },
-  { skin: "#8d5524", shirt: "#1a1a22", pants: "#f4f0e8", hair: "#1a1210", accent: "#e21b7a", hat: "beanie", shoes: "#f4f0e8", chain: true },
-  { skin: "#d4a574", shirt: "#f4f0e8", pants: "#3a3048", hair: "#3a2218", accent: "#2a4a8a", hat: "none", shoes: "#1a1210" },
+  { skin: "#fcb76c", skinLo: "#c77332", shirt: "#c4283a", pants: "#1c51a1", jeansLo: "#0b377c", hair: "#3a2218", accent: "#e31416", hat: "beanie", shoes: "#e8e4e0", shoeRed: "#c20e0e", outline: "#140010" },
+  { skin: "#e0ac69", skinLo: "#b07838", shirt: "#2a8a8a", pants: "#2a2a38", jeansLo: "#1a1a28", hair: "#2a1a10", accent: "#f0c430", hat: "none", shoes: "#e8e4e0", shoeRed: "#c20e0e", outline: "#140010" },
+  { skin: "#c68642", skinLo: "#8a5420", shirt: "#2d2b2e", pants: "#1a1a22", jeansLo: "#0e0e14", hair: "#1a1210", accent: "#f0c430", hat: "cap", shoes: "#e8e4e0", shoeRed: "#c20e0e", chain: true, outline: "#140010" },
+  { skin: "#8d5524", skinLo: "#5a3414", shirt: "#5a2a8a", pants: "#3a3020", jeansLo: "#241c10", hair: "#1a1210", accent: "#c8a0e8", hat: "durag", shoes: "#1a1210", shoeRed: "#8a1010", outline: "#140010" },
+  { skin: "#d4a574", skinLo: "#a07040", shirt: "#f0c430", pants: "#2a2438", jeansLo: "#181420", hair: "#1a1210", accent: "#e21b7a", hat: "afro", shoes: "#e8e4e0", shoeRed: "#c20e0e", outline: "#140010" },
+  { skin: "#fcb76c", skinLo: "#c77332", shirt: "#1a3a68", pants: "#f4f0e8", jeansLo: "#c8c4bc", hair: "#6a4430", accent: "#3de0ff", hat: "none", shoes: "#1a1a22", shoeRed: "#8a1010", outline: "#140010" },
+  { skin: "#a36c41", skinLo: "#6a4420", shirt: "#2a2438", pants: "#1c51a1", jeansLo: "#0b377c", hair: "#1a1210", accent: "#f4f0e8", hat: "beanie", shoes: "#e8e4e0", shoeRed: "#c20e0e", outline: "#140010" },
+  { skin: "#e8be8a", skinLo: "#b07848", shirt: "#e21b7a", pants: "#3a3048", jeansLo: "#201828", hair: "#2a1a10", accent: "#f0c430", hat: "cap", shoes: "#e8e4e0", shoeRed: "#c20e0e", outline: "#140010" },
+  { skin: "#c68642", skinLo: "#8a5420", shirt: "#4a3020", pants: "#1c51a1", jeansLo: "#0b377c", hair: "#1a1210", accent: "#c4283a", hat: "none", shoes: "#1a1a22", shoeRed: "#8a1010", outline: "#140010" },
+  { skin: "#fcb76c", skinLo: "#c77332", shirt: "#3a5a38", pants: "#2a2430", jeansLo: "#161418", hair: "#2a1a10", accent: "#f0c430", hat: "cap", shoes: "#e8e4e0", shoeRed: "#c20e0e", outline: "#140010" },
+  { skin: "#8d5524", skinLo: "#5a3414", shirt: "#1a1a22", pants: "#f4f0e8", jeansLo: "#c8c4bc", hair: "#1a1210", accent: "#e21b7a", hat: "beanie", shoes: "#e8e4e0", shoeRed: "#c20e0e", chain: true, outline: "#140010" },
+  { skin: "#d4a574", skinLo: "#a07040", shirt: "#f4f0e8", pants: "#3a3048", jeansLo: "#201828", hair: "#3a2218", accent: "#2a4a8a", hat: "none", shoes: "#1a1210", shoeRed: "#8a1010", outline: "#140010" },
 ];
+
+/** Hard 1px outline matching classic hero sheets (#140010). */
+function ringOutline(g, w, h, hex = "#140010") {
+  const img = g.getImageData(0, 0, w, h);
+  const d = img.data;
+  const solid = new Uint8Array(w * h);
+  for (let p = 0, i = 0; p < solid.length; p++, i += 4) {
+    if (d[i + 3] >= 16) solid[p] = 1;
+  }
+  const n = parseInt(String(hex).replace("#", ""), 16);
+  const or = (n >> 16) & 255;
+  const og = (n >> 8) & 255;
+  const ob = n & 255;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      if (solid[p]) continue;
+      let near = false;
+      for (let dy = -1; dy <= 1 && !near; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          if (solid[ny * w + nx]) { near = true; break; }
+        }
+      }
+      if (!near) continue;
+      const i = p * 4;
+      d[i] = or;
+      d[i + 1] = og;
+      d[i + 2] = ob;
+      d[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+}
 
 function shadeHex(hex, amt) {
   const n = parseInt(String(hex).replace("#", ""), 16);
@@ -332,6 +370,10 @@ export const PERSON_SIZE = 40;
 function paintPersonHi(g, look, pose) {
   g.imageSmoothingEnabled = false;
   paintPerson(g, look, pose);
+  // Double-ring so peds read the same hard classic outline as the hero PNG sheets.
+  const outline = look.outline || "#140010";
+  ringOutline(g, PERSON_SIZE, PERSON_SIZE, outline);
+  ringOutline(g, PERSON_SIZE, PERSON_SIZE, outline);
 }
 
 export function paintLook(i, pose) {

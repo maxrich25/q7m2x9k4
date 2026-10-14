@@ -111,28 +111,28 @@ html, body {
   font-synthesis: none;
 }
 #hud-top-canvas {
-  display: block;
-  width: 100%;
-  height: 32px;
-  margin: 0;
-  padding: 0;
-  background: transparent;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-  transform: none !important;
-  -webkit-transform: none !important;
+  display: none;
 }
 #hud-top-row {
-  /* Screen-reader mirror of the crisp canvas HUD. */
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  padding: 0 !important;
-  margin: -1px !important;
-  overflow: hidden !important;
-  clip: rect(0, 0, 0, 0) !important;
-  white-space: nowrap !important;
-  border: 0 !important;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px;
+  font-family: "Press Start 2P", monospace;
+  font-size: 10px;
+  line-height: 10px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  transform: none !important;
+  -webkit-transform: none !important;
+  zoom: 1;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  font-smooth: never;
+  text-rendering: geometricPrecision;
+  image-rendering: pixelated;
 }
 #hud-cash { color: #f0c430; flex: 0 0 auto; }
 #hud-inv { flex: 0 0 auto; }
@@ -320,6 +320,70 @@ html, body {
   z-index: 5;
 }
 #prompt.hidden { display: none; }
+
+#quick-phone {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  background: rgba(7, 6, 12, 0.35);
+}
+#quick-phone.hidden { display: none; }
+.quick-phone-card {
+  width: min(78vw, 280px);
+  padding: 14px 14px 12px;
+  border-radius: 18px;
+  border: 2px solid rgba(244, 240, 232, 0.32);
+  background: rgba(18, 16, 24, 0.55);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+  color: var(--cream);
+  box-shadow: none;
+}
+.quick-phone-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 9px;
+  margin-bottom: 12px;
+  color: var(--cream);
+}
+.quick-phone-head button {
+  font-family: var(--font);
+  font-size: 9px;
+  color: var(--cream);
+  background: rgba(18, 16, 24, 0.4);
+  border: 2px solid rgba(244, 240, 232, 0.3);
+  border-radius: 8px;
+  padding: 6px 8px;
+  pointer-events: auto;
+}
+.quick-phone-clock {
+  font-size: 14px;
+  margin-bottom: 12px;
+  color: var(--gold);
+}
+.quick-phone-line {
+  font-size: 8px;
+  line-height: 1.7;
+  margin-bottom: 6px;
+  color: var(--cream);
+}
+.quick-phone-close {
+  margin-top: 10px;
+  width: 100%;
+  font-family: var(--font);
+  font-size: 8px;
+  padding: 10px 8px;
+  color: var(--cream);
+  background: rgba(244, 240, 232, 0.12);
+  border: 2px solid rgba(244, 240, 232, 0.34);
+  border-radius: 10px;
+  pointer-events: auto;
+}
 
 .dest-arrow {
   position: absolute;
@@ -559,10 +623,19 @@ html, body {
   min-height: 48px;
   font-size: 10px;
 }
-#btn-action.go, #btn-accept {
+/* Face-grid A stays frosted soft-lit — no gold glow. Accept keeps gold. */
+#btn-accept {
   background: var(--gold);
   color: #07060c;
   border-color: var(--gold);
+}
+#gb-face-grid #btn-action.go,
+#gb-face-grid #btn-action.pulse {
+  background: rgba(244, 240, 232, 0.14);
+  color: var(--cream);
+  border-color: rgba(244, 240, 232, 0.42);
+  box-shadow: none;
+  text-shadow: none;
 }
 #btn-stall { color: var(--pink); }
 .ctx-btn.off {
@@ -1131,7 +1204,7 @@ html, body {
   flex: 1 1 auto;
   font-family: var(--font);
   font-size: 7px;
-  letter-spacing: 0.4px;
+  letter-spacing: 0;
   color: var(--cream) !important;
   background: rgba(18, 16, 24, 0.38);
   -webkit-backdrop-filter: blur(10px) saturate(1.15);
@@ -1140,22 +1213,31 @@ html, body {
   border-radius: 10px;
   min-height: 0;
   min-width: 0;
-  padding: 4px 2px;
+  padding: 3px 2px;
   pointer-events: auto;
   opacity: 0.78;
-  writing-mode: vertical-rl;
+  writing-mode: horizontal-tb;
   text-orientation: mixed;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1px;
   box-shadow: none !important;
   text-shadow: none !important;
   animation: none !important;
 }
+.gb-sys.stack-letters i {
+  font-style: normal;
+  font-size: 6px;
+  line-height: 1.05;
+  color: var(--cream);
+  display: block;
+}
 .gb-sys.vert span {
   display: block;
-  transform: rotate(180deg);
-  letter-spacing: 1px;
+  transform: none;
+  letter-spacing: 0;
 }
 #btn-exit, #btn-zoom { display: none !important; }
 #btn-phone.unread {
@@ -1205,27 +1287,41 @@ html, body {
   border-width: 2px;
   gap: 2px;
 }
-.face-btn em { font-style: normal; font-size: 8px; color: rgba(244, 240, 232, 0.72); }
-.face-btn span { font-size: 7px; }
-.face-grid.driving .face-btn em { font-size: 7px; }
-.face-grid.driving .face-btn span { font-size: 6px; }
-/* Active = same frosted look, a bit clearer. Never gold/cyan glow. */
+.face-btn em { display: none !important; }
+.face-btn span {
+  font-size: 8px;
+  letter-spacing: 0.5px;
+  min-height: 1em;
+}
+.face-grid.driving .face-btn span { font-size: 7px; }
+/* Soft lit when an action word is showing — frosted, slightly clearer, no glow. */
 .face-btn:not(.off) {
-  opacity: 0.92;
-  background: rgba(18, 16, 24, 0.42);
+  opacity: 0.95;
+  background: rgba(244, 240, 232, 0.14);
   color: var(--cream);
-  border-color: rgba(244, 240, 232, 0.38);
+  border-color: rgba(244, 240, 232, 0.42);
   box-shadow: none;
 }
-.face-btn:not(.off) em { color: rgba(244, 240, 232, 0.78); }
-.face-btn.off { opacity: 0.34; pointer-events: none; }
+.face-btn.off {
+  opacity: 0.28;
+  pointer-events: none;
+  background: rgba(18, 16, 24, 0.32);
+}
+.face-btn.off span:empty { opacity: 0; }
+/* PHONE + RUN stay tappable with the soft frosted look. */
+.face-btn[data-role="quick-phone"],
+.face-btn[data-role="run"] {
+  opacity: 0.88;
+  pointer-events: auto;
+  background: rgba(244, 240, 232, 0.12);
+  border-color: rgba(244, 240, 232, 0.36);
+}
 .face-btn.go, .face-btn.pulse,
-.face-btn.arm:not(.off),
-.face-btn.arm:not(.off) em {
-  background: rgba(18, 16, 24, 0.42);
+.face-btn.arm:not(.off) {
+  background: rgba(244, 240, 232, 0.14);
   color: var(--cream);
-  border-color: rgba(244, 240, 232, 0.38);
-  opacity: 0.92;
+  border-color: rgba(244, 240, 232, 0.42);
+  opacity: 0.95;
   box-shadow: none;
   animation: none;
   text-shadow: none;
