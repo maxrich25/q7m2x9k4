@@ -1,12 +1,12 @@
-import { unlockAudio } from "./audio.js?v=75";
+import { unlockAudio } from "./audio.js?v=76";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyS", "KeyB", "KeyJ", "KeyK", "KeyZ", "KeyX",
   "ShiftLeft", "ShiftRight",
-  "KeyF", "KeyQ", "KeyE", "KeyU", "KeyC", "KeyH", "KeyT",
+  "KeyF", "KeyQ", "KeyE", "KeyU", "KeyC", "KeyH", "KeyT", "KeyO",
   "Digit1", "Digit2", "Digit3", "Digit4",
   "Space", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
-  "KeyM", "Escape", "KeyP", "KeyY", "KeyN",
+  "KeyM", "Escape", "KeyP", "KeyY", "KeyN", "Comma",
   "BracketRight", "Equal",
 ]);
 
@@ -47,6 +47,9 @@ const TAP_ROLES = {
   decline: "decline",
   stall: "decline",
   action: "action",
+  car: "carBtn",
+  crib: "cribBtn",
+  pullover: "pullover",
   inventory: "inventory",
   "inv-close": "invClose",
   "tab-texts": "tabTexts",
@@ -133,9 +136,12 @@ export function createInput(root = document) {
     if (e.code === "ArrowUp" || e.code === "KeyW") jumpPulse = true;
     if (e.code === "KeyX") {
       exitPulse = true;
+      pulseTap("cribBtn");
       pulseTap("gate");
     }
+    if (e.code === "KeyY") pulseTap("carBtn");
     if (e.code === "KeyU") pulseTap("uturn");
+    if (e.code === "Comma" || e.code === "KeyO") pulseTap("pullover");
     if (e.code === "KeyF") pulseTap("serve");
     if (e.code === "KeyH") pulseTap("hitup");
     if (e.code === "KeyC" || e.code === "KeyT") pulseTap("phone");
@@ -436,6 +442,9 @@ export function createInput(root = document) {
       accept,
       decline,
       action: take("action"),
+      carBtn: take("carBtn"),
+      cribBtn: take("cribBtn"),
+      pullover: take("pullover"),
       shiftGear,
       gearTap,
       shiftStep,

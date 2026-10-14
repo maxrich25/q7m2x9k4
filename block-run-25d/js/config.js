@@ -14,9 +14,14 @@ export const CAR_TURN_MAX = 28;
 export const CAR_TURN_ARC = 3.9;
 export const CAR_STOP = 8;
 /** US right-hand traffic: +X uses the camera-side (near) lane.
- *  Road: curb z=2.95, dashes z=7.55, near edge ~12.15. Centers sit mid-lane. */
+ *  Road: curb z=2.95, dashes z=7.55, near edge ~12.15. Centers sit mid-lane.
+ *  Place z = 4.95 + lat, so park lats sit on the curb/shoulder. */
 export const CAR_LANE_NEAR = 4.9;
 export const CAR_LANE_FAR = 0.3;
+export const PARK_LAT_NEAR = -1.45;
+export const PARK_LAT_FAR = -0.55;
+/** Pull-over steer + brake clip length, seconds. */
+export const PULL_OVER_T = 1.15;
 /** Door-open + walk-turn-sit clip length, seconds. */
 export const BOARD_T = 1.12;
 /** Seconds after EXIT before the player can enter the car again. */
@@ -338,6 +343,10 @@ export function skyTint(hour) {
 
 export function restLat(facing) {
   return facing > 0 ? CAR_LANE_NEAR : CAR_LANE_FAR;
+}
+
+export function parkLat(facing) {
+  return facing > 0 ? PARK_LAT_NEAR : PARK_LAT_FAR;
 }
 
 export function wrap(value, length) {

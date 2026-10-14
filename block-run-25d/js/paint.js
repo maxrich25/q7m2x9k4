@@ -79,14 +79,14 @@ export const WALK_POSES = [
  * Planted foot travels backward so it stays planted vs MOVE_SPEED.
  */
 export const WALK_CYCLE_POSES = [
-  { side: true, rFoot: 2, lFoot: -1.5, rLift: 0, lLift: 1.5, arm: 2, bob: 0 },
-  { side: true, rFoot: 0.5, lFoot: -0.5, rLift: 0, lLift: 2, arm: 1.5, bob: 0.5 },
-  { side: true, rFoot: -1, lFoot: 1, rLift: 0.5, lLift: 1.5, arm: 0.5, bob: 0 },
-  { side: true, rFoot: -1.5, lFoot: 2, rLift: 1, lLift: 0.5, arm: -1.5, bob: 0 },
-  { side: true, lFoot: 2, rFoot: -1.5, lLift: 0, rLift: 1.5, arm: -2, bob: 0 },
-  { side: true, lFoot: 0.5, rFoot: -0.5, lLift: 0, rLift: 2, arm: -1.5, bob: 0.5 },
-  { side: true, lFoot: -1, rFoot: 1, lLift: 0.5, rLift: 1.5, arm: -0.5, bob: 0 },
-  { side: true, lFoot: -1.5, rFoot: 2, lLift: 1, rLift: 0.5, arm: 1.5, bob: 0 },
+  { side: true, rFoot: 4, lFoot: -3, rLift: 0, lLift: 3, arm: 3, bob: 0 },
+  { side: true, rFoot: 2, lFoot: -1.5, rLift: 0, lLift: 3.5, arm: 2.5, bob: 1 },
+  { side: true, rFoot: 0, lFoot: 0.5, rLift: 0.5, lLift: 2.5, arm: 1, bob: 0 },
+  { side: true, rFoot: -2.5, lFoot: 3.5, rLift: 2.5, lLift: 0, arm: -2, bob: 0 },
+  { side: true, lFoot: 4, rFoot: -3, lLift: 0, rLift: 3, arm: -3, bob: 0 },
+  { side: true, lFoot: 2, rFoot: -1.5, lLift: 0, rLift: 3.5, arm: -2.5, bob: 1 },
+  { side: true, lFoot: 0, rFoot: 0.5, lLift: 0.5, rLift: 2.5, arm: -1, bob: 0 },
+  { side: true, lFoot: -2.5, rFoot: 3.5, lLift: 2.5, rLift: 0, arm: 2, bob: 0 },
 ];
 /** Run: longer stride, forward lean, higher cadence bob. */
 export const RUN_CYCLE_POSES = [
@@ -102,11 +102,11 @@ export const RUN_CYCLE_POSES = [
 export const PED_WALK_POSES = WALK_CYCLE_POSES;
 /**
  * Game-x of one full walk cycle (both feet).
- * ~8px plant travel on 40px / 3.05m ≈ 0.61m ≈ 4.7 game units.
+ * Longer cycle = visible planted step instead of a foot shuffle.
  */
-export const STRIDE_CYCLE = 6;
+export const STRIDE_CYCLE = 10;
 /** Run cycle length in game-x (longer plant travel). */
-export const RUN_STRIDE_CYCLE = 10;
+export const RUN_STRIDE_CYCLE = 14;
 /** PNG stride leftover — kept for older sheets. */
 export const STRIDE_POSES = [
   { leftDx: 6, leftDy: 0, rightDx: -5, rightDy: -2, bob: 0, arm: 4 },
@@ -644,10 +644,13 @@ export function paintClassicHero(g, pose = {}, wardrobe = {}) {
 
 export function paintClassicHeroSet(wardrobe = { hat: "beanie" }) {
   const look = classicHeroLook(wardrobe);
+  // Plant each walk/run frame so soles stay on the sheet floor (no shuffle float).
+  const walk = WALK_CYCLE_POSES.map((p) => plantStride(paintPersonLook(look, p), p));
+  const run = RUN_CYCLE_POSES.map((p) => plantStride(paintPersonLook(look, p), p));
   return {
     idle: IDLE_POSES.map((p) => paintPersonLook(look, p)),
-    walk: WALK_CYCLE_POSES.map((p) => paintPersonLook(look, p)),
-    run: RUN_CYCLE_POSES.map((p) => paintPersonLook(look, p)),
+    walk,
+    run,
     jump: JUMP_POSES.map((p) => paintPersonLook(look, p)),
     shoot: SHOOT_POSES.map((p) => paintPersonLook(look, p)),
     turn: TURN_POSES.map((p) => paintPersonLook(look, p)),
