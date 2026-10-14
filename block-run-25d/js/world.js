@@ -4,9 +4,9 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=75";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=75";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=75";
+} from "./config.js?v=76";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=76";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=76";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -1349,7 +1349,8 @@ export function createWorld(canvas, sprites) {
     stencil: false,
     depth: true,
   });
-  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  // Integer DPR keeps the WebGL buffer aligned to CSS pixels (avoids soft scale in iOS standalone).
+  renderer.setPixelRatio(Math.max(1, Math.min(3, Math.round(window.devicePixelRatio || 1))));
   renderer.setClearColor(0x0c1428, 1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
@@ -2105,9 +2106,11 @@ export function createWorld(canvas, sprites) {
 
   function resize() {
     const parent = canvas.parentElement;
-    const w = Math.max(1, parent.clientWidth);
-    const h = Math.max(1, parent.clientHeight);
-    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    const vv = window.visualViewport;
+    const w = Math.max(1, parent.clientWidth || Math.round(vv?.width || window.innerWidth));
+    const h = Math.max(1, parent.clientHeight || Math.round(vv?.height || window.innerHeight));
+    const dpr = Math.max(1, Math.min(3, Math.round(window.devicePixelRatio || 1)));
+    renderer.setPixelRatio(dpr);
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.fov = w > h ? 42 : 52;
@@ -2159,19 +2162,24 @@ export function createWorld(canvas, sprites) {
     const camZ = ((portrait ? 15.8 : 14.2) + carCam * 0.7) * zoomMul;
     // Keep on-foot cam lower so billboard soles don't read as floating above the curb.
     const camY = ((portrait ? 2.55 : 2.78) + carCam * 0.35) * (0.92 + zoomMul * 0.08);
+    // Ease follow-side after a turnaround (~0.75s), frame-rate independent — never snap.
     const wantFace = p.facing < 0 ? -1 : 1;
-    if (state.inCar) lookFace = wantFace;
-    else lookFace += (wantFace - lookFace) * (1 - Math.exp(-Math.max(stepDt, 0.0001) / 0.22));
+    const LOOK_FACE_T = 0.75;
+    if (stepDt > 0) {
+      lookFace += (wantFace - lookFace) * (1 - Math.exp(-stepDt / LOOK_FACE_T));
+    }
     if (playing && inCrib) {
       const cx = Number(state.cribX) || 0;
-      const cribZoom = Math.min(1.34, Math.max(0.9, zoomMul));
-      const cribCamY = Math.min(3.35, Math.max(2.15, 2.2 * cribZoom));
-      const cribCamZ = Math.min(9.4, Math.max(6.4, 7.4 * cribZoom));
-      camera.position.set(cx * 0.55, cribCamY, cribCamZ);
-      tmp.set(cx * 0.85, 1.85, -0.4);
+      // Full CAM_ZOOM range: min = closer, max = pulled back so the whole room fits.
+      const cribZoom = Math.max(CAM_ZOOM_MIN, Math.min(CAM_ZOOM_MAX, zoomMul));
+      const t = (cribZoom - CAM_ZOOM_MIN) / Math.max(0.001, CAM_ZOOM_MAX - CAM_ZOOM_MIN);
+      const cribCamY = 2.05 + t * 1.55;
+      const cribCamZ = 9.2 + t * 8.6;
+      camera.position.set(cx * 0.2, cribCamY, cribCamZ);
+      tmp.set(cx * 0.35, 1.7, 0.2);
       camera.lookAt(tmp);
       camera.rotation.z = 0;
-      camera.far = 36;
+      camera.far = 48;
     } else if (playing) {
       const dampDt = Math.min(1 / 30, Math.max(0, stepDt));
       const vFov = THREE.MathUtils.degToRad(camera.fov);
@@ -2180,30 +2188,35 @@ export function createWorld(canvas, sprites) {
       const halfWorld = dist * Math.tan(hFov / 2);
       const trail = state.inCar ? (portrait ? 0.34 : 0.38) : (portrait ? 0.42 : 0.44);
       const leadWorld = Math.min(halfWorld * 0.72, (0.5 - trail) * 2 * halfWorld);
-      const face = lookFace < 0 ? -1 : 1;
+      // Continuous lookFace (−1…1) swings the lead smoothly instead of flipping at 0.
+      const faceLead = lookFace;
       const carW = nearestWorldX(px, camX);
-      let targetCam = wrap(carW + face * leadWorld, STREET_LEN);
+      let targetCam = wrap(carW + faceLead * leadWorld, STREET_LEN);
       const err = wrapDelta(camX, targetCam, STREET_LEN);
-      if (Math.abs(err) > halfWorld * 2.4) {
+      // Only hard-teleport on huge wraps (respawn); never on a normal turnaround (~2× lead).
+      if (Math.abs(err) > halfWorld * 3.6) {
         camX = targetCam;
         camV = 0;
       } else if (dampDt > 0) {
-        const freq = state.inCar ? 1.65 : 2.6;
+        // Softer spring while face is still easing (~0.6–0.9s settle).
+        const faceEase = Math.abs(wantFace - lookFace);
+        const freq = (state.inCar ? 1.15 : 1.55) * (faceEase > 0.08 ? 0.72 : 1);
         const omega = 2 * Math.PI * freq;
         const accX = omega * omega * err - 2 * omega * camV;
         camV += accX * dampDt;
         camX = wrap(camX + camV * dampDt, STREET_LEN);
       }
-      const lookLeadWant = state.inCar ? (portrait ? 0.85 : 1.45) : 0.35;
+      const lookLeadWant = (state.inCar ? (portrait ? 0.85 : 1.45) : 0.35) * Math.max(0.15, Math.abs(faceLead));
       if (dampDt > 0) {
-        const o2 = 2 * Math.PI * 2.1;
+        const o2 = 2 * Math.PI * 1.6;
         const lErr = lookLeadWant - lookAim;
         lookAimV += (o2 * o2 * lErr - 2 * o2 * lookAimV) * dampDt;
         lookAim += lookAimV * dampDt;
       }
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.12, camZ);
       const lookY = state.inCar ? 1.22 : 0.92;
-      tmp.set(camX + face * lookAim, lookY + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 2.15);
+      const lookFaceSign = faceLead === 0 ? wantFace : Math.sign(faceLead);
+      tmp.set(camX + lookFaceSign * lookAim, lookY + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 2.15);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt * 0.25;
     } else {

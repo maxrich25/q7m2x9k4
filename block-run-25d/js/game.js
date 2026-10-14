@@ -8,15 +8,15 @@ import {
   PLUG_X, HOME_X, PED_COUNT, PED_SPACE, TRAFFIC_MAX, LIGHT_COUNT, lightGameX, lightPhaseAt, stopLineGameX,
   PRODUCTS, HALF_OZ, SALE_AMOUNTS, FLAKE_LIMIT, CONTACT_NAMES, MORE_NAMES,
   INTRO_TEXT, SALE_POP_T, SERVE_SLOW, fmtGrams, streetGrams,
-  restLat, CAR_KINDS, GREEN_TIERS, WHITE_TIERS, STALL_LINES,
+  restLat, parkLat, CAR_KINDS, GREEN_TIERS, WHITE_TIERS, STALL_LINES,
   OUTFITS, DEFAULT_WARDROBE, START_HOUR, SEC_PER_HOUR, MAX_REP, wrapHour, fmtHour, skyTint,
   nextUnlock, dayPhase, streetBusy, orderWaitMul, heatMul, plugOpen, SAVE_KEY,
   HEAT_ENABLED, ORDER_T_MIN, ORDER_T_MAX, LIGHT_STOP_LEAD, PASS_MIN_SPEED,
-  BOARD_T, ENTER_LOCK, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
+  BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=75";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=75";
+} from "./config.js?v=76";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=76";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -44,8 +44,8 @@ export function createGame() {
   };
   const car = {
     x: CAR_X, px: CAR_X, vx: 0, facing: 1, hp: CAR_HP,
-    gear: "P", yaw: 0, turnT: 0, turnFrom: 0, turnTo: 0, shiftHint: 0, lat: 0,
-    kind: "beater",
+    gear: "P", yaw: 0, turnT: 0, turnFrom: 0, turnTo: 0, shiftHint: 0, lat: parkLat(1),
+    kind: "beater", parked: true, pullOverT: 0, pullFromLat: parkLat(1),
   };
   let inCar = false;
   let inCrib = false;
@@ -139,7 +139,16 @@ export function createGame() {
     const nearPed = !inCrib && !inCar && peds.some((p) => Math.abs(wrapDelta(player.x, p.x, WORLD)) < 18);
     const nearCribDoor = !!(inCrib && cribX < -2.55);
     const nearWardrobe = !!(inCrib && cribX > 2.15);
-    const exitOk = (inCar && car.gear === "P") || nearCribDoor;
+    const parked = !!(car.parked || (car.gear === "P" && Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.7));
+    const pullOverOk = !!(inCar && !car.parked && (car.pullOverT || 0) <= 0 && car.turnT <= 0);
+    const exitOk = (inCar && parked) || nearCribDoor;
+    // On foot: Enter Car when near. In car: always tappable (exit if parked, else pull over → park).
+    const carBtnOk = !!(!inCrib && (
+      (inCar && (car.pullOverT || 0) <= 0 && car.turnT <= 0)
+      || (!inCar && nearCar)
+    ));
+    // On foot: Enter/Exit Crib. In car: dedicated Pull Over.
+    const cribBtnOk = !!(inCar ? pullOverOk : (nearCribDoor || (!inCar && !inCrib && nearHome)));
     const liveDeal = !!(order && (order.phase === "active" || order.phase === "nudge"));
     const nearDeal = !!(liveDeal && !inCar && Math.abs(wrapDelta(player.x, order.x, WORLD)) < 36);
     const slowEnough = Math.abs(player.vx) < SERVE_SLOW * 1.6;
@@ -163,38 +172,24 @@ export function createGame() {
       else if (nearPlug && !plugMeet) prompt = "TEXT";
       else if (nearPed && !nearCar && !nearHome) prompt = "HIT UP";
     }
-    const picks = [];
-    if (mode === "play" && ui !== "crib" && ui !== "buy" && ui !== "stash" && ui !== "inv" && ui !== "outfit") {
-      if (inCrib) {
-        if (nearWardrobe) picks.push({ id: "clothes", label: "CLOTHES" });
-        if (nearCribDoor) picks.push({ id: "exit", label: "EXIT" });
-      } else {
-        if (canServe) picks.push({ id: "serve", label: "SERVE" });
-        if (!canServe && exitOk) picks.push({ id: "exit", label: "EXIT" });
-        if (!canServe && nearCar) picks.push({ id: "car", label: "ENTER CAR" });
-        if (!canServe && nearHome) picks.push({ id: "crib", label: "ENTER CRIB" });
-        if (!canServe && canBuy) picks.push({ id: "buy", label: "BUY" });
-        if (!canServe && nearPlug && !plugMeet) picks.push({ id: "text", label: "TEXT" });
-        if (!canServe && nearPed && !nearCar && !nearHome && !canBuy) {
-          picks.push({ id: "talk", label: "HIT UP" });
-        }
-      }
-    }
-    let actionLabel = "ACTION";
+    // Face-grid ACT button: interact/sell/buy/text — never opens a popup menu.
+    let actionLabel = "ACT";
     let actionOk = false;
     let actionKind = "";
-    if (picks.length === 1) {
-      actionLabel = picks[0].label;
-      actionOk = true;
-      actionKind = picks[0].id;
-    } else if (picks.length > 1) {
-      actionLabel = "DO";
-      actionOk = true;
-      actionKind = "pick";
+    if (mode === "play" && !ui) {
+      if (inCrib && nearWardrobe) { actionLabel = "CLOTHES"; actionOk = true; actionKind = "clothes"; }
+      else if (canServe) { actionLabel = "SERVE"; actionOk = true; actionKind = "serve"; }
+      else if (canBuy) { actionLabel = "BUY"; actionOk = true; actionKind = "buy"; }
+      else if (nearPlug && !plugMeet) { actionLabel = "TEXT"; actionOk = true; actionKind = "text"; }
+      else if (nearPed && !nearCar && !nearHome && !canBuy) { actionLabel = "HIT UP"; actionOk = true; actionKind = "talk"; }
     }
+    const carLabel = inCar ? "EXIT" : "CAR";
+    const cribLabel = inCar ? "PULL" : (inCrib ? "EXIT" : "CRIB");
     return {
       nearCar, nearPlug, nearHome, nearPed, nearCribDoor, nearWardrobe, exitOk, liveDeal, nearDeal, slowEnough,
-      canServe, canBuy, offer, prompt, gate, actionLabel, actionOk, actionKind, picks,
+      canServe, canBuy, offer, prompt, gate, actionLabel, actionOk, actionKind, picks: [],
+      parked, carBtnOk, cribBtnOk, carLabel, cribLabel,
+      pullOverOk,
     };
   }
 
@@ -226,6 +221,7 @@ export function createGame() {
     const {
       nearCar, nearPlug, nearHome, nearPed, nearCribDoor, nearWardrobe, exitOk, liveDeal, nearDeal, slowEnough,
       canServe, canBuy, offer, prompt, gate, actionLabel, actionOk, actionKind, picks,
+      parked, carBtnOk, cribBtnOk, carLabel: faceCarLabel, cribLabel: faceCribLabel, pullOverOk,
     } = sense();
     const hour = wrapHour(timeHours);
     const dealD = liveDeal ? wrapDelta(player.x, order.x, WORLD) : 0;
@@ -258,7 +254,9 @@ export function createGame() {
       showGate: !!(gate && mode === "play" && !ui && !canServe),
       showHitUp: prompt === "HIT UP" || prompt === "TALK",
       actionLabel, actionOk, actionKind, picks, offer: !!offer,
-      turnOk: inCar && car.gear === "D" && car.turnT <= 0,
+      carBtnOk, cribBtnOk, faceCarLabel, faceCribLabel, parked,
+      pullOverOk: !!pullOverOk,
+      turnOk: inCar && car.gear === "D" && car.turnT <= 0 && (car.pullOverT || 0) <= 0,
       holdLight, holdCar,
       stopped: inCar && Math.abs(car.vx) < CAR_STOP,
       boughtOnce, textedPlug,
@@ -344,16 +342,32 @@ export function createGame() {
     car.turnTo = 0;
     car.shiftHint = 0;
     car.kind = "beater";
-    car.lat = restLat(1);
+    car.lat = parkLat(1);
     car.passT = 0;
     car.turnLatFrom = 0;
     car.turnLatTo = 0;
+    car.parked = true;
+    car.pullOverT = 0;
+    car.pullFromLat = parkLat(1);
     inCar = false;
     inCrib = false;
     cribX = -3.0;
     revU = 0;
     wreckT = 0;
     copCar = null;
+  }
+
+  function carIsParked() {
+    return !!(car.parked || (car.gear === "P" && Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.7));
+  }
+
+  function startPullOver() {
+    if (!inCar || car.parked || (car.pullOverT || 0) > 0 || car.turnT > 0) return false;
+    car.pullFromLat = car.lat ?? restLat(car.facing);
+    car.pullOverT = PULL_OVER_T;
+    car.passT = 0;
+    car.turnT = 0;
+    return true;
   }
 
   function persistZoom() {
@@ -391,6 +405,10 @@ export function createGame() {
 
   function enterCar() {
     if (enterLock > 0) return false;
+    if (!carIsParked()) {
+      // Snap into a parked car only — pull over first if still in a lane.
+      if (car.gear !== "P") return false;
+    }
     inCar = true;
     boardT = BOARD_T;
     revU = 0;
@@ -399,7 +417,9 @@ export function createGame() {
     car.shiftHint = 0;
     car.turnT = 0;
     car.yaw = car.facing < 0 ? Math.PI : 0;
-    car.lat = restLat(car.facing);
+    car.lat = parkLat(car.facing);
+    car.parked = true;
+    car.pullOverT = 0;
     car.passT = 0;
     player.x = car.x;
     player.y = GROUND_Y;
@@ -410,19 +430,29 @@ export function createGame() {
   }
 
   function leaveCar() {
+    if (!carIsParked()) {
+      pop(car.x, 150, "PULL OVER");
+      return false;
+    }
     inCar = false;
     boardT = BOARD_T;
     enterLock = ENTER_LOCK;
+    car.gear = "P";
+    car.vx = 0;
+    car.parked = true;
+    car.lat = parkLat(car.facing);
     player.x = car.x;
     player.px = car.x;
     player.vx = 0;
     player.y = GROUND_Y;
     player.vy = 0;
     player.facing = car.facing;
+    return true;
   }
 
   function tryShift(to, brakeHeld) {
     if (!to || !GEARS.includes(to) || to === car.gear) return false;
+    if ((car.pullOverT || 0) > 0) return false;
     const from = car.gear;
     if (from === "P" && !brakeHeld) {
       car.shiftHint = 1.15;
@@ -441,11 +471,21 @@ export function createGame() {
     }
     car.gear = to;
     car.shiftHint = 0;
+    if (to !== "P") {
+      car.parked = false;
+      if (Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.9) {
+        // Ease off the curb into the travel lane when leaving park.
+        car.lat = restLat(car.facing);
+      }
+    } else if (Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.7) {
+      car.parked = true;
+      car.lat = parkLat(car.facing);
+    }
     return true;
   }
 
   function requestTurn(dir, opts = {}) {
-    if (!dir || car.turnT > 0) return false;
+    if (!dir || car.turnT > 0 || (car.pullOverT || 0) > 0) return false;
     if (dir === car.facing) return false;
     if (!opts.force && Math.abs(car.vx) > CAR_TURN_MAX) return false;
     car.turnT = CAR_TURN_TIME;
@@ -455,11 +495,12 @@ export function createGame() {
     car.turnLatFrom = restLat(car.facing);
     car.turnLatTo = restLat(dir);
     car.facing = dir;
+    car.parked = false;
     return true;
   }
 
   function doUTurn() {
-    if (!inCar || car.turnT > 0) return false;
+    if (!inCar || car.turnT > 0 || (car.pullOverT || 0) > 0) return false;
     if (car.gear !== "D") {
       pop(car.x, 150, "DRIVE");
       return false;
@@ -1035,10 +1076,13 @@ export function createGame() {
       }
       if (s.carFacing) car.facing = s.carFacing < 0 ? -1 : 1;
       car.yaw = car.facing < 0 ? Math.PI : 0;
-      car.lat = restLat(car.facing);
+      car.lat = Number.isFinite(Number(s.carLat)) ? Number(s.carLat) : parkLat(car.facing);
+      car.parked = s.carParked != null ? !!s.carParked : Math.abs(car.lat - parkLat(car.facing)) < 0.7;
+      car.pullOverT = 0;
       if (s.inCar && car.hp > 0) enterCar();
       else if (inCar) leaveCar();
       if (GEARS.includes(s.gear)) car.gear = s.gear;
+      if (car.gear === "P" && car.parked) car.lat = parkLat(car.facing);
       if (!zoomMigratedNow && Number.isFinite(Number(s.camZoom))) {
         const z = Number(s.camZoom);
         camZoom = (z === 0 || z === 1 || z === 2) ? (CAM_ZOOM_MUL[z] || CAM_ZOOM_MED) : clampZoom(z);
@@ -1064,39 +1108,48 @@ export function createGame() {
   function doAction() {
     const a = sense();
     if (!a.actionOk) return false;
-    if (a.actionKind === "pick") {
-      ui = "pick";
-      return true;
-    }
     if (a.actionKind === "accept") return acceptOrder();
     if (a.actionKind === "serve") return serve();
     if (a.actionKind === "clothes") return openOutfit();
-    if (a.actionKind === "gate" || a.actionKind === "exit" || a.actionKind === "car" || a.actionKind === "crib" || a.actionKind === "buy") {
-      return useGatePick(a.actionKind);
-    }
+    if (a.actionKind === "buy") return useGatePick("buy");
     if (a.actionKind === "text") return textPlug();
     if (a.actionKind === "talk") return solicit();
+    return false;
+  }
+
+  function doCarBtn() {
+    if (inCrib) return false;
+    if (inCar) {
+      // Exit only when parked; otherwise Pull Over → curb → P.
+      if (carIsParked()) return leaveCar();
+      return startPullOver();
+    }
+    if (car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && onGround()) {
+      return enterCar();
+    }
+    return false;
+  }
+
+  function doCribBtn() {
+    if (inCar) return startPullOver();
+    if (inCrib) {
+      if (cribX < -2.55) { leaveCrib(); return true; }
+      return false;
+    }
+    if (Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && onGround()) {
+      openCrib();
+      return true;
+    }
     return false;
   }
 
   function useGatePick(id) {
     if (id === "exit") {
       if (inCrib) { leaveCrib(); return true; }
-      if (inCar && car.gear === "P") { leaveCar(); return true; }
-      if (inCar) { pop(car.x, 150, "PARK"); return false; }
+      if (inCar) return leaveCar();
     }
-    if (id === "car") {
-      if (!inCrib && !inCar && car.hp > 0 && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && onGround()) {
-        enterCar();
-        return true;
-      }
-    }
-    if (id === "crib") {
-      if (!inCrib && !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28 && onGround()) {
-        openCrib();
-        return true;
-      }
-    }
+    if (id === "car") return doCarBtn();
+    if (id === "crib") return doCribBtn();
     if (id === "buy") {
       if (plugMeet && Math.abs(wrapDelta(player.x, plugMeet.x, WORLD)) < 28) {
         openBuy();
@@ -1121,18 +1174,8 @@ export function createGame() {
       }
       return false;
     }
-    if (inCar) {
-      if (car.gear === "P") {
-        leaveCar();
-        return true;
-      }
-      pop(car.x, 150, "PARK");
-      return false;
-    }
-    if (nearCarNow) {
-      enterCar();
-      return true;
-    }
+    if (inCar) return leaveCar();
+    if (nearCarNow) return enterCar();
     if (nearHomeNow) {
       openCrib();
       return true;
@@ -1585,10 +1628,13 @@ export function createGame() {
         if (next) tryShift(next, !!input.brake);
       }
       if (input.uturn) doUTurn();
+      if (input.pullover) startPullOver();
       if (input.gate || input.exit) useGate();
     } else if (input.gate) {
       useGate();
     }
+    if (input.carBtn) doCarBtn();
+    if (input.cribBtn) doCribBtn();
     if (input.action) doAction();
     if (input.serve || (input.shoot && Math.abs(wrapDelta(player.x, order?.x ?? player.x, WORLD)) < 32 && Math.abs(player.vx) < SERVE_SLOW)) serve();
     if (input.hitup && !inCar) solicit();
@@ -1603,6 +1649,27 @@ export function createGame() {
       const creep = spec.creep || CAR_CREEP;
       let brake = !!input.brake;
       let gas = !!input.gas;
+      // Pull-over clip: steer to curb, brake out, land in P/parked.
+      if ((car.pullOverT || 0) > 0) {
+        car.pullOverT = Math.max(0, car.pullOverT - dt);
+        const u = 1 - car.pullOverT / PULL_OVER_T;
+        const s = u * u * (3 - 2 * u);
+        const dest = parkLat(car.facing);
+        const from = car.pullFromLat ?? (car.lat ?? restLat(car.facing));
+        car.lat = from + (dest - from) * s;
+        gas = false;
+        brake = true;
+        car.vx *= Math.exp(-3.2 * dt);
+        if (Math.abs(car.vx) < 10) car.vx = 0;
+        car.passT = 0;
+        if (car.pullOverT <= 0) {
+          car.lat = dest;
+          car.vx = 0;
+          car.gear = "P";
+          car.parked = true;
+          pop(car.x, 150, "PARKED");
+        }
+      }
       const gasAmt = gas ? Math.max(0.12, Math.min(1, Number(input.gasAmt) || 1)) : 0;
       const brakeAmt = brake ? Math.max(0.18, Math.min(1, Number(input.brakeAmt) || 1)) : 1;
       holdLight = false;
@@ -1611,6 +1678,11 @@ export function createGame() {
       const homeLat = restLat(face);
       const passLat = restLat(-face);
       const myLat = car.lat ?? homeLat;
+      if (gas && car.parked) {
+        car.parked = false;
+        if (car.gear === "P") car.gear = "D";
+        car.lat = homeLat;
+      }
 
       function stopLineX(index) {
         return stopLineGameX(index, face);
@@ -1657,7 +1729,9 @@ export function createGame() {
 
       let aheadCar = null;
       let aheadDist = Infinity;
+      const pullingOver = (car.pullOverT || 0) > 0;
       for (const t of traffic) {
+        if (pullingOver) break;
         if (Math.sign(t.facing || 1) !== Math.sign(face)) continue;
         const tHome = restLat(t.facing);
         const same = Math.abs((t.lat ?? tHome) - myLat) < 1.6;
@@ -1669,7 +1743,7 @@ export function createGame() {
           }
         }
       }
-      const carClose = !!(aheadCar && aheadDist < 36 && Math.abs(aheadCar.vx) < Math.abs(car.vx) + 12);
+      const carClose = !pullingOver && !!(aheadCar && aheadDist < 36 && Math.abs(aheadCar.vx) < Math.abs(car.vx) + 12);
 
       function passLaneClear(oncomingSpan = 210, alongside = CAR_NOSE_GAME * 2.6) {
         for (const t of traffic) {
@@ -1691,21 +1765,28 @@ export function createGame() {
         return false;
       }
 
-      const canPass = !!(aheadCar && car.gear === "D" && car.turnT <= 0
+      const canPass = !pullingOver && !!(aheadCar && car.gear === "D" && car.turnT <= 0
         && spd >= PASS_MIN_SPEED && gas && !redHold && !junctionAhead(72)
         && passLaneClear(210));
       if (canPass) car.passT = Math.max(car.passT || 0, 1.05);
       if (redHold || (car.passT > 0 && !passLaneClear(140))) car.passT = 0;
 
       let carHold = carClose && !canPass && !((car.passT || 0) > 0);
-      if ((redHold || carHold) && car.gear !== "P") {
+      if ((redHold || carHold) && car.gear !== "P" && !pullingOver) {
         brake = true;
         gas = false;
       }
-      if (redHold || carHold) gas = false;
+      if ((redHold || carHold) && !pullingOver) gas = false;
       holdLight = redHold;
       holdCar = carHold;
-      if (car.turnT > 0) {
+      if (pullingOver) {
+        // lat/vx already handled above; keep yaw aligned.
+        car.yaw = car.facing < 0 ? Math.PI : 0;
+        car.x = wrap(car.x + car.vx * dt, WORLD);
+        player.x = car.x;
+        player.vx = car.vx;
+        player.facing = car.facing;
+      } else if (car.turnT > 0) {
         car.turnT = Math.max(0, car.turnT - dt);
         const u = 1 - car.turnT / CAR_TURN_TIME;
         const s = u * u * (3 - 2 * u);
@@ -1726,18 +1807,25 @@ export function createGame() {
         }
         if ((car.passT || 0) > 0 && !passLaneClear()) car.passT = 0;
         car.passT = Math.max(0, (car.passT || 0) - dt);
-        let wantLat = (car.passT || 0) > 0 ? passLat : homeLat;
         const curLat = car.lat ?? homeLat;
-        if (Math.abs(wantLat - curLat) > 0.12) {
-          let blocked = false;
-          for (const t of traffic) {
-            const tLat = t.lat ?? restLat(t.facing);
-            if (Math.abs(tLat - wantLat) > 1.6) continue;
-            if (Math.abs(wrapDelta(car.x, t.x, WORLD)) < CAR_NOSE_GAME * 2.4) blocked = true;
+        // Parked on the curb: stay put — never lerp back into the travel lane.
+        if (car.parked || (car.gear === "P" && Math.abs(curLat - parkLat(face)) < 0.9)) {
+          car.lat = parkLat(face);
+          car.parked = true;
+          car.passT = 0;
+        } else {
+          let wantLat = (car.passT || 0) > 0 ? passLat : homeLat;
+          if (Math.abs(wantLat - curLat) > 0.12) {
+            let blocked = false;
+            for (const t of traffic) {
+              const tLat = t.lat ?? restLat(t.facing);
+              if (Math.abs(tLat - wantLat) > 1.6) continue;
+              if (Math.abs(wrapDelta(car.x, t.x, WORLD)) < CAR_NOSE_GAME * 2.4) blocked = true;
+            }
+            if (blocked) wantLat = curLat;
           }
-          if (blocked) wantLat = curLat;
+          car.lat = curLat + (wantLat - curLat) * Math.min(1, dt * 3.2);
         }
-        car.lat = curLat + (wantLat - curLat) * Math.min(1, dt * 3.2);
         if (car.gear === "P") {
           car.vx = 0;
         } else if (brake) {
@@ -2033,13 +2121,19 @@ export function createGame() {
         want = 0;
         t.passT = 0;
       } else if (aheadBlock && aheadDist < 48) {
+        const blockerIsPlayer = aheadBlock === car;
+        const playerParkedOrStopped = blockerIsPlayer
+          && (carIsParked() || car.gear === "P" || Math.abs(car.vx) < CAR_STOP);
+        // Parked/stopped player: pass even near a green junction (batch 11 jam fix).
         const canStartPass = !(t.passT > 0)
-          && !oncomingClose && !nearJunction && !redAhead
+          && !oncomingClose && !redAhead
+          && (playerParkedOrStopped || !nearJunction)
           && !laneBusy(otherLat, t.x, t, carGap * 1.2)
-          && mergeGapClear(t, otherLat);
-        if (canStartPass) {
-          t.passT = Math.max(t.passT || 0, 1.45);
-          want = cruise * 1.18;
+          && (playerParkedOrStopped || mergeGapClear(t, otherLat));
+        if (canStartPass || (playerParkedOrStopped && !(t.passT > 0) && !oncomingClose && !redAhead
+          && !laneBusy(otherLat, t.x, t, carGap * 0.9))) {
+          t.passT = Math.max(t.passT || 0, playerParkedOrStopped ? 1.8 : 1.45);
+          want = cruise * 1.22;
         } else if (!(t.passT > 0)) {
           want = Math.min(Math.abs(want), Math.abs(aheadBlock.vx || 0) * 0.92) * Math.sign(faceT || 1);
         } else {
@@ -2092,14 +2186,19 @@ export function createGame() {
           }
           cursor = ux(t.x) + minGap;
         }
-        cursor = -minGap;
-        for (let i = behind.length - 1; i >= 0; i--) {
-          const t = behind[i];
-          if (ux(t.x) > cursor + 0.01) {
-            t.x = wrap(base + cursor, WORLD);
-            t.vx *= 0.2;
+        // Parked/stopped player: don't pin traffic behind — they must peel off and pass.
+        const playerParkedOrStopped = carIsParked() || car.gear === "P" || Math.abs(car.vx) < CAR_STOP;
+        if (!playerParkedOrStopped) {
+          cursor = -minGap;
+          for (let i = behind.length - 1; i >= 0; i--) {
+            const t = behind[i];
+            if ((t.passT || 0) > 0) continue;
+            if (ux(t.x) > cursor + 0.01) {
+              t.x = wrap(base + cursor, WORLD);
+              t.vx *= 0.2;
+            }
+            cursor = ux(t.x) - minGap;
           }
-          cursor = ux(t.x) - minGap;
         }
       } else {
         for (let i = 1; i < list.length; i++) {
@@ -2493,6 +2592,9 @@ export function createGame() {
     waitCrib,
     saveCrib,
     doAction,
+    doCarBtn,
+    doCribBtn,
+    startPullOver,
     useGate,
     doUTurn,
     addContact,
@@ -2568,7 +2670,7 @@ export function createGame() {
         car.facing = d;
         car.yaw = d < 0 ? Math.PI : 0;
         car.turnT = 0;
-        car.lat = restLat(d);
+        car.lat = car.parked || car.gear === "P" ? parkLat(d) : restLat(d);
         player.turnT = 0;
       }
     },
@@ -2593,6 +2695,24 @@ export function createGame() {
     setPassLane(on) {
       car.passT = on ? 1.2 : 0;
       car.lat = restLat(on ? -car.facing : car.facing);
+      if (on) car.parked = false;
+    },
+    setCarLat(lat) {
+      car.lat = Number(lat);
+      car.parked = Math.abs(car.lat - parkLat(car.facing)) < 0.7 && car.gear === "P";
+    },
+    setParked(on) {
+      if (on) {
+        car.gear = "P";
+        car.vx = 0;
+        car.lat = parkLat(car.facing);
+        car.parked = true;
+        car.pullOverT = 0;
+        car.passT = 0;
+      } else {
+        car.parked = false;
+        car.lat = restLat(car.facing);
+      }
     },
     placeTrafficAhead() {
       if (!traffic.length) traffic.push(makeTrafficCar(0));

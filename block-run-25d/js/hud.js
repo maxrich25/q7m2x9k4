@@ -1,6 +1,6 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=75";
-import { paintClassicHero } from "./paint.js?v=75";
-import { isUnlocked } from "./audio.js?v=75";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=76";
+import { paintClassicHero } from "./paint.js?v=76";
+import { isUnlocked } from "./audio.js?v=76";
 
 export function createHud(opts = {}) {
   const subtitle = opts.subtitle || "2.5D NIGHT BLOCK";
@@ -41,8 +41,13 @@ export function createHud(opts = {}) {
   const shiftKnob = document.getElementById("shift-knob");
   const shiftHint = document.getElementById("shift-hint");
   const padUturn = document.querySelector('[data-role="uturn"]');
+  const padPullover = document.querySelector('[data-role="pullover"]');
   const ctx = document.getElementById("pad-ctx") || document.getElementById("ctx");
   const btnAction = document.getElementById("btn-action");
+  const btnCar = document.getElementById("btn-car");
+  const btnCrib = document.getElementById("btn-crib");
+  const btnCarLabel = document.getElementById("btn-car-label");
+  const btnCribLabel = document.getElementById("btn-crib-label");
   const btnStall = document.getElementById("btn-stall");
   const btnAccept = document.getElementById("btn-accept");
   const btnServe = document.getElementById("btn-serve");
@@ -303,6 +308,8 @@ export function createHud(opts = {}) {
     shiftHint?.classList.toggle("hidden", !(driving && (state.car?.shiftHint || 0) > 0));
     padUturn?.classList.toggle("off", driving && !state.turnOk);
     padUturn?.classList.toggle("hidden", !driving);
+    // Pull Over lives on the face-grid while driving (not on the pedal strip).
+    padPullover?.classList.add("hidden");
     btnPhone?.classList.toggle("unread", !!state.unread);
 
     const playUi = state.mode === "play" && !state.ui;
@@ -313,8 +320,13 @@ export function createHud(opts = {}) {
     const showServe = !!(playUi && !offer && state.showServe);
     const showGate = !!(playUi && !offer && state.showGate);
     const showHit = !!(playUi && !offer && state.showHitUp);
-    if (ctx) ctx.classList.add("hidden");
-    const label = state.actionLabel || "ACTION";
+    // Pop-up action menu removed — face-grid only.
+    if (ctx) {
+      ctx.classList.add("hidden");
+      ctx.setAttribute("hidden", "");
+      ctx.innerHTML = "";
+    }
+    const label = state.actionLabel || "ACT";
     const actionOn = !!(state.actionOk && state.mode === "play");
     if (actionLabelEl) actionLabelEl.textContent = label;
     else if (btnAction) btnAction.textContent = label;
@@ -323,6 +335,24 @@ export function createHud(opts = {}) {
       btnAction.classList.toggle("go", actionOn);
       btnAction.classList.toggle("pulse", showServe && label === "SERVE");
       btnAction.classList.toggle("serve", showServe && label === "SERVE");
+    }
+    const carOn = !!(state.carBtnOk && state.mode === "play");
+    const cribOn = !!(state.cribBtnOk && state.mode === "play");
+    const exitReady = !!(driving && state.parked);
+    if (btnCarLabel) btnCarLabel.textContent = state.faceCarLabel || (state.inCar ? "EXIT" : "CAR");
+    if (btnCribLabel) btnCribLabel.textContent = state.faceCribLabel || (state.inCar ? "PULL" : (state.inCrib ? "EXIT" : "CRIB"));
+    if (btnCar) {
+      btnCar.classList.toggle("off", !carOn);
+      // Gold when exit is ready; still tappable while driving to trigger pull-over.
+      btnCar.classList.toggle("go", exitReady || (!driving && carOn));
+      btnCar.classList.toggle("arm", !!(driving && carOn && !state.parked));
+      btnCar.classList.toggle("hidden", false);
+    }
+    if (btnCrib) {
+      btnCrib.classList.toggle("off", !cribOn);
+      btnCrib.classList.toggle("go", cribOn);
+      btnCrib.classList.toggle("arm", !!(driving && cribOn));
+      btnCrib.classList.toggle("hidden", false);
     }
     if (orderStrip) {
       const liveOrder = state.order && (state.order.phase === "active" || state.order.phase === "nudge");
@@ -339,9 +369,14 @@ export function createHud(opts = {}) {
         }
       }
     }
-    if (bLabelEl) bLabelEl.textContent = "RUN";
-    document.getElementById("btn-b")?.classList.toggle("hidden", driving);
-    document.getElementById("btn-b")?.classList.toggle("off", false);
+    if (bLabelEl) bLabelEl.textContent = driving ? "—" : "RUN";
+    const btnB = document.getElementById("btn-b");
+    btnB?.classList.toggle("hidden", false);
+    btnB?.classList.toggle("off", !!driving);
+    btnB?.classList.toggle("go", false);
+    if (driving) btnB?.setAttribute("data-role", "run");
+    document.getElementById("gb-btns")?.classList.toggle("hidden", false);
+    document.getElementById("gb-face-grid")?.classList.toggle("driving", driving);
     btnExit?.classList.toggle("hidden", !(driving || state.inCrib));
     if (btnStall) btnStall.classList.add("hidden");
     phoneDeal?.classList.toggle("hidden", !showAccept);
