@@ -1,5 +1,5 @@
 /* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
-const ASSET_V = "14";
+const ASSET_V = "15";
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v3";
 const HERO_SRC_W = 40;
@@ -376,6 +376,13 @@ function carComingNear(x) {
   }
   return false;
 }
+function carBlocksPed(x) {
+  if (car.street === streetId && Math.abs(car.x - x) < 48) return true;
+  for (const t of traffic) {
+    if (Math.abs(t.x - x) < 48) return true;
+  }
+  return false;
+}
 function updatePeds(dt) {
   const lo = alongMin();
   const hi = alongMax();
@@ -397,7 +404,7 @@ function updatePeds(dt) {
     if (ped.wantCross || Math.random() < 0.0018) {
       ped.wantCross = true;
       ped.z = Z_WALK_MAX;
-      if (carComingNear(ped.x)) {
+      if (carComingNear(ped.x) || carBlocksPed(ped.x)) {
         ped.mode = "wait";
       } else {
         ped.mode = "cross";
@@ -406,8 +413,14 @@ function updatePeds(dt) {
       }
       continue;
     }
+    const nx = ped.x + ped.facing * ped.speed * dt;
+    if (carComingNear(ped.x) || carBlocksPed(nx) || carBlocksPed(ped.x)) {
+      ped.mode = "wait";
+      ped.z = clampWalkZ(Math.min(ped.z, Z_WALK_MIN + 0.06));
+      continue;
+    }
     ped.mode = "walk";
-    ped.x = Math.max(lo, Math.min(hi, ped.x + ped.facing * ped.speed * dt));
+    ped.x = Math.max(lo, Math.min(hi, nx));
     ped.z = clampWalkZ(ped.z);
     if (ped.x <= lo + 1 || ped.x >= hi - 1) ped.facing *= -1;
     if (Math.random() < 0.002) ped.facing *= -1;
@@ -928,28 +941,31 @@ function drawHillLayer(base, seed, baseH, amp1, amp2, fill, shade, ridge) {
     const ht = Math.max(4, Math.round(hillHeight(x, seed, baseH, amp1, amp2) * worldZoom));
     const top = base - ht;
     for (let y = Math.max(0, top); y < base; y++) {
-      const dither = ((x >> 1) & 1) ^ ((y >> 1) & 1);
-      px(nctx, x, y, 1, 1, dither ? shade : fill);
+      const depth = y - top;
+      let c = fill;
+      if (depth <= 1) c = ridge;
+      else if (depth <= 4 && ((x + y * 3) & 3) === 0) c = shade;
+      else if (depth > ht * 0.62 && ((x + (y >> 1)) & 3) === 0) c = shade;
+      px(nctx, x, y, 1, 1, c);
     }
-    if (top >= 0) px(nctx, x, top, 1, 1, ridge);
   }
 }
 function drawHillsSkyline() {
   const base = streetDestY(FACADE_Y);
   const scroll = Math.round(cam * 0.08);
-  drawHillLayer(base, scroll + 90, 28, 10, 4, "#18092e", "#0e0418", "#2a1848");
-  drawHillLayer(base, scroll + 40, 40, 14, 6, "#1e0a3e", "#160828", "#3a2870");
-  drawHillLayer(base, scroll + 8, 52, 16, 7, "#2a1450", "#220a40", "#6a5088");
+  drawHillLayer(base, scroll + 90, 26, 9, 4, "#160828", "#0c0418", "#2a1848");
+  drawHillLayer(base, scroll + 40, 38, 12, 5, "#1c0a38", "#140828", "#3a2870");
+  drawHillLayer(base, scroll + 8, 48, 14, 6, "#241040", "#1a0a34", "#5a4478");
   const lights = [
-    [20, 10], [46, 16], [70, 9], [98, 18], [128, 12], [158, 17], [188, 11], [216, 15], [242, 10],
+    [20, 12], [46, 18], [70, 11], [98, 20], [128, 14], [158, 19], [188, 13], [216, 17], [242, 12],
   ];
   for (const [lx, drop] of lights) {
     const x = ((lx + scroll) % nesW + nesW) % nesW;
-    const ht = Math.round(hillHeight(x, scroll + 8, 52, 16, 7) * worldZoom);
-    const y = base - ht + Math.round(drop * worldZoom * 0.4);
+    const ht = Math.round(hillHeight(x, scroll + 8, 48, 14, 6) * worldZoom);
+    const y = base - ht + Math.round(drop * worldZoom * 0.35);
     if (y < 4 || y >= base - 3) continue;
     px(nctx, x, y, 1, 1, "#c8a830");
-    px(nctx, x + 2, y + 3, 1, 1, "#aca190");
+    if ((lx + drop) % 2 === 0) px(nctx, x + 3, y + 2, 1, 1, "#aca190");
   }
 }
 function drawWestSkyline() {
@@ -1059,10 +1075,10 @@ function drawStreetSigns() {
   ].filter((b) => b.name);
   const bw = Math.max(...blades.map((b) => signBladeWidth(b.name)));
   const baseY = streetDestY(SIDEWALK_CURB);
-  const poleH = Math.round(24 * worldZoom);
+  const poleH = Math.round(40 * worldZoom);
   const heroSx = worldToScreen(inCar ? car.x : player.x);
-  const heroL = heroSx - 32;
-  const heroR = heroSx + 32;
+  const heroL = heroSx - 40;
+  const heroR = heroSx + 40;
   const clearOfHero = (left, right) => right < heroL - 4 || left > heroR + 4;
   const onScreen = (left, right) => left >= 2 && right <= nesW - 2;
   const candidates = [];
@@ -1093,11 +1109,11 @@ function drawStreetSigns() {
   nctx.fillStyle = "#8a8894";
   nctx.fillRect(sx, baseY - poleH, 1, poleH);
   blades.forEach((blade, i) => {
-    const by = baseY - poleH + i * 10;
+    const by = baseY - poleH + 2 + i * 11;
     nctx.fillStyle = "#0a180c";
-    nctx.fillRect(bx - 1, by - 1, bw + 2, 10);
+    nctx.fillRect(bx - 1, by - 1, bw + 2, 11);
     nctx.fillStyle = blade.fill;
-    nctx.fillRect(bx, by, bw, 8);
+    nctx.fillRect(bx, by, bw, 9);
     drawSignText(blade.name, bx + 4, by + 1, "#f8f4e8");
   });
 }
@@ -1115,6 +1131,12 @@ function drawActors() {
       actors.push({ z: Z_WALK_MIN + 0.04, draw: () => drawPerson(plugImg, at(PLUG), clampWalkZ(0.26), 1) });
     }
     for (const ped of peds) {
+      if (car.street === streetId && Math.abs(ped.x - car.x) < 40) continue;
+      let skip = false;
+      for (const t of traffic) {
+        if (Math.abs(ped.x - t.x) < 40) { skip = true; break; }
+      }
+      if (skip) continue;
       const sheet = ped.look ? art.runner : art.thug;
       const img = sheet[Math.floor(ped.anim * WALK_FPS) % sheet.length];
       actors.push({ z: ped.z, draw: () => drawPerson(img, ped.x, ped.z, ped.facing) });
@@ -1157,12 +1179,14 @@ function drawActors() {
   }
   actors.sort((a, b) => a.z - b.z);
   for (const a of actors) a.draw();
-  if (mode === "play" && streetHasSpots()) {
-    drawLabel(at(CRIB), 0.12, "CRIB", "#e81818");
-    drawLabel(at(PLUG), 0.12, "PLUG", "#f0c430");
+  if (mode === "play" && streetHasSpots() && !inCar) {
+    const px = player.x;
+    const near = (wx) => Math.abs(px - wx) < 54;
+    if (near(at(CRIB))) drawLabel(at(CRIB), 0.12, "CRIB", "#e81818");
+    if (near(at(PLUG))) drawLabel(at(PLUG), 0.12, "PLUG", "#f0c430");
     for (const m of MEETS) {
       const here = order && order.spot === m.id && order.phase === "active";
-      drawLabel(at(m), 0.12, m.label, here ? "#38d8f8" : "#8a8696");
+      if (here || near(at(m))) drawLabel(at(m), 0.12, m.label, here ? "#38d8f8" : "#8a8696");
     }
   }
 }
