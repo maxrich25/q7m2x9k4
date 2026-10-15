@@ -1,5 +1,5 @@
 /* BLOCK RUN — flat SNES belt-scroller. Hard pixels, no 3D. */
-const ASSET_V = "6";
+const ASSET_V = "7";
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v2";
 const HERO_SRC_W = 40;
@@ -9,12 +9,12 @@ const TARGET_HERO_PX = 86;
 const GEARS = ["P", "R", "N", "D"];
 const WALK_FPS = 8;
 const STRIDE_NATIVE = 4.5;
-/** Hero walk sheet. One path list, any length — swap files here. */
+/** Hero walk sheet. One path list, any length — classic walk-1..4, unchanged. */
 const HERO_WALK_FRAMES = [
-  "sprites/walk2-1.png",
-  "sprites/walk2-2.png",
-  "sprites/walk2-3.png",
-  "sprites/walk2-4.png",
+  "../block-run/sprites/walk-1.png",
+  "../block-run/sprites/walk-2.png",
+  "../block-run/sprites/walk-3.png",
+  "../block-run/sprites/walk-4.png",
 ];
 const WALK_Z = 52;
 const REACH = 28;
