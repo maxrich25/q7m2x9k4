@@ -1,5 +1,5 @@
 /* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
-const ASSET_V = "13";
+const ASSET_V = "14";
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v3";
 const HERO_SRC_W = 40;
@@ -914,31 +914,42 @@ function drawDowntownSkyline() {
     nctx.drawImage(src, sx, 48, tw, 38, dx, dy, tw, dh);
   }
 }
-function drawHillsSkyline() {
-  const src = art?.street;
-  if (src) blitClassic(nctx, src, Math.round(cam * 0.1), worldY0, 40 - worldY0);
-  const cols = ["#18092e", "#1e0a3e", "#220a40", "#0a0220", "#14101f"];
-  const base = streetDestY(FACADE_Y);
+function hillHeight(x, seed, baseH, amp1, amp2) {
+  const t = x + seed;
+  return Math.round(
+    baseH
+    + Math.sin(t * 0.027 + seed * 0.11) * amp1
+    + Math.sin(t * 0.061 + 1.8) * amp2
+    + Math.sin(t * 0.11 + seed * 0.4) * amp2 * 0.28,
+  );
+}
+function drawHillLayer(base, seed, baseH, amp1, amp2, fill, shade, ridge) {
   for (let x = 0; x < nesW; x++) {
-    const n1 = Math.sin(x * 0.055 + 1.1);
-    const n2 = Math.sin(x * 0.17 + 3.4);
-    const step = ((x * 13 + 7) % 9);
-    const ht = Math.round((28 + n1 * 12 + n2 * 7 + step * 0.7) * worldZoom);
+    const ht = Math.max(4, Math.round(hillHeight(x, seed, baseH, amp1, amp2) * worldZoom));
     const top = base - ht;
-    for (let y = top; y < base; y++) {
-      const c = cols[(x * 3 + y * 5 + step) % cols.length];
-      px(nctx, x, y, 1, 1, c);
+    for (let y = Math.max(0, top); y < base; y++) {
+      const dither = ((x >> 1) & 1) ^ ((y >> 1) & 1);
+      px(nctx, x, y, 1, 1, dither ? shade : fill);
     }
-    px(nctx, x, top, 1, 1, "#3a2870");
-    if ((x * 11 + 3) % 19 === 0) px(nctx, x, top + 6 + (x % 5), 1, 1, "#aca190");
-    if ((x * 7 + 1) % 23 === 0) px(nctx, x, top + 10 + (x % 3), 1, 1, "#c8a830");
+    if (top >= 0) px(nctx, x, top, 1, 1, ridge);
   }
-  for (let i = 0; i < 7; i++) {
-    const hx = (i * 37 + 14 + Math.round(cam * 0.08)) % nesW;
-    const hy = base - Math.round((16 + ((i * 5) % 10)) * worldZoom);
-    px(nctx, hx, hy, 5, Math.round(8 * worldZoom), "#14101f");
-    px(nctx, hx + 1, hy + 2, 1, 1, "#c8a830");
-    px(nctx, hx + 3, hy + 4, 1, 1, "#aca190");
+}
+function drawHillsSkyline() {
+  const base = streetDestY(FACADE_Y);
+  const scroll = Math.round(cam * 0.08);
+  drawHillLayer(base, scroll + 90, 28, 10, 4, "#18092e", "#0e0418", "#2a1848");
+  drawHillLayer(base, scroll + 40, 40, 14, 6, "#1e0a3e", "#160828", "#3a2870");
+  drawHillLayer(base, scroll + 8, 52, 16, 7, "#2a1450", "#220a40", "#6a5088");
+  const lights = [
+    [20, 10], [46, 16], [70, 9], [98, 18], [128, 12], [158, 17], [188, 11], [216, 15], [242, 10],
+  ];
+  for (const [lx, drop] of lights) {
+    const x = ((lx + scroll) % nesW + nesW) % nesW;
+    const ht = Math.round(hillHeight(x, scroll + 8, 52, 16, 7) * worldZoom);
+    const y = base - ht + Math.round(drop * worldZoom * 0.4);
+    if (y < 4 || y >= base - 3) continue;
+    px(nctx, x, y, 1, 1, "#c8a830");
+    px(nctx, x + 2, y + 3, 1, 1, "#aca190");
   }
 }
 function drawWestSkyline() {
@@ -951,11 +962,18 @@ function drawSouthSkyline() {
   nctx.fillRect(0, y0, nesW, Math.max(1, streetDestY(FACADE_Y) - y0));
 }
 function drawHeadingSky() {
-  drawNightSky();
-  if (heading === "N") drawHillsSkyline();
-  else if (heading === "E") drawDowntownSkyline();
-  else if (heading === "W") drawWestSkyline();
-  else drawSouthSkyline();
+  if (heading === "N") {
+    const src = art?.street;
+    nctx.fillStyle = "#0c011f";
+    nctx.fillRect(0, 0, nesW, streetDestY(FACADE_Y));
+    if (src) blitClassic(nctx, src, Math.round(cam * 0.1), 0, 36);
+    drawHillsSkyline();
+  } else {
+    drawNightSky();
+    if (heading === "E") drawDowntownSkyline();
+    else if (heading === "W") drawWestSkyline();
+    else drawSouthSkyline();
+  }
 }
 function streetTint(style) {
   if (style === "blvd") return [0.92, 0.97, 1.08];
@@ -1017,32 +1035,70 @@ function drawCurrentStreet() {
   }
 }
 
+function drawSignText(s, x, y, color) {
+  nctx.font = "8px 'Press Start 2P', monospace";
+  nctx.fillStyle = color;
+  nctx.textAlign = "left";
+  nctx.textBaseline = "top";
+  nctx.fillText(s, Math.round(x), Math.round(y));
+}
+function signBladeWidth(name) {
+  nctx.font = "8px 'Press Start 2P', monospace";
+  const w = nctx.measureText(name).width;
+  return Math.max(40, Math.ceil(w || name.length * 8) + 10);
+}
 function drawStreetSigns() {
   const st = currentStreet();
   const ix = nearIntersection();
   if (!st || !ix) return;
   nctx.imageSmoothingEnabled = false;
   nctx.font = "8px 'Press Start 2P', monospace";
-  const sx = Math.round(worldToScreen(ix.x - 40));
-  if (sx < -36 || sx > nesW + 8) return;
+  const blades = [
+    { name: st.name, fill: "#2d8a4a" },
+    { name: ix.crossName || "", fill: "#1f6a38" },
+  ].filter((b) => b.name);
+  const bw = Math.max(...blades.map((b) => signBladeWidth(b.name)));
   const baseY = streetDestY(SIDEWALK_CURB);
-  const poleH = Math.round(20 * worldZoom);
+  const poleH = Math.round(24 * worldZoom);
+  const heroSx = worldToScreen(inCar ? car.x : player.x);
+  const heroL = heroSx - 32;
+  const heroR = heroSx + 32;
+  const clearOfHero = (left, right) => right < heroL - 4 || left > heroR + 4;
+  const onScreen = (left, right) => left >= 2 && right <= nesW - 2;
+  const candidates = [];
+  for (const side of [-1, 1]) {
+    const pole = Math.round(worldToScreen(ix.x + side * 36));
+    const growLeft = side < 0;
+    const bx = growLeft ? pole - bw : pole + 3;
+    const sx = growLeft ? bx + bw : bx - 3;
+    const left = Math.min(sx, bx);
+    const right = Math.max(sx + 2, bx + bw);
+    candidates.push({ sx, bx, left, right, ok: onScreen(left, right) && clearOfHero(left, right) });
+  }
+  let pick = candidates.find((c) => c.ok);
+  if (!pick) {
+    const roomLeft = heroL - 6;
+    const roomRight = nesW - 2 - (heroR + 6);
+    if (roomLeft >= bw && roomLeft >= roomRight) {
+      pick = { sx: Math.round(heroL - 6), bx: Math.round(heroL - 6 - bw) };
+    } else {
+      pick = { sx: Math.round(heroR + 6), bx: Math.round(heroR + 9) };
+    }
+    pick.bx = Math.max(2, Math.min(nesW - 2 - bw, pick.bx));
+    pick.sx = pick.bx < pick.sx ? pick.bx + bw : pick.bx - 3;
+  }
+  const { sx, bx } = pick;
   nctx.fillStyle = "#3a3844";
   nctx.fillRect(sx, baseY - poleH, 2, poleH);
   nctx.fillStyle = "#8a8894";
   nctx.fillRect(sx, baseY - poleH, 1, poleH);
-  const blades = [
-    { name: st.name, fill: "#2d8a4a" },
-    { name: ix.crossName || "", fill: "#1f6a38" },
-  ];
   blades.forEach((blade, i) => {
-    const label = blade.name.length > 6 ? blade.name.slice(0, 6) : blade.name;
-    const bw = Math.max(24, label.length * 6 + 4);
-    const bx = sx + 3;
-    const by = baseY - poleH + i * 9;
+    const by = baseY - poleH + i * 10;
+    nctx.fillStyle = "#0a180c";
+    nctx.fillRect(bx - 1, by - 1, bw + 2, 10);
     nctx.fillStyle = blade.fill;
     nctx.fillRect(bx, by, bw, 8);
-    text(nctx, label, bx + 2, by + 1, "#f8f4e8");
+    drawSignText(blade.name, bx + 4, by + 1, "#f8f4e8");
   });
 }
 
