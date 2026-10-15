@@ -61,7 +61,7 @@ html, body {
   border: 2px solid var(--line);
 }
 
-#btn-mute { color: var(--gold); }
+#btn-mute { color: var(--gold); white-space: nowrap; }
 #btn-mute.off { color: var(--muted); }
 
 #view {

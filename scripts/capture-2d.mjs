@@ -7,7 +7,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const CHROME = "/usr/bin/google-chrome-stable";
 const PORT = process.env.PORT || "8767";
 const ROOT = `http://127.0.0.1:${PORT}/`;
-const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=5`;
+const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=6`;
 
 async function shot(page, name) {
   const file = path.join(OUT, name);
@@ -52,7 +52,7 @@ async function main() {
   await waitFonts(page);
   await page.evaluate(() => {
     try { localStorage.clear(); } catch {}
-    window.__br.setMuted(true);
+    window.__br.setMuted(false);
   });
   await page.waitForTimeout(200);
   await shot(page, "title_game.png");
@@ -81,6 +81,7 @@ async function main() {
       pad: { top: Math.round(pad.top), h: Math.round(pad.height) },
       canvas: { w: Math.round(canvas.width), h: Math.round(canvas.height), bottom: Math.round(canvas.bottom) },
       overlap,
+      mute: document.getElementById("btn-mute").textContent,
     };
   });
   console.log("ONFOOT", JSON.stringify(onFoot, null, 2));
