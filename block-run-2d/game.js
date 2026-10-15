@@ -1,11 +1,16 @@
-/* BLOCK RUN — flat SNES belt-scroller. Hard pixels, no 3D. */
-const ASSET_V = "9";
+/* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
+const ASSET_V = "10";
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v2";
 const HERO_SRC_W = 40;
 const HERO_SRC_H = 40;
-/** On-screen hero target on a 375-wide SE. Integer zoom, no smoothing. */
-const TARGET_HERO_PX = 86;
+const NES_W = 256;
+const NES_H = 224;
+/** Classic ground line from block-run (sprite feet at y=198 on the 224 canvas). */
+const GROUND_Y = 198;
+const SIDEWALK_BACK = 186;
+const SIDEWALK_CURB = 198;
+const ROAD_Y = 208;
 const GEARS = ["P", "R", "N", "D"];
 const WALK_FPS = 8;
 const STRIDE_NATIVE = 4.5;
@@ -24,10 +29,10 @@ const START_CASH = 130;
 const GRAM_PAY = 14;
 const MAX_G = 56;
 const SALES = [20, 40, 60];
-const CAR_ACCEL = 210;
-const CAR_MAX = 230;
-const CAR_CREEP = 34;
-const CAR_STOP = 10;
+const CAR_ACCEL = 140;
+const CAR_MAX = 120;
+const CAR_CREEP = 22;
+const CAR_STOP = 8;
 const NAMES = ["DEZ", "MARI", "KILO", "NIA", "JUNO"];
 const MEETS = [
   { id: "taco", label: "TACO", t: 0.56 },
@@ -43,18 +48,6 @@ const Z_STREET_MIN = 0.52;
 const Z_STREET_MAX = 0.92;
 const Z_CAR_PARK = 0.58;
 const Z_CAR_DRIVE = 0.74;
-const PALETTE = [
-  [7, 6, 12], [12, 8, 28], [20, 12, 40], [32, 18, 56], [48, 28, 72],
-  [8, 8, 8], [20, 20, 24], [40, 40, 44], [64, 64, 72],
-  [232, 24, 24], [200, 16, 16], [168, 8, 8], [104, 8, 8],
-  [248, 184, 104], [232, 152, 80], [200, 112, 56],
-  [24, 72, 152], [16, 56, 128], [8, 40, 104], [8, 24, 72],
-  [248, 248, 248], [216, 216, 220], [168, 168, 176],
-  [200, 72, 24], [168, 56, 16], [104, 32, 8], [224, 104, 48],
-  [56, 216, 248], [240, 196, 48], [56, 240, 112],
-  [90, 74, 104], [138, 134, 150], [184, 176, 164], [120, 112, 104],
-  [26, 36, 28], [20, 56, 32], [40, 88, 48], [72, 120, 56],
-];
 function walkSpeed() {
   return STRIDE_NATIVE * WALK_FPS * spriteScale;
 }
@@ -71,11 +64,12 @@ const ctx = canvas.getContext("2d");
 const nes = document.createElement("canvas");
 const nctx = nes.getContext("2d");
 
-let nesW = 256;
-let nesH = 224;
+let nesW = NES_W;
+let nesH = NES_H;
 let cssScale = 1;
-let spriteScale = 2;
-let WORLD = 398 * 3;
+let spriteScale = 1;
+let WORLD = 398 * 4;
+let longStreet = null;
 let art = null;
 let mode = "title";
 let ui = null;
@@ -124,18 +118,6 @@ function at(def) {
 function meetById(id) {
   return MEETS.find((m) => m.id === id) || MEETS[0];
 }
-function palHex(rgb) {
-  return "#" + rgb.map((n) => n.toString(16).padStart(2, "0")).join("");
-}
-function nearestPal(r, g, b) {
-  let best = PALETTE[0];
-  let bestD = Infinity;
-  for (const p of PALETTE) {
-    const d = (p[0] - r) * (p[0] - r) + (p[1] - g) * (p[1] - g) + (p[2] - b) * (p[2] - b);
-    if (d < bestD) { bestD = d; best = p; }
-  }
-  return palHex(best);
-}
 function loadImage(src) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -156,79 +138,6 @@ async function loadSheet(name, base = `../block-run/sprites/`) {
 /** Future belt-scroller facing sheets. Missing files stay null. */
 async function loadDirSheet(name) {
   return loadSheet(name);
-}
-function paintSedan(body, rust) {
-  const w = 64;
-  const h = 24;
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  const g = c.getContext("2d");
-  g.imageSmoothingEnabled = false;
-  const shade = rust ? "#681808" : "#141418";
-  const mid = body;
-  const hi = rust ? "#e87838" : "#787888";
-  const deep = rust ? "#401004" : "#0a0a0c";
-  const rustSpot = rust ? "#8a3010" : "#202028";
-  g.fillStyle = "#080808";
-  g.fillRect(8, 16, 12, 8);
-  g.fillRect(42, 16, 12, 8);
-  g.fillStyle = "#2a2a30";
-  g.fillRect(10, 18, 8, 4);
-  g.fillRect(44, 18, 8, 4);
-  g.fillStyle = "#585860";
-  g.fillRect(12, 19, 3, 2);
-  g.fillRect(46, 19, 3, 2);
-  g.fillStyle = "#a8a8b0";
-  g.fillRect(13, 19, 1, 1);
-  g.fillRect(47, 19, 1, 1);
-  g.fillStyle = "#3a3a40";
-  g.fillRect(6, 20, 16, 2);
-  g.fillRect(40, 20, 16, 2);
-  g.fillStyle = deep;
-  g.fillRect(2, 13, 60, 6);
-  g.fillStyle = shade;
-  g.fillRect(3, 12, 58, 6);
-  g.fillStyle = mid;
-  g.fillRect(4, 10, 56, 6);
-  g.fillStyle = hi;
-  g.fillRect(5, 10, 54, 2);
-  g.fillStyle = rustSpot;
-  g.fillRect(8, 13, 4, 2);
-  g.fillRect(28, 14, 5, 2);
-  g.fillRect(50, 12, 3, 2);
-  g.fillStyle = "#181820";
-  g.fillRect(17, 3, 28, 8);
-  g.fillStyle = shade;
-  g.fillRect(17, 3, 28, 2);
-  g.fillRect(17, 3, 2, 8);
-  g.fillRect(43, 3, 2, 8);
-  g.fillStyle = hi;
-  g.fillRect(19, 3, 24, 1);
-  g.fillStyle = "#0c2848";
-  g.fillRect(20, 5, 9, 5);
-  g.fillRect(32, 5, 10, 5);
-  g.fillStyle = "#1a4870";
-  g.fillRect(20, 8, 9, 2);
-  g.fillRect(32, 8, 10, 2);
-  g.fillStyle = "#5a88a8";
-  g.fillRect(21, 5, 4, 2);
-  g.fillRect(33, 5, 4, 2);
-  g.fillStyle = "#d0e8f0";
-  g.fillRect(21, 5, 2, 1);
-  g.fillRect(33, 5, 2, 1);
-  g.fillStyle = "#c8c8d0";
-  g.fillRect(58, 12, 4, 3);
-  g.fillStyle = "#f0f0f8";
-  g.fillRect(59, 12, 2, 1);
-  g.fillStyle = "#e81818";
-  g.fillRect(2, 12, 4, 3);
-  g.fillStyle = "#f86848";
-  g.fillRect(3, 12, 2, 1);
-  g.fillStyle = "#f0c430";
-  g.fillRect(4, 15, 2, 1);
-  g.fillRect(56, 15, 2, 1);
-  return c;
 }
 
 function readSave() {
@@ -264,14 +173,11 @@ function spawnPeds() {
   }));
 }
 function spawnTraffic() {
-  const colors = ["#184898", "#282828", "#a80808", "#082868"];
-  traffic = [0, 1, 2, 3].map((i) => ({
-    x: wrap((WORLD / 4) * i + 220, WORLD),
-    z: 0.66 + (i % 2) * 0.1,
+  traffic = [0, 1].map((i) => ({
+    x: wrap((WORLD / 3) * (i + 1) + 180, WORLD),
+    z: Z_CAR_DRIVE,
     facing: i % 2 ? -1 : 1,
-    vx: (i % 2 ? -1 : 1) * (70 + i * 12),
-    color: colors[i % colors.length],
-    img: paintSedan(colors[i % colors.length], false),
+    vx: (i % 2 ? -1 : 1) * 48,
   }));
 }
 function fresh() {
@@ -504,36 +410,33 @@ function brakeHeld() {
 function snapView() {
   const vw = Math.max(160, viewEl?.clientWidth || 375);
   const vh = Math.max(140, viewEl?.clientHeight || 400);
-  // Integer CSS zoom: SE is 2× (~188×224 of world) so less street is shown and
-  // the skyline fills the leftover sky. Hard pixels, no smoothing.
-  cssScale = vw >= 800 ? 3 : 2;
-  if (vw < 260) cssScale = 1;
-  // 40×2 source × 2 CSS = 160px cell. Prior 80px cell read as ~45px of ink /
-  // ants; this 2× framing puts visible body near 80–90px like 2.5D on-foot.
-  spriteScale = 2;
-  if (HERO_SRC_H * spriteScale * cssScale < 80) spriteScale += 1;
-  nesW = Math.max(140, Math.floor(vw / cssScale));
-  nesH = Math.max(120, Math.floor(vh / cssScale));
-  if (nes.width !== nesW || nes.height !== nesH) {
-    nes.width = nesW;
-    nes.height = nesH;
+  nesW = NES_W;
+  nesH = NES_H;
+  spriteScale = 1;
+  // Classic letterbox: fit 256×224 into the view, hard pixels, same framing as block-run/.
+  cssScale = Math.max(0.5, Math.min(vw / NES_W, vh / NES_H));
+  if (nes.width !== NES_W || nes.height !== NES_H) {
+    nes.width = NES_W;
+    nes.height = NES_H;
   }
-  canvas.width = nesW;
-  canvas.height = nesH;
-  canvas.style.width = (nesW * cssScale) + "px";
-  canvas.style.height = (nesH * cssScale) + "px";
+  canvas.width = NES_W;
+  canvas.height = NES_H;
+  canvas.style.width = Math.round(NES_W * cssScale) + "px";
+  canvas.style.height = Math.round(NES_H * cssScale) + "px";
 }
 
 function depthY(z) {
-  const top = Math.round(nesH * 0.50);
-  const bot = nesH - 8;
-  return Math.round(top + Math.max(0, Math.min(1, z)) * (bot - top));
+  const u = (clampWalkZ(z) - Z_WALK_MIN) / Math.max(0.001, Z_WALK_MAX - Z_WALK_MIN);
+  return Math.round(SIDEWALK_BACK + u * (SIDEWALK_CURB - SIDEWALK_BACK));
 }
 function sidewalkTop() {
-  return depthY(0.18);
+  return SIDEWALK_BACK;
 }
 function sidewalkCurb() {
-  return depthY(0.55) - 4;
+  return SIDEWALK_CURB;
+}
+function carGroundY() {
+  return (car.parked || car.gear === "P") ? SIDEWALK_CURB : ROAD_Y;
 }
 function clampWalkZ(z) {
   return Math.max(Z_WALK_MIN, Math.min(Z_WALK_MAX, Number(z) || Z_WALK_MIN));
@@ -583,10 +486,10 @@ function heroSheet() {
   return pickWalkSheet(player.moveDir);
 }
 
-function drawSprite(img, wx, z, w, h, facing, footPad = 0) {
+function drawSprite(img, wx, z, w, h, facing, footPad = 0, yLock) {
   if (!img) return;
   const sx = worldToScreen(wx);
-  const sy = depthY(z) + Math.round(footPad);
+  const sy = (yLock != null ? yLock : depthY(z)) + Math.round(footPad);
   const dw = Math.round(w);
   const dh = Math.round(h);
   if (sx < -dw || sx > nesW + dw) return;
@@ -615,261 +518,58 @@ function text(c, s, x, y, color, align) {
   c.fillText(s, Math.round(x), Math.round(y));
 }
 
-function drawPalm(x, baseY, h) {
-  const trunkX = x + 5;
-  nctx.fillStyle = "#2a1810";
-  nctx.fillRect(trunkX, baseY - h, 5, h);
-  nctx.fillStyle = "#5a3820";
-  nctx.fillRect(trunkX, baseY - h, 3, h);
-  nctx.fillStyle = "#8a5830";
-  nctx.fillRect(trunkX, baseY - h, 1, h);
-  nctx.fillStyle = "#3a2014";
-  for (let y = baseY - h + 4; y < baseY - 2; y += 5) nctx.fillRect(trunkX, y, 5, 1);
-  nctx.fillStyle = "#c07038";
-  nctx.fillRect(trunkX + 1, baseY - h + 2, 2, 2);
-  nctx.fillRect(trunkX + 1, baseY - h + 8, 2, 2);
-  const top = baseY - h;
-  nctx.fillStyle = "#104028";
-  nctx.fillRect(x - 8, top - 2, 12, 4);
-  nctx.fillRect(x + 8, top - 2, 12, 4);
-  nctx.fillRect(x - 2, top - 10, 16, 6);
-  nctx.fillStyle = "#1c6840";
-  nctx.fillRect(x - 10, top, 10, 3);
-  nctx.fillRect(x + 8, top, 12, 3);
-  nctx.fillRect(x - 4, top - 8, 20, 4);
-  nctx.fillRect(x + 2, top - 14, 10, 5);
-  nctx.fillStyle = "#38a058";
-  nctx.fillRect(x - 8, top, 8, 2);
-  nctx.fillRect(x + 10, top, 8, 2);
-  nctx.fillRect(x, top - 8, 14, 3);
-  nctx.fillRect(x + 3, top - 13, 8, 3);
-  nctx.fillStyle = "#70d878";
-  nctx.fillRect(x + 2, top - 8, 6, 2);
-  nctx.fillRect(x + 4, top - 12, 4, 2);
-  nctx.fillStyle = "#c07028";
-  nctx.fillRect(trunkX - 1, top + 2, 2, 2);
-  nctx.fillRect(trunkX + 4, top + 3, 2, 2);
+/** Classic street blit, copied from block-run/: wrap a 256×224 window of the strip. */
+function drawClassicStreet() {
+  const src = longStreet || art?.street;
+  if (!src) {
+    nctx.fillStyle = "#0c011f";
+    nctx.fillRect(0, 0, NES_W, NES_H);
+    return;
+  }
+  const o = src.width || src.naturalWidth || 398;
+  let e = Math.round(cam);
+  e = ((e % o) + o) % o;
+  nctx.imageSmoothingEnabled = false;
+  nctx.drawImage(src, e, 0, NES_W, NES_H, 0, 0, NES_W, NES_H);
+  if (e + NES_W > o) {
+    const t = e + NES_W - o;
+    nctx.drawImage(src, 0, 0, t, NES_H, NES_W - t, 0, t, NES_H);
+  }
+}
+
+/** Tile classic building slices in varied order so the strip is long, not a single copy-paste. */
+function buildLongStreet(src) {
+  const sw = src.naturalWidth || src.width;
+  const sh = src.naturalHeight || src.height || NES_H;
+  const pieces = [[0, 99], [99, 190], [190, 275], [275, sw]];
+  const pattern = [
+    [0, 1, 2, 3],
+    [2, 0, 3, 1],
+    [3, 2, 1, 0],
+    [1, 3, 0, 2],
+  ];
+  const seq = pattern.flat();
+  let total = 0;
+  for (const i of seq) total += pieces[i][1] - pieces[i][0];
+  const c = document.createElement("canvas");
+  c.width = total;
+  c.height = NES_H;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  let x = 0;
+  for (const i of seq) {
+    const [a, b] = pieces[i];
+    g.drawImage(src, a, 0, b - a, sh, x, 0, b - a, NES_H);
+    x += b - a;
+  }
+  return c;
 }
 
 function drawParallax() {
-  const skyH = Math.round(nesH * 0.54);
-  const skyBands = ["#08061a", "#100828", "#1c0c3c", "#2a1050", "#3c1864", "#582070", "#6e2874"];
-  const bandH = Math.ceil(skyH / skyBands.length);
-  for (let i = 0; i < skyBands.length; i++) {
-    nctx.fillStyle = skyBands[i];
-    nctx.fillRect(0, i * bandH, nesW, bandH + 1);
-    if (i < skyBands.length - 1) {
-      nctx.fillStyle = skyBands[i + 1];
-      for (let x = (i % 2); x < nesW; x += 2) nctx.fillRect(x, (i + 1) * bandH - 1, 1, 1);
-    }
-  }
-  nctx.fillStyle = "#8a3878";
-  nctx.fillRect(0, skyH - 8, nesW, 4);
-  nctx.fillStyle = "#a44880";
-  nctx.fillRect(0, skyH - 4, nesW, 4);
-  const starShift = Math.round(cam * 0.05);
-  for (let i = 0; i < 36; i++) {
-    const x = wrap((i * 47 + 9) - starShift, nesW);
-    const y = 6 + ((i * 17) % Math.max(10, skyH - 48));
-    nctx.fillStyle = i % 6 === 0 ? "#fff8e0" : i % 3 === 0 ? "#f0e8ff" : "#a8a0d0";
-    nctx.fillRect(x, y, i % 8 === 0 ? 2 : 1, i % 8 === 0 ? 2 : 1);
-  }
-  const moonX = nesW - 48;
-  nctx.fillStyle = "#f8ecd0";
-  nctx.fillRect(moonX, 14, 14, 14);
-  nctx.fillStyle = "#e8d4a0";
-  nctx.fillRect(moonX + 2, 16, 10, 10);
-  nctx.fillStyle = "#d0b878";
-  nctx.fillRect(moonX + 4, 18, 4, 4);
-  nctx.fillRect(moonX + 9, 21, 3, 3);
-  nctx.fillStyle = "#6e2874";
-  nctx.fillRect(moonX + 11, 15, 3, 3);
-  const hillShift = Math.round(cam * 0.12);
-  for (let i = 0; i < 14; i++) {
-    const x = wrap(i * 38 - hillShift, nesW + 40) - 12;
-    const h = 18 + (i % 4) * 8;
-    nctx.fillStyle = "#20103a";
-    nctx.fillRect(x, skyH - h, 32 + (i % 3) * 6, h);
-    nctx.fillStyle = "#2c1848";
-    nctx.fillRect(x, skyH - h, 32 + (i % 3) * 6, 4);
-  }
-  const midShift = Math.round(cam * 0.2);
-  const midTones = ["#2a1844", "#241840", "#301c48"];
-  for (let i = 0; i < 10; i++) {
-    const x = wrap(i * 46 + 6 - midShift, nesW + 50) - 10;
-    const h = 28 + (i % 5) * 9;
-    nctx.fillStyle = midTones[i % midTones.length];
-    nctx.fillRect(x, skyH - h, 28 + (i % 2) * 10, h);
-    nctx.fillStyle = "#3a2460";
-    nctx.fillRect(x, skyH - h, 28 + (i % 2) * 10, 3);
-    for (let wy = 6; wy < h - 8; wy += 7) {
-      for (let wx = 4; wx < 22; wx += 7) {
-        const on = ((i * 3 + wy + wx) % 5) !== 2;
-        nctx.fillStyle = on ? ((i + wy) % 4 === 0 ? "#f0c430" : "#48d0e8") : "#140c28";
-        nctx.fillRect(x + wx, skyH - h + wy, 3, 3);
-        if (on) {
-          nctx.fillStyle = "#fff4b0";
-          nctx.fillRect(x + wx, skyH - h + wy, 1, 1);
-        }
-      }
-    }
-  }
-  if (art?.street) {
-    const sw = art.street.naturalWidth;
-    nctx.globalAlpha = 0.22;
-    let covered = 0;
-    let worldX = cam * 0.22;
-    while (covered < nesW) {
-      const srcX = Math.floor(wrap(worldX, sw));
-      const span = Math.max(1, Math.min(nesW - covered, sw - srcX));
-      nctx.drawImage(art.street, srcX, 70, span, 50, covered, skyH - 50, span, 50);
-      covered += span;
-      worldX += span;
-    }
-    nctx.globalAlpha = 1;
-  }
-  const palmShift = Math.round(cam * 0.32);
-  for (let i = 0; i < 7; i++) {
-    drawPalm(wrap(i * 78 + 18 - palmShift, nesW + 56) - 12, skyH, 28 + (i % 3) * 5);
-  }
-  const walkY = depthY(0.18);
-  const streetY = depthY(0.55);
-  const wallH = 68;
-  const wallY = walkY - wallH;
-  const wallShift = Math.round(cam);
-  const facades = [
-    { body: "#6a3858", shade: "#3a2034", brick: "#8a4c70", hi: "#b86890", awn: "#e21b7a", trim: "#f0c430" },
-    { body: "#385870", shade: "#203848", brick: "#4c7894", hi: "#70a0b8", awn: "#38d8f8", trim: "#f8f8f8" },
-    { body: "#8a5030", shade: "#4a2818", brick: "#b86840", hi: "#e09058", awn: "#f0c430", trim: "#38d8f8" },
-    { body: "#385048", shade: "#203028", brick: "#4c7064", hi: "#78a890", awn: "#38f070", trim: "#f0c430" },
-    { body: "#584070", shade: "#302448", brick: "#7860a0", hi: "#a088c8", awn: "#c060ff", trim: "#f8f8f8" },
-  ];
-  for (let i = -1; i < Math.ceil(nesW / 56) + 1; i++) {
-    const x = i * 56 - wrap(wallShift, 56);
-    const f = facades[(i + 40) % facades.length];
-    nctx.fillStyle = f.shade;
-    nctx.fillRect(x, wallY, 54, wallH);
-    nctx.fillStyle = f.body;
-    nctx.fillRect(x, wallY, 54, 5);
-    nctx.fillStyle = f.hi;
-    nctx.fillRect(x, wallY, 54, 2);
-    nctx.fillStyle = f.trim;
-    nctx.fillRect(x, wallY + 5, 54, 1);
-    nctx.fillStyle = f.brick;
-    for (let by = wallY + 8; by < walkY - 18; by += 6) {
-      const odd = ((by / 6) | 0) % 2;
-      for (let bx = x + 2 + odd * 4; bx < x + 50; bx += 8) {
-        nctx.fillStyle = f.brick;
-        nctx.fillRect(bx, by, 6, 4);
-        nctx.fillStyle = f.hi;
-        nctx.fillRect(bx, by, 6, 1);
-        nctx.fillStyle = f.shade;
-        nctx.fillRect(bx + 5, by + 1, 1, 3);
-      }
-    }
-    nctx.fillStyle = "#100814";
-    nctx.fillRect(x + 52, wallY, 4, wallH);
-    const lit = (i + Math.floor(cam / 56)) % 4 !== 1;
-    nctx.fillStyle = "#18101c";
-    nctx.fillRect(x + 6, wallY + 14, 14, 14);
-    nctx.fillRect(x + 24, wallY + 14, 14, 14);
-    nctx.fillStyle = f.trim;
-    nctx.fillRect(x + 6, wallY + 14, 14, 2);
-    nctx.fillRect(x + 24, wallY + 14, 14, 2);
-    nctx.fillStyle = lit ? "#f8d848" : "#1a2438";
-    nctx.fillRect(x + 8, wallY + 17, 10, 9);
-    nctx.fillRect(x + 26, wallY + 17, 10, 9);
-    if (lit) {
-      nctx.fillStyle = "#fff6b0";
-      nctx.fillRect(x + 8, wallY + 17, 4, 3);
-      nctx.fillRect(x + 26, wallY + 17, 4, 3);
-      nctx.fillStyle = "#c8a020";
-      nctx.fillRect(x + 8, wallY + 23, 10, 3);
-      nctx.fillRect(x + 26, wallY + 23, 10, 3);
-    }
-    nctx.fillStyle = f.awn;
-    nctx.fillRect(x + 4, wallY + 10, 16, 3);
-    nctx.fillRect(x + 22, wallY + 10, 16, 3);
-    nctx.fillStyle = f.hi;
-    nctx.fillRect(x + 4, wallY + 10, 16, 1);
-    nctx.fillRect(x + 22, wallY + 10, 16, 1);
-    nctx.fillStyle = f.shade;
-    nctx.fillRect(x + 10, walkY - 16, 12, 16);
-    nctx.fillStyle = "#201018";
-    nctx.fillRect(x + 12, walkY - 14, 8, 14);
-    nctx.fillStyle = f.trim;
-    nctx.fillRect(x + 16, walkY - 8, 2, 2);
-    nctx.fillStyle = f.awn;
-    nctx.fillRect(x + 8, walkY - 18, 16, 3);
-  }
-  const nearPalm = Math.round(cam * 0.82);
-  for (let i = 0; i < 4; i++) {
-    drawPalm(wrap(i * 130 + 50 - nearPalm, nesW + 80) - 18, walkY, 40);
-  }
-  for (let i = 0; i < 5; i++) {
-    const lx = wrap(i * 96 + 20 - Math.round(cam * 0.9), nesW + 20);
-    nctx.fillStyle = "#2a2018";
-    nctx.fillRect(lx, walkY - 36, 3, 36);
-    nctx.fillStyle = "#5a4030";
-    nctx.fillRect(lx, walkY - 36, 1, 36);
-    nctx.fillStyle = "#f0c430";
-    nctx.fillRect(lx - 3, walkY - 40, 9, 5);
-    nctx.fillStyle = "#fff2a0";
-    nctx.fillRect(lx - 1, walkY - 39, 3, 3);
-  }
-  nctx.fillStyle = "#7a7680";
-  nctx.fillRect(0, walkY, nesW, streetY - walkY);
-  nctx.fillStyle = "#b0a8b0";
-  nctx.fillRect(0, walkY, nesW, 3);
-  nctx.fillStyle = "#9a929a";
-  nctx.fillRect(0, walkY + 3, nesW, 1);
-  nctx.fillStyle = "#5a5660";
-  for (let x = -Math.round(cam % 16); x < nesW; x += 16) {
-    nctx.fillRect(x, walkY + 5, 1, streetY - walkY - 8);
-  }
-  nctx.fillStyle = "#6a6268";
-  for (let y = walkY + 12; y < streetY - 8; y += 10) {
-    for (let x = -Math.round(cam % 16); x < nesW; x += 16) nctx.fillRect(x + 1, y, 14, 1);
-  }
-  nctx.fillStyle = "#8a8288";
-  for (let x = -Math.round(cam % 16); x < nesW; x += 16) {
-    nctx.fillRect(x + 2, walkY + 7, 4, 2);
-  }
-  nctx.fillStyle = "#3a3640";
-  nctx.fillRect(0, streetY - 6, nesW, 2);
-  nctx.fillStyle = "#d8d0c4";
-  nctx.fillRect(0, streetY - 4, nesW, 4);
-  nctx.fillStyle = "#f0e8dc";
-  nctx.fillRect(0, streetY - 4, nesW, 1);
-  nctx.fillStyle = "#8a8074";
-  nctx.fillRect(0, streetY - 1, nesW, 1);
-  nctx.fillStyle = "#18161e";
-  nctx.fillRect(0, streetY, nesW, nesH - streetY);
-  nctx.fillStyle = "#221e28";
-  nctx.fillRect(0, streetY, nesW, 3);
-  nctx.fillStyle = "#2a2630";
-  for (let i = 0; i < 55; i++) {
-    const x = wrap((i * 27 + Math.floor(cam)) % (nesW + 10), nesW);
-    nctx.fillRect(x, streetY + 6 + (i % 8) * 6, 3, 1);
-  }
-  nctx.fillStyle = "#100e14";
-  for (let i = 0; i < 18; i++) {
-    const x = wrap((i * 41 + Math.floor(cam * 0.5)) % (nesW + 12), nesW);
-    nctx.fillRect(x, streetY + 10 + (i % 5) * 8, 5, 2);
-  }
-  const dash = Math.round(cam % 26);
-  const laneY = depthY(0.74);
-  nctx.fillStyle = "#a08018";
-  for (let x = -dash; x < nesW; x += 26) nctx.fillRect(x, laneY, 14, 2);
-  nctx.fillStyle = "#f0c430";
-  for (let x = -dash; x < nesW; x += 26) nctx.fillRect(x, laneY - 1, 14, 2);
-  nctx.fillStyle = "#fff0a0";
-  for (let x = -dash; x < nesW; x += 26) nctx.fillRect(x, laneY - 1, 14, 1);
+  drawClassicStreet();
 }
 
 function drawActors() {
-  const carW = 64 * spriteScale;
-  const carH = 24 * spriteScale;
   const actors = [];
   if (art) {
     {
@@ -890,12 +590,18 @@ function drawActors() {
       const bz = clampWalkZ(0.30);
       actors.push({ z: bz, draw: () => drawPerson(img, at(spot), bz, face) });
     }
+    const ride = art.car;
+    const carW = (ride?.naturalWidth || ride?.width || 95) * spriteScale;
+    const carH = (ride?.naturalHeight || ride?.height || 29) * spriteScale;
     for (const t of traffic) {
-      actors.push({ z: t.z, draw: () => drawSprite(t.img, t.x, t.z, carW, carH, t.facing) });
+      actors.push({
+        z: 0.9,
+        draw: () => drawSprite(ride, t.x, t.z, carW, carH, t.facing, 0, ROAD_Y),
+      });
     }
     actors.push({
-      z: car.z + 0.04,
-      draw: () => drawSprite(art.sedan, car.x, car.z, carW, carH, car.facing),
+      z: 0.85,
+      draw: () => drawSprite(ride, car.x, car.z, carW, carH, car.facing, 0, carGroundY()),
     });
     if (!inCar) {
       const sheet = heroSheet();
@@ -1243,8 +949,12 @@ window.__br = {
     car: { ...car },
     heroPx: HERO_SRC_H * spriteScale * cssScale,
     nesW, nesH, cssScale, spriteScale,
+    world: WORLD,
     plugX: at(PLUG),
     cribX: at(CRIB),
+    orderX: order ? at(meetById(order.spot)) : 0,
+    hasStreet: !!(longStreet || art?.street),
+    hasCar: !!art?.car,
   }),
   start: () => beginPlay(false),
   finishIntro: () => { if (mode === "title") beginPlay(false); },
@@ -1290,16 +1000,18 @@ Promise.all([
   loadDirSheet("walk-front"),
   loadDirSheet("walk-back"),
   loadImage(`../block-run/sprites/pack.png?v=${ASSET_V}`),
-  loadImage(`../block-run/sprites/dumpster.png?v=${ASSET_V}`),
-  loadImage(`../block-run/map/street.png?v=${ASSET_V}`),
-]).then(([idle, walk, walkNew, thug, runner, walkFront, walkBack, pack, dumpster, street]) => {
-  if (!idle || !thug || !runner || !pack) return;
+  loadImage(`map/street.png?v=${ASSET_V}`),
+  loadImage(`sprites/car.png?v=${ASSET_V}`),
+]).then(([idle, walk, walkNew, thug, runner, walkFront, walkBack, pack, street, carImg]) => {
+  if (!idle || !thug || !runner || !pack || !street || !carImg) return;
+  longStreet = buildLongStreet(street);
+  WORLD = longStreet.width;
   art = {
-    idle, walk: walkNew || walk, walkNew: walkNew || walk, thug, runner, pack, dumpster, street,
+    idle, walk: walkNew || walk, walkNew: walkNew || walk, thug, runner, pack, street,
     walkFront, walkBack,
-    sedan: paintSedan("#c84818", true),
+    car: carImg,
+    sedan: carImg,
   };
-  if (street) WORLD = street.naturalWidth * 3;
   window.__br.ready = true;
 });
 requestAnimationFrame(frame);
