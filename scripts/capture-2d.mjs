@@ -8,7 +8,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const CHROME = "/usr/bin/google-chrome-stable";
 const PORT = process.env.PORT || "8767";
 const ROOT = `http://127.0.0.1:${PORT}/`;
-const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=13&fresh=clear`;
+const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=14&fresh=clear`;
 
 async function shot(page, name) {
   const file = path.join(OUT, name);
@@ -183,6 +183,7 @@ async function main() {
   await shot(page, "classic_fix_intersect.png");
   await shot(page, "classic_world_intersect.png");
   await shot(page, "streets_intersect.png");
+  await shot(page, "hills_sign_intersect.png");
 
   await page.evaluate(() => {
     window.__br.setHeading("E");
@@ -202,6 +203,7 @@ async function main() {
   await shot(page, "classic_world_hills.png");
   await shot(page, "streets_hills.png");
   await shot(page, "streets_north_hills.png");
+  await shot(page, "hills_sign_hills.png");
 
   await page.evaluate(() => {
     window.__br.setStreet("sunset", 130, "W");
