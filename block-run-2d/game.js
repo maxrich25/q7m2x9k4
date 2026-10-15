@@ -1,5 +1,5 @@
 /* BLOCK RUN — flat SNES belt-scroller. Hard pixels, no 3D. */
-const ASSET_V = "8";
+const ASSET_V = "9";
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v2";
 const HERO_SRC_W = 40;
@@ -256,7 +256,7 @@ function addPop(x, z, s) {
 function spawnPeds() {
   peds = [0, 1, 2, 3, 4, 5].map((i) => ({
     x: wrap((WORLD / 6) * i + 40, WORLD),
-    z: 0.14 + (i % 3) * 0.07,
+    z: clampWalkZ(0.22 + (i % 3) * 0.06),
     facing: i % 2 ? -1 : 1,
     look: i % 2,
     anim: Math.random(),
@@ -596,6 +596,12 @@ function drawSprite(img, wx, z, w, h, facing, footPad = 0) {
   nctx.drawImage(img, -Math.round(dw / 2), -dh, dw, dh);
   nctx.restore();
 }
+function drawPerson(img, wx, z, facing) {
+  if (!img) return;
+  const nw = (img.naturalWidth || img.width || HERO_SRC_W) * spriteScale;
+  const nh = (img.naturalHeight || img.height || HERO_SRC_H) * spriteScale;
+  drawSprite(img, wx, z, nw, nh, facing, opaqueFootPad(img) * spriteScale);
+}
 function drawLabel(wx, z, s, color) {
   const sx = worldToScreen(wx);
   if (sx < -48 || sx > nesW + 48) return;
@@ -866,18 +872,23 @@ function drawActors() {
   const carH = 24 * spriteScale;
   const actors = [];
   if (art) {
-    actors.push({ z: 0.16, draw: () => drawSprite(art.dumpster, at(PLUG), 0.16, 32 * spriteScale, 32 * spriteScale, 1) });
+    {
+      const plugSheet = art.thug;
+      const plugImg = plugSheet[0];
+      actors.push({ z: Z_WALK_MIN + 0.04, draw: () => drawPerson(plugImg, at(PLUG), clampWalkZ(0.26), 1) });
+    }
     for (const ped of peds) {
       const sheet = ped.look ? art.runner : art.thug;
-      const img = sheet[Math.floor(ped.anim * 8) % sheet.length];
-      actors.push({ z: ped.z, draw: () => drawSprite(img, ped.x, ped.z, 30 * spriteScale, 38 * spriteScale, ped.facing) });
+      const img = sheet[Math.floor(ped.anim * WALK_FPS) % sheet.length];
+      actors.push({ z: ped.z, draw: () => drawPerson(img, ped.x, ped.z, ped.facing) });
     }
     if (order && order.phase === "active") {
       const spot = meetById(order.spot);
       const sheet = NAMES.indexOf(order.name) % 2 === 0 ? art.thug : art.runner;
-      const img = sheet[Math.floor(buyerAnim * 8) % sheet.length];
+      const img = sheet[Math.floor(buyerAnim * WALK_FPS) % sheet.length];
       const face = wrapDelta(at(spot), player.x, WORLD) >= 0 ? 1 : -1;
-      actors.push({ z: 0.2, draw: () => drawSprite(img, at(spot), 0.2, 30 * spriteScale, 38 * spriteScale, face) });
+      const bz = clampWalkZ(0.30);
+      actors.push({ z: bz, draw: () => drawPerson(img, at(spot), bz, face) });
     }
     for (const t of traffic) {
       actors.push({ z: t.z, draw: () => drawSprite(t.img, t.x, t.z, carW, carH, t.facing) });
@@ -889,13 +900,10 @@ function drawActors() {
     if (!inCar) {
       const sheet = heroSheet();
       const img = sheet[Math.floor(player.anim * WALK_FPS) % sheet.length];
-      const nw = (img.naturalWidth || img.width || HERO_SRC_W) * spriteScale;
-      const nh = (img.naturalHeight || img.height || HERO_SRC_H) * spriteScale;
-      const footPad = opaqueFootPad(img) * spriteScale;
       actors.push({
         z: player.z,
         draw: () => {
-          drawSprite(img, player.x, player.z, nw, nh, player.facing, footPad);
+          drawPerson(img, player.x, player.z, player.facing);
           if (grams > 0) drawSprite(art.pack, player.x, player.z, 12 * spriteScale, 12 * spriteScale, 1);
         },
       });
@@ -1075,6 +1083,7 @@ function update(dt) {
   buyerAnim += dt;
   for (const ped of peds) {
     ped.x = wrap(ped.x + ped.facing * ped.speed * dt, WORLD);
+    ped.z = clampWalkZ(ped.z);
     ped.anim += dt;
     if (Math.random() < 0.002) ped.facing *= -1;
   }
@@ -1234,6 +1243,8 @@ window.__br = {
     car: { ...car },
     heroPx: HERO_SRC_H * spriteScale * cssScale,
     nesW, nesH, cssScale, spriteScale,
+    plugX: at(PLUG),
+    cribX: at(CRIB),
   }),
   start: () => beginPlay(false),
   finishIntro: () => { if (mode === "title") beginPlay(false); },
@@ -1282,7 +1293,7 @@ Promise.all([
   loadImage(`../block-run/sprites/dumpster.png?v=${ASSET_V}`),
   loadImage(`../block-run/map/street.png?v=${ASSET_V}`),
 ]).then(([idle, walk, walkNew, thug, runner, walkFront, walkBack, pack, dumpster, street]) => {
-  if (!idle || !thug || !runner || !pack || !dumpster) return;
+  if (!idle || !thug || !runner || !pack) return;
   art = {
     idle, walk: walkNew || walk, walkNew: walkNew || walk, thug, runner, pack, dumpster, street,
     walkFront, walkBack,

@@ -1,6 +1,6 @@
 # BLOCK RUN
 
-Main cart. Flat SNES-style belt-scroller (sidewalk + street lanes, parallax, hard pixels). Original sprites from `../block-run/sprites` and `../block-run/map/street.png`. Hero walk is `HERO_WALK_FRAMES` (`sprites/walk4-*.png`); standing uses classic idle. Feet plant on the sidewalk band; on-foot depth never crosses the curb. Integer 2× zoom on phones. Sound on by default (`SOUND: ON`). Does not import the 2.5D street.
+Main cart. Flat SNES-style belt-scroller (sidewalk + street lanes, parallax, hard pixels). Original sprites from `../block-run/sprites` and `../block-run/map/street.png`. Hero walk is `HERO_WALK_FRAMES` (`sprites/walk4-*.png`); standing uses classic idle. Peds, plug, and buyers are the classic `thug` / `runner` sheets at the same integer scale, feet on the sidewalk. On-foot depth never crosses the curb. Sound on by default (`SOUND: ON`). Does not import the 2.5D street.
 
 Buy a half at the plug, wait for a text, walk or drive to that spot, ACT to serve. Walk to the rust sedan on the sidewalk, CAR to enter, P-R-N-D + gas/brake, pull over to get out. Crib to save.
 
