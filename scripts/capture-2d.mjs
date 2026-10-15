@@ -7,7 +7,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const CHROME = "/usr/bin/google-chrome-stable";
 const PORT = process.env.PORT || "8767";
 const ROOT = `http://127.0.0.1:${PORT}/`;
-const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=11&fresh=clear`;
+const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=12&fresh=clear`;
 
 async function shot(page, name) {
   const file = path.join(OUT, name);
@@ -41,7 +41,9 @@ async function ground(page) {
       world: st.world,
       streetId: st.streetId,
       streetName: st.streetName,
+      heading: st.heading,
       intersectX: st.intersectX,
+      exits: st.exits,
       canTurn: st.canTurn,
       hasStreet: st.hasStreet,
       hasCar: st.hasCar,
@@ -169,8 +171,8 @@ async function main() {
   });
   await page.waitForTimeout(150);
   await page.evaluate(() => {
-    const st = window.__br.getState();
-    window.__br.setPlayerX(st.intersectX);
+    window.__br.setStreet("sunset", 360, "E");
+    window.__br.setIntersect("sunset-normandie");
     window.__br.setDepth(0.28);
   });
   await page.waitForTimeout(250);
@@ -179,22 +181,37 @@ async function main() {
   await shot(page, "classic_world_intersect.png");
   await shot(page, "streets_intersect.png");
 
-  await page.evaluate(() => window.__br.tryTurn("up"));
-  await page.waitForTimeout(520);
-  const hills = await ground(page);
-  console.log("HILLS", JSON.stringify(hills, null, 2));
-  await shot(page, "classic_world_hills.png");
-  await shot(page, "streets_hills.png");
-
   await page.evaluate(() => {
-    const st = window.__br.getState();
-    window.__br.setPlayerX(st.intersectX);
-    window.__br.setDepth(0.28);
-    window.__br.tryTurn("down");
+    window.__br.setHeading("E");
+    window.__br.setStreet("sunset", 400, "E");
   });
   await page.waitForTimeout(250);
-  const back = await ground(page);
-  console.log("BACK_CALI", JSON.stringify({ streetId: back.streetId, streetName: back.streetName }, null, 2));
+  await shot(page, "streets_east_downtown.png");
+
+  await page.evaluate(() => {
+    window.__br.setStreet("normandie", 360, "N");
+    window.__br.setIntersect("santa_monica-normandie");
+  });
+  await page.waitForTimeout(250);
+  const hills = await ground(page);
+  console.log("NORTH", JSON.stringify(hills, null, 2));
+  await shot(page, "classic_world_hills.png");
+  await shot(page, "streets_hills.png");
+  await shot(page, "streets_north_hills.png");
+
+  await page.evaluate(() => {
+    window.__br.setStreet("sunset", 130, "W");
+    window.__br.setIntersect("sunset-western");
+  });
+  await page.waitForTimeout(250);
+  const edge = await ground(page);
+  console.log("EDGE", JSON.stringify(edge, null, 2));
+  await shot(page, "streets_edge.png");
+
+  await page.evaluate(() => window.__br.tryTurn("left"));
+  await page.waitForTimeout(400);
+  const afterForce = await ground(page);
+  console.log("FORCED", JSON.stringify({ streetId: afterForce.streetId, heading: afterForce.heading, exits: afterForce.exits }, null, 2));
 
   const scaleOk = standing.nesW === 256 && standing.nesH === 224 && standing.spriteScale === 1
     && standing.hasStreet && standing.hasCar && standing.mute === "SOUND: ON";
@@ -213,16 +230,20 @@ async function main() {
     console.error("FEET_FAIL sidewalk checks did not pass");
     process.exit(1);
   }
-  if (atSign.streetId !== "cali" || !atSign.canTurn) {
-    console.error("TURN_FAIL not at CALI intersection");
+  if (atSign.streetId !== "sunset" || !atSign.canTurn) {
+    console.error("TURN_FAIL not at Sunset & Normandie");
     process.exit(1);
   }
-  if (hills.streetId !== "hills" || hills.streetName !== "HILLS ST" || !hills.onSidewalk) {
-    console.error("HILLS_FAIL did not load hills street");
+  if (hills.streetId !== "normandie" || hills.heading !== "N" || !hills.onSidewalk) {
+    console.error("HILLS_FAIL north heading on Normandie failed");
     process.exit(1);
   }
-  if (back.streetId !== "cali") {
-    console.error("RETURN_FAIL did not return to CALI ST");
+  if (edge.streetId !== "sunset" || edge.heading !== "W" || !edge.canTurn) {
+    console.error("EDGE_FAIL not at Sunset & Western heading west");
+    process.exit(1);
+  }
+  if (afterForce.streetId !== "western" || afterForce.heading !== "S") {
+    console.error("FORCE_FAIL west-edge turn did not go south on Western");
     process.exit(1);
   }
   console.log("CLASSIC_WORLD_OK");
