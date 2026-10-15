@@ -1,20 +1,20 @@
 /* BLOCK RUN — flat SNES belt-scroller. Hard pixels, no 3D. */
-const ASSET_V = "5";
+const ASSET_V = "6";
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v2";
 const HERO_SRC_W = 40;
 const HERO_SRC_H = 40;
-/** 2.5D on-foot hero is ~87 CSS px tall on a 375x667 SE. 2× source = 80px. */
+/** On-screen hero target on a 375-wide SE. Integer zoom, no smoothing. */
 const TARGET_HERO_PX = 86;
 const GEARS = ["P", "R", "N", "D"];
 const WALK_FPS = 8;
 const STRIDE_NATIVE = 4.5;
-/** Hero walk sheet. Swap this list (any length) when the revised frames land. */
+/** Hero walk sheet. One path list, any length — swap files here. */
 const HERO_WALK_FRAMES = [
-  "sprites/walk-new-1.png",
-  "sprites/walk-new-2.png",
-  "sprites/walk-new-3.png",
-  "sprites/walk-new-4.png",
+  "sprites/walk2-1.png",
+  "sprites/walk2-2.png",
+  "sprites/walk2-3.png",
+  "sprites/walk2-4.png",
 ];
 const WALK_Z = 52;
 const REACH = 28;
@@ -504,12 +504,16 @@ function brakeHeld() {
 function snapView() {
   const vw = Math.max(160, viewEl?.clientWidth || 375);
   const vh = Math.max(140, viewEl?.clientHeight || 400);
-  spriteScale = Math.max(1, Math.round(TARGET_HERO_PX / HERO_SRC_H));
-  const heroAt1 = HERO_SRC_H * spriteScale;
-  cssScale = 1;
-  if (vw >= 700 && heroAt1 * 2 <= TARGET_HERO_PX + 28) cssScale = 2;
-  nesW = Math.max(160, Math.floor(vw / cssScale));
-  nesH = Math.max(140, Math.floor(vh / cssScale));
+  // Integer CSS zoom: SE is 2× (~188×224 of world) so less street is shown and
+  // the skyline fills the leftover sky. Hard pixels, no smoothing.
+  cssScale = vw >= 800 ? 3 : 2;
+  if (vw < 260) cssScale = 1;
+  // 40×2 source × 2 CSS = 160px cell. Prior 80px cell read as ~45px of ink /
+  // ants; this 2× framing puts visible body near 80–90px like 2.5D on-foot.
+  spriteScale = 2;
+  if (HERO_SRC_H * spriteScale * cssScale < 80) spriteScale += 1;
+  nesW = Math.max(140, Math.floor(vw / cssScale));
+  nesH = Math.max(120, Math.floor(vh / cssScale));
   if (nes.width !== nesW || nes.height !== nesH) {
     nes.width = nesW;
     nes.height = nesH;
@@ -521,8 +525,8 @@ function snapView() {
 }
 
 function depthY(z) {
-  const top = Math.round(nesH * 0.62);
-  const bot = nesH - 10;
+  const top = Math.round(nesH * 0.50);
+  const bot = nesH - 8;
   return Math.round(top + Math.max(0, Math.min(1, z)) * (bot - top));
 }
 function worldToScreen(wx) {
@@ -686,7 +690,7 @@ function drawParallax() {
   }
   const walkY = depthY(0.18);
   const streetY = depthY(0.55);
-  const wallH = 58;
+  const wallH = 68;
   const wallY = walkY - wallH;
   const wallShift = Math.round(cam);
   const facades = [
@@ -875,7 +879,7 @@ function syncHud() {
   padCar.classList.toggle("hidden", !(mode === "play" && inCar));
   phoneEl.classList.toggle("hidden", ui !== "phone");
   cribEl.classList.toggle("hidden", ui !== "crib");
-  muteBtn.textContent = BRAudio.isMuted() ? "SND OFF" : "SND ON";
+  muteBtn.textContent = BRAudio.isMuted() ? "SOUND: OFF" : "SOUND: ON";
   muteBtn.classList.toggle("off", BRAudio.isMuted());
   document.querySelectorAll(".gear").forEach((el) => el.classList.toggle("on", el.dataset.gear === car.gear));
   shiftHint.classList.toggle("show", inCar && car.shiftHint > 0);
