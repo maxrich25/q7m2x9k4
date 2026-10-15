@@ -7,7 +7,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const CHROME = "/usr/bin/google-chrome-stable";
 const PORT = process.env.PORT || "8767";
 const ROOT = `http://127.0.0.1:${PORT}/`;
-const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=6`;
+const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=7`;
 
 async function shot(page, name) {
   const file = path.join(OUT, name);
