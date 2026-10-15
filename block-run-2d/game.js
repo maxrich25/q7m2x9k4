@@ -1,5 +1,5 @@
 /* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
-const ASSET_V = "15";
+const ASSET_V = "16";
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v3";
 const HERO_SRC_W = 40;
@@ -18,14 +18,12 @@ const SLICE_X = [0, 99, 190, 275, 398];
 const CAR_ERASE = { x: 6, y: 156, w: 86, h: 20 };
 const GEARS = ["P", "R", "N", "D"];
 const WALK_FPS = 8;
-const STRIDE_NATIVE = 4.5;
-/** Hero walk sheet. One path list, any length. Standing still uses classic idle. */
-const HERO_WALK_FRAMES = [
-  "sprites/walk4-1.png",
-  "sprites/walk4-2.png",
-  "sprites/walk4-3.png",
-  "sprites/walk4-4.png",
-];
+/** Hero walk: walk13 (locked Oct 14 2026), 12 frames at 12.5 fps, native 40px. */
+const HERO_WALK_FPS = 12.5;
+/** Native px per frame so feet plant: 2.08 × 12.5 fps ≈ 26 px/s. */
+const STRIDE_NATIVE = 2.08;
+/** Frames live in sprites/walk13.js (data URIs, loaded before this script). */
+const HERO_WALK_FRAMES = window.WALK13_FRAMES || [];
 const WALK_Z = 52;
 const REACH = 28;
 const HALF_G = 14;
@@ -87,7 +85,7 @@ const STREET_DEFS = [
   })),
 ];
 function walkSpeed() {
-  return STRIDE_NATIVE * WALK_FPS * spriteScale;
+  return STRIDE_NATIVE * HERO_WALK_FPS * spriteScale;
 }
 
 const canvas = document.getElementById("game");
@@ -314,7 +312,7 @@ function loadImage(src) {
 }
 async function loadFrameList(paths) {
   const frames = (await Promise.all(
-    paths.map((src) => loadImage(`${src}?v=${ASSET_V}`)),
+    paths.map((src) => loadImage(src.startsWith("data:") ? src : `${src}?v=${ASSET_V}`)),
   )).filter(Boolean);
   return frames.length ? frames : null;
 }
@@ -323,7 +321,9 @@ async function loadSheet(name, base = `../block-run/sprites/`) {
 }
 /** Future belt-scroller facing sheets. Missing files stay null. */
 async function loadDirSheet(name) {
-  return loadSheet(name);
+  // No front/back art yet; skip the fetch so the console stays clean (no 404s).
+  void name;
+  return null;
 }
 
 function readSave() {
@@ -801,6 +801,11 @@ function pickWalkSheet(dir) {
   if (dir === "back" && art.walkBack) return art.walkBack;
   return art.walkNew || art.walk;
 }
+function heroFrame(sheet) {
+  if (!sheet || !sheet.length) return null;
+  const fps = sheet === art.idle ? WALK_FPS : HERO_WALK_FPS;
+  return sheet[Math.floor(player.anim * fps) % sheet.length];
+}
 function heroSheet() {
   const moving = Math.abs(player.vx) > 6 || Math.abs(player.vz) > 6;
   if (!moving) return art.idle;
@@ -1167,7 +1172,7 @@ function drawActors() {
     }
     if (!inCar) {
       const sheet = heroSheet();
-      const img = sheet[Math.floor(player.anim * WALK_FPS) % sheet.length];
+      const img = heroFrame(sheet);
       actors.push({
         z: player.z,
         draw: () => {
@@ -1572,7 +1577,7 @@ window.__br = {
   setDepth: (z) => { player.z = inCar ? Math.max(Z_STREET_MIN, Math.min(Z_STREET_MAX, Number(z) || 0)) : clampWalkZ(z); },
   ground: () => {
     const sheet = art ? heroSheet() : null;
-    const img = sheet ? sheet[Math.floor(player.anim * WALK_FPS) % sheet.length] : null;
+    const img = sheet ? heroFrame(sheet) : null;
     const pad = img ? opaqueFootPad(img) * spriteScale : 0;
     return {
       z: player.z,
