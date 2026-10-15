@@ -7,7 +7,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const CHROME = "/usr/bin/google-chrome-stable";
 const PORT = process.env.PORT || "8767";
 const ROOT = `http://127.0.0.1:${PORT}/`;
-const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=9&fresh=clear`;
+const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=10&fresh=clear`;
 
 async function shot(page, name) {
   const file = path.join(OUT, name);
@@ -38,13 +38,17 @@ async function ground(page) {
       nesH: st.nesH,
       cssScale: st.cssScale,
       spriteScale: st.spriteScale,
+      world: st.world,
+      hasStreet: st.hasStreet,
+      hasCar: st.hasCar,
       player: st.player,
+      car: st.car,
       mute: document.getElementById("btn-mute").textContent,
       overlap,
       ground: g,
       onSidewalk: g.footY >= g.walkY && g.footY <= g.curbY,
       belowCurb: g.footY > g.curbY,
-      canvas: { top: Math.round(canvas.top), h: Math.round(canvas.height) },
+      canvas: { top: Math.round(canvas.top), h: Math.round(canvas.height), w: Math.round(canvas.width) },
     };
   });
 }
@@ -90,7 +94,7 @@ async function main() {
   await page.waitForTimeout(200);
   const standing = await ground(page);
   console.log("STANDING", JSON.stringify(standing, null, 2));
-  await shot(page, "feet_standing.png");
+  await shot(page, "classic_world_onfoot.png");
 
   await page.evaluate(() => {
     window.__br.setHold("down", false);
@@ -99,7 +103,6 @@ async function main() {
   await page.waitForTimeout(700);
   const walkingUp = await ground(page);
   console.log("WALK_UP", JSON.stringify(walkingUp, null, 2));
-  await shot(page, "feet_walk_up.png");
   await page.evaluate(() => window.__br.setHold("up", false));
   await page.waitForTimeout(80);
 
@@ -107,15 +110,73 @@ async function main() {
   await page.waitForTimeout(900);
   const walkingDown = await ground(page);
   console.log("WALK_DOWN", JSON.stringify(walkingDown, null, 2));
-  await shot(page, "feet_walk_down.png");
   await page.evaluate(() => window.__br.setHold("down", false));
 
-  const fail = [standing, walkingUp, walkingDown].some((s) => !s.onSidewalk || s.belowCurb || s.overlap);
-  if (fail) {
+  await page.evaluate(() => {
+    const st = window.__br.getState();
+    window.__br.setCarX(st.plugX + 40);
+    window.__br.setPlayerX(st.plugX + 40);
+    window.__br.setInCar(true);
+    window.__br.setBrake(true);
+    window.__br.tryShift("D", true);
+    window.__br.setBrake(false);
+    window.__br.setGas(true);
+  });
+  await page.waitForTimeout(900);
+  const driving = await ground(page);
+  console.log("DRIVING", JSON.stringify(driving, null, 2));
+  await shot(page, "classic_world_driving.png");
+  await page.evaluate(() => {
+    window.__br.setGas(false);
+    window.__br.setBrake(true);
+  });
+  await page.waitForTimeout(400);
+  await page.evaluate(() => {
+    window.__br.tryShift("P", true);
+    window.__br.setBrake(false);
+    window.__br.setInCar(false);
+    window.__br.setDepth(0.28);
+  });
+
+  await page.evaluate(() => {
+    window.__br.setGrams(20);
+    window.__br.giveCash(200);
+    window.__br.spawnOrder();
+    window.__br.acceptOrder();
+    const st = window.__br.getState();
+    window.__br.setPlayerX(st.orderX - 22);
+    window.__br.setDepth(0.30);
+  });
+  await page.waitForTimeout(300);
+  const dealing = await ground(page);
+  console.log("DEALING", JSON.stringify(dealing, null, 2));
+  await shot(page, "classic_world_dealing.png");
+
+  await page.evaluate(() => {
+    const btn = document.querySelector("[data-role='phone']");
+    if (btn) btn.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  });
+  await page.waitForTimeout(250);
+  await shot(page, "classic_world_phone.png");
+
+  const scaleOk = standing.nesW === 256 && standing.nesH === 224 && standing.spriteScale === 1
+    && standing.hasStreet && standing.hasCar && standing.mute === "SOUND: ON";
+  const driveOk = driving.inCar && driving.car && driving.car.gear === "D";
+  const dealOk = dealing.mode === "play" && !dealing.inCar;
+  const feetFail = [standing, walkingUp, walkingDown, dealing].some((s) => !s.onSidewalk || s.belowCurb || s.overlap);
+  if (!scaleOk) {
+    console.error("SCALE_FAIL classic 256x224 / street / car / sound checks did not pass");
+    process.exit(1);
+  }
+  if (!driveOk) {
+    console.error("DRIVE_FAIL not in gear D");
+    process.exit(1);
+  }
+  if (!dealOk || feetFail) {
     console.error("FEET_FAIL sidewalk checks did not pass");
     process.exit(1);
   }
-  console.log("FEET_OK");
+  console.log("CLASSIC_WORLD_OK");
   await browser.close();
 }
 
