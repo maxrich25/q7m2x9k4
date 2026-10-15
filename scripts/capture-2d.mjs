@@ -7,7 +7,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const CHROME = "/usr/bin/google-chrome-stable";
 const PORT = process.env.PORT || "8767";
 const ROOT = `http://127.0.0.1:${PORT}/`;
-const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=10&fresh=clear`;
+const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=11&fresh=clear`;
 
 async function shot(page, name) {
   const file = path.join(OUT, name);
@@ -39,6 +39,10 @@ async function ground(page) {
       cssScale: st.cssScale,
       spriteScale: st.spriteScale,
       world: st.world,
+      streetId: st.streetId,
+      streetName: st.streetName,
+      intersectX: st.intersectX,
+      canTurn: st.canTurn,
       hasStreet: st.hasStreet,
       hasCar: st.hasCar,
       player: st.player,
@@ -159,6 +163,39 @@ async function main() {
   await page.waitForTimeout(250);
   await shot(page, "classic_world_phone.png");
 
+  await page.evaluate(() => {
+    const btn = document.querySelector("[data-role='phone-close']");
+    if (btn) btn.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  });
+  await page.waitForTimeout(150);
+  await page.evaluate(() => {
+    const st = window.__br.getState();
+    window.__br.setPlayerX(st.intersectX);
+    window.__br.setDepth(0.28);
+  });
+  await page.waitForTimeout(250);
+  const atSign = await ground(page);
+  console.log("INTERSECT", JSON.stringify(atSign, null, 2));
+  await shot(page, "classic_world_intersect.png");
+  await shot(page, "streets_intersect.png");
+
+  await page.evaluate(() => window.__br.tryTurn("up"));
+  await page.waitForTimeout(520);
+  const hills = await ground(page);
+  console.log("HILLS", JSON.stringify(hills, null, 2));
+  await shot(page, "classic_world_hills.png");
+  await shot(page, "streets_hills.png");
+
+  await page.evaluate(() => {
+    const st = window.__br.getState();
+    window.__br.setPlayerX(st.intersectX);
+    window.__br.setDepth(0.28);
+    window.__br.tryTurn("down");
+  });
+  await page.waitForTimeout(250);
+  const back = await ground(page);
+  console.log("BACK_CALI", JSON.stringify({ streetId: back.streetId, streetName: back.streetName }, null, 2));
+
   const scaleOk = standing.nesW === 256 && standing.nesH === 224 && standing.spriteScale === 1
     && standing.hasStreet && standing.hasCar && standing.mute === "SOUND: ON";
   const driveOk = driving.inCar && driving.car && driving.car.gear === "D";
@@ -174,6 +211,18 @@ async function main() {
   }
   if (!dealOk || feetFail) {
     console.error("FEET_FAIL sidewalk checks did not pass");
+    process.exit(1);
+  }
+  if (atSign.streetId !== "cali" || !atSign.canTurn) {
+    console.error("TURN_FAIL not at CALI intersection");
+    process.exit(1);
+  }
+  if (hills.streetId !== "hills" || hills.streetName !== "HILLS ST" || !hills.onSidewalk) {
+    console.error("HILLS_FAIL did not load hills street");
+    process.exit(1);
+  }
+  if (back.streetId !== "cali") {
+    console.error("RETURN_FAIL did not return to CALI ST");
     process.exit(1);
   }
   console.log("CLASSIC_WORLD_OK");

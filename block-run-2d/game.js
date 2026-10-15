@@ -1,5 +1,5 @@
 /* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
-const ASSET_V = "10";
+const ASSET_V = "11";
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v2";
 const HERO_SRC_W = 40;
@@ -48,6 +48,30 @@ const Z_STREET_MIN = 0.52;
 const Z_STREET_MAX = 0.92;
 const Z_CAR_PARK = 0.58;
 const Z_CAR_DRIVE = 0.74;
+const TURN_SPEED = 26;
+const INTERSECT_REACH = 42;
+/** Named streets. Each has a backdrop id, length (px, or from the baked strip), and intersections. */
+const STREET_DEFS = [
+  {
+    id: "cali",
+    name: "CALI ST",
+    backdrop: "classic",
+    spots: true,
+    intersections: [
+      { id: "cali-mid", t: 0.48, exits: [{ dir: "up", sign: "HILLS ST", to: { street: "hills", at: "hills-west" } }] },
+    ],
+  },
+  {
+    id: "hills",
+    name: "HILLS ST",
+    backdrop: "hills",
+    length: 800,
+    spots: false,
+    intersections: [
+      { id: "hills-west", t: 0.16, exits: [{ dir: "down", sign: "CALI ST", to: { street: "cali", at: "cali-mid" } }] },
+    ],
+  },
+];
 function walkSpeed() {
   return STRIDE_NATIVE * WALK_FPS * spriteScale;
 }
@@ -70,11 +94,15 @@ let cssScale = 1;
 let spriteScale = 1;
 let WORLD = 398 * 4;
 let longStreet = null;
+let streets = {};
+let streetId = "cali";
+let turnLock = 0;
+let prevTurnZ = 0;
 let art = null;
 let mode = "title";
 let ui = null;
 let player = { x: 70, z: 0.28, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
-let car = { x: 140, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0 };
+let car = { x: 140, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0, street: "cali" };
 let inCar = false;
 let cash = START_CASH;
 let grams = 0;
@@ -93,7 +121,7 @@ let hasSave = false;
 let inbox = [];
 const keys = new Set();
 const holds = new Set();
-let pulses = { act: false, jump: false, start: false, car: false, phone: false, crib: false, pullover: false, accept: false, stall: false, save: false, stash: false, gear: null };
+let pulses = { act: false, jump: false, start: false, car: false, phone: false, crib: false, pullover: false, accept: false, stall: false, save: false, stash: false, gear: null, turn: null };
 let testGas = false;
 let testBrake = false;
 
@@ -112,11 +140,77 @@ function fmtG(n) {
   const r = Math.round(Math.max(0, n) * 10) / 10;
   return Number.isInteger(r) ? String(r) : r.toFixed(1);
 }
+function currentStreet() {
+  return streets[streetId] || null;
+}
+function streetHasSpots() {
+  return !!(currentStreet()?.spots);
+}
 function at(def) {
+  if (!streetHasSpots()) return -1e9;
   return def.t * WORLD;
 }
 function meetById(id) {
   return MEETS.find((m) => m.id === id) || MEETS[0];
+}
+function speedNow() {
+  return Math.abs(inCar ? car.vx : player.vx);
+}
+function nearIntersection() {
+  const st = currentStreet();
+  if (!st) return null;
+  const x = inCar ? car.x : player.x;
+  let best = null;
+  let bestD = INTERSECT_REACH;
+  for (const ix of st.intersections) {
+    const d = Math.abs(wrapDelta(x, ix.x, WORLD));
+    if (d <= bestD) {
+      bestD = d;
+      best = ix;
+    }
+  }
+  return best;
+}
+function enterStreet(id, x, viaCar) {
+  const dest = streets[id];
+  if (!dest) return false;
+  streetId = id;
+  WORLD = dest.length;
+  longStreet = dest.strip;
+  const nx = wrap(Number(x) || 0, WORLD);
+  if (viaCar || inCar) {
+    car.street = id;
+    car.x = nx;
+    car.vx = 0;
+    player.x = nx;
+    player.vx = 0;
+  } else {
+    player.x = nx;
+    player.vx = 0;
+  }
+  spawnPeds();
+  spawnTraffic();
+  cam = wrap(player.x - nesW * 0.42, WORLD);
+  turnLock = 0.45;
+  addPop(player.x, player.z, dest.name);
+  if (typeof BRAudio !== "undefined") BRAudio.sfx.shift();
+  return true;
+}
+function tryTurn(dir) {
+  if (!dir || turnLock > 0) return false;
+  const ix = nearIntersection();
+  if (!ix) return false;
+  if (speedNow() > TURN_SPEED) {
+    addPop(player.x, player.z, "SLOW DOWN");
+    return false;
+  }
+  const exit = ix.exits.find((e) => e.dir === dir);
+  if (!exit) return false;
+  const dest = streets[exit.to.street];
+  if (!dest) return false;
+  const destIx = dest.intersections.find((i) => i.id === exit.to.at) || dest.intersections[0];
+  const land = destIx ? destIx.x + player.facing * 28 : dest.length * 0.2;
+  return enterStreet(exit.to.street, land, inCar);
 }
 function loadImage(src) {
   return new Promise((resolve) => {
@@ -154,7 +248,7 @@ function persist() {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       cash, grams, stash, rep, hi, x: player.x, z: player.z, facing: player.facing,
-      carX: car.x, carZ: car.z, carFacing: car.facing, order, inbox,
+      streetId, carX: car.x, carZ: car.z, carFacing: car.facing, carStreet: car.street, order, inbox,
     }));
     hasSave = true;
   } catch { /* ignore */ }
@@ -163,8 +257,9 @@ function addPop(x, z, s) {
   pops.push({ x, z, text: s, life: 0.9 });
 }
 function spawnPeds() {
-  peds = [0, 1, 2, 3, 4, 5].map((i) => ({
-    x: wrap((WORLD / 6) * i + 40, WORLD),
+  const n = streetHasSpots() ? 6 : 3;
+  peds = Array.from({ length: n }, (_, i) => ({
+    x: wrap((WORLD / n) * i + 40, WORLD),
     z: clampWalkZ(0.22 + (i % 3) * 0.06),
     facing: i % 2 ? -1 : 1,
     look: i % 2,
@@ -173,16 +268,20 @@ function spawnPeds() {
   }));
 }
 function spawnTraffic() {
-  traffic = [0, 1].map((i) => ({
-    x: wrap((WORLD / 3) * (i + 1) + 180, WORLD),
+  const n = streetHasSpots() ? 2 : 1;
+  traffic = Array.from({ length: n }, (_, i) => ({
+    x: wrap((WORLD / (n + 1)) * (i + 1) + 180, WORLD),
     z: Z_CAR_DRIVE,
     facing: i % 2 ? -1 : 1,
     vx: (i % 2 ? -1 : 1) * 48,
   }));
 }
 function fresh() {
+  streetId = "cali";
+  WORLD = streets.cali?.length || WORLD;
+  longStreet = streets.cali?.strip || longStreet;
   player = { x: at(CRIB) + 18, z: 0.28, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
-  car = { x: at(CRIB) + 86, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0 };
+  car = { x: at(CRIB) + 86, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0, street: "cali" };
   inCar = false;
   cash = START_CASH;
   grams = 0;
@@ -199,6 +298,9 @@ function fresh() {
   addPop(player.x, player.z, "COP A PACK");
 }
 function continueSave(s) {
+  streetId = streets[s.streetId] ? s.streetId : "cali";
+  WORLD = currentStreet()?.length || WORLD;
+  longStreet = currentStreet()?.strip || longStreet;
   player = {
     x: wrap(s.x || at(CRIB), WORLD),
     z: clampWalkZ(s.z ?? 0.28),
@@ -212,6 +314,7 @@ function continueSave(s) {
     vx: 0,
     facing: s.carFacing === -1 ? -1 : 1,
     gear: "P", parked: true, pullOverT: 0, shiftHint: 0,
+    street: streets[s.carStreet] ? s.carStreet : streetId,
   };
   inCar = false;
   cash = s.cash;
@@ -235,7 +338,7 @@ function onWalk() {
   return player.z <= Z_WALK_MAX + 0.02;
 }
 function nearCar() {
-  return !inCar && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 36;
+  return !inCar && car.street === streetId && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 36;
 }
 function nearCrib() {
   return !inCar && closeTo(at(CRIB)) && onWalk();
@@ -518,9 +621,155 @@ function text(c, s, x, y, color, align) {
   c.fillText(s, Math.round(x), Math.round(y));
 }
 
+function px(g, x, y, w, h, color) {
+  g.fillStyle = color;
+  g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+}
+function hillY(x, base, amp, phase, freq) {
+  return Math.round(base + Math.sin((x + phase) * freq) * amp + Math.sin((x + phase * 1.7) * freq * 2.3) * amp * 0.32);
+}
+function fillHill(g, w, base, amp, phase, freq, color) {
+  g.fillStyle = color;
+  for (let x = 0; x < w; x++) {
+    const y = Math.max(48, Math.min(176, hillY(x, base, amp, phase, freq)));
+    g.fillRect(x, y, 1, 176 - y);
+  }
+}
+function drawMoon(g, cx, cy) {
+  const r = 8;
+  for (let y = -r; y <= r; y++) {
+    for (let x = -r; x <= r; x++) {
+      if (x * x + y * y <= r * r) px(g, cx + x, cy + y, 1, 1, "#e4dcc8");
+    }
+  }
+  px(g, cx - 2, cy - 1, 2, 2, "#c8c0ac");
+  px(g, cx + 2, cy + 2, 2, 1, "#d0c8b4");
+}
+function strokeRidge(g, w, base, amp, phase, freq, color) {
+  g.fillStyle = color;
+  for (let x = 0; x < w; x++) {
+    const y = Math.max(48, Math.min(175, hillY(x, base, amp, phase, freq)));
+    g.fillRect(x, y, 1, 2);
+  }
+}
+function drawHouse(g, x, gy, spec) {
+  const w = spec.w;
+  const h = spec.h;
+  const kind = spec.kind;
+  const body = kind === "brick" ? "#7a4a3a" : kind === "pale" ? "#d0bca4" : "#b89878";
+  const shade = kind === "brick" ? "#5a3028" : "#8a6c54";
+  const roof = kind === "brick" ? "#3a2030" : "#5a3844";
+  const y = gy - h;
+  const roofH = Math.max(8, Math.round(h * 0.28));
+  for (let i = 0; i < roofH; i++) {
+    const grow = roofH - 1 - i;
+    px(g, x - grow, y - roofH + i, w + grow * 2, 1, i === 0 ? "#6a4854" : roof);
+  }
+  px(g, x, y, w, h, body);
+  px(g, x, y + h - 3, w, 3, shade);
+  px(g, x + w - 1, y, 1, h, shade);
+  const doorW = 6;
+  const doorH = Math.min(14, h - 8);
+  px(g, x + Math.floor(w / 2) - 3, y + h - doorH, doorW, doorH, "#2a181c");
+  px(g, x + 5, y + 6, 7, 6, "#f0c430");
+  px(g, x + w - 13, y + 6, 7, 6, spec.dark ? "#3a4860" : "#f0c430");
+  px(g, x + 8, y + 6, 1, 6, "#2a181c");
+  px(g, x + w - 10, y + 6, 1, 6, "#2a181c");
+  if (h >= 58) {
+    px(g, x + 5, y + 16, 7, 6, "#f0c430");
+    px(g, x + w - 13, y + 16, 7, 6, spec.dark ? "#3a4860" : "#e8b020");
+    px(g, x + 8, y + 16, 1, 6, "#2a181c");
+    px(g, x + w - 10, y + 16, 1, 6, "#2a181c");
+  }
+  px(g, x + w - 10, y - roofH - 6, 5, 8, "#4a3038");
+  if (spec.fence) {
+    px(g, x - 8, gy - 7, w + 16, 1, "#6a5a48");
+    for (let fx = x - 8; fx < x + w + 8; fx += 5) px(g, fx, gy - 7, 1, 7, "#6a5a48");
+  }
+}
+function drawYucca(g, x, gy) {
+  px(g, x, gy - 14, 2, 14, "#3a5040");
+  px(g, x - 5, gy - 10, 5, 2, "#4a6850");
+  px(g, x + 2, gy - 12, 5, 2, "#4a6850");
+  px(g, x - 3, gy - 16, 3, 2, "#5a7860");
+  px(g, x + 2, gy - 18, 3, 2, "#5a7860");
+}
+
+/** Original hills strip — same classic night palette, no third-party art. */
+function buildHillsStreet(width) {
+  const w = width || 800;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = NES_H;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  px(g, 0, 0, w, 176, "#0c011f");
+  for (let i = 0; i < 52; i++) {
+    const sx = (i * 97 + 13) % w;
+    const sy = 4 + ((i * 17) % 64);
+    px(g, sx, sy, 1, 1, i % 5 === 0 ? "#d8d0e4" : "#6a6080");
+  }
+  drawMoon(g, 188, 26);
+  fillHill(g, w, 72, 20, 40, 0.01, "#2a1848");
+  strokeRidge(g, w, 72, 20, 40, 0.01, "#3a2870");
+  fillHill(g, w, 100, 22, 90, 0.013, "#3a2458");
+  strokeRidge(g, w, 100, 22, 90, 0.013, "#4a3468");
+  fillHill(g, w, 128, 20, 20, 0.016, "#4a3060");
+  strokeRidge(g, w, 128, 20, 20, 0.016, "#5c4474");
+  fillHill(g, w, 152, 12, 140, 0.019, "#5c4068");
+  strokeRidge(g, w, 152, 12, 140, 0.019, "#7a6088");
+  const far = [
+    [54, 10, 12], [168, 8, 10], [290, 11, 13], [410, 9, 11], [540, 10, 12], [670, 8, 10],
+  ];
+  for (const [hx, hw, hh] of far) {
+    const gy = Math.min(168, hillY(hx, 108, 18, 90, 0.014) + 2);
+    px(g, hx, gy - hh, hw, hh, "#241038");
+    px(g, hx + 2, gy - hh + 3, 2, 2, "#c8a830");
+    px(g, hx + hw - 4, gy - hh + 3, 2, 2, "#c8a830");
+  }
+  const homes = [
+    { x: 64, w: 58, h: 62, kind: "pale", gy: 176, fence: true },
+    { x: 156, w: 52, h: 70, kind: "brick", gy: 176, dark: true },
+    { x: 246, w: 60, h: 58, kind: "ranch", gy: 176, fence: true },
+    { x: 348, w: 54, h: 64, kind: "pale", gy: 176 },
+    { x: 438, w: 62, h: 68, kind: "brick", gy: 176, dark: true, fence: true },
+    { x: 538, w: 56, h: 60, kind: "ranch", gy: 176 },
+    { x: 628, w: 58, h: 66, kind: "pale", gy: 176, fence: true },
+    { x: 718, w: 54, h: 70, kind: "brick", gy: 176, dark: true },
+  ];
+  for (const h of homes) drawHouse(g, h.x, h.gy, h);
+  for (const x of [44, 118, 220, 310, 400, 500, 590, 680, 760]) {
+    drawYucca(g, x, 176);
+  }
+  px(g, 0, 176, w, 3, "#7d655e");
+  px(g, 0, 179, w, 1, "#aca190");
+  px(g, 0, 180, w, 1, "#322833");
+  px(g, 0, 181, w, 27, "#292131");
+  px(g, 0, 208, w, 16, "#2a2434");
+  for (let x = 0; x < w; x += 16) px(g, x, 200, 8, 2, "#aca190");
+  px(g, 0, 220, w, 4, "#191928");
+  return c;
+}
+
+function bakeStreets(classicSrc) {
+  streets = {};
+  for (const def of STREET_DEFS) {
+    const strip = def.backdrop === "classic"
+      ? buildLongStreet(classicSrc)
+      : buildHillsStreet(def.length || 800);
+    const length = strip.width;
+    streets[def.id] = {
+      ...def,
+      strip,
+      length,
+      intersections: def.intersections.map((ix) => ({ ...ix, x: Math.round(ix.t * length) })),
+    };
+  }
+}
+
 /** Classic street blit, copied from block-run/: wrap a 256×224 window of the strip. */
-function drawClassicStreet() {
-  const src = longStreet || art?.street;
+function drawCurrentStreet() {
+  const src = currentStreet()?.strip || longStreet || art?.street;
   if (!src) {
     nctx.fillStyle = "#0c011f";
     nctx.fillRect(0, 0, NES_W, NES_H);
@@ -534,6 +783,44 @@ function drawClassicStreet() {
   if (e + NES_W > o) {
     const t = e + NES_W - o;
     nctx.drawImage(src, 0, 0, t, NES_H, NES_W - t, 0, t, NES_H);
+  }
+}
+
+function drawStreetSigns() {
+  const st = currentStreet();
+  if (!st) return;
+  nctx.imageSmoothingEnabled = false;
+  nctx.font = "8px 'Press Start 2P', monospace";
+  for (const ix of st.intersections) {
+    const sx = Math.round(worldToScreen(ix.x));
+    if (sx < -90 || sx > nesW + 90) continue;
+    const baseY = SIDEWALK_CURB;
+    nctx.fillStyle = "#1a181c";
+    nctx.fillRect(sx - 5, baseY - 3, 10, 3);
+    nctx.fillStyle = "#5a5864";
+    nctx.fillRect(sx - 2, baseY - 62, 4, 59);
+    nctx.fillStyle = "#8a8894";
+    nctx.fillRect(sx - 2, baseY - 62, 1, 59);
+    nctx.fillStyle = "#3a3844";
+    nctx.fillRect(sx + 1, baseY - 62, 1, 59);
+    nctx.fillStyle = "#8a8894";
+    nctx.fillRect(sx - 3, baseY - 64, 6, 4);
+    const blades = [
+      { name: ix.exits[0]?.sign || "HILL", fill: "#2d8a4a" },
+      { name: st.name, fill: "#1f6a38" },
+    ];
+    blades.forEach((blade, i) => {
+      const bw = Math.max(58, blade.name.length * 8 + 12);
+      const bx = sx + 4;
+      const by = baseY - 60 + i * 14;
+      nctx.fillStyle = "#0a180c";
+      nctx.fillRect(bx - 1, by - 1, bw + 2, 14);
+      nctx.fillStyle = blade.fill;
+      nctx.fillRect(bx, by, bw, 12);
+      nctx.fillStyle = "#7ad090";
+      nctx.fillRect(bx, by, bw, 1);
+      text(nctx, blade.name, bx + 6, by + 2, "#f8f4e8");
+    });
   }
 }
 
@@ -566,13 +853,13 @@ function buildLongStreet(src) {
 }
 
 function drawParallax() {
-  drawClassicStreet();
+  drawCurrentStreet();
 }
 
 function drawActors() {
   const actors = [];
   if (art) {
-    {
+    if (streetHasSpots()) {
       const plugSheet = art.thug;
       const plugImg = plugSheet[0];
       actors.push({ z: Z_WALK_MIN + 0.04, draw: () => drawPerson(plugImg, at(PLUG), clampWalkZ(0.26), 1) });
@@ -582,7 +869,7 @@ function drawActors() {
       const img = sheet[Math.floor(ped.anim * WALK_FPS) % sheet.length];
       actors.push({ z: ped.z, draw: () => drawPerson(img, ped.x, ped.z, ped.facing) });
     }
-    if (order && order.phase === "active") {
+    if (streetHasSpots() && order && order.phase === "active") {
       const spot = meetById(order.spot);
       const sheet = NAMES.indexOf(order.name) % 2 === 0 ? art.thug : art.runner;
       const img = sheet[Math.floor(buyerAnim * WALK_FPS) % sheet.length];
@@ -599,10 +886,12 @@ function drawActors() {
         draw: () => drawSprite(ride, t.x, t.z, carW, carH, t.facing, 0, ROAD_Y),
       });
     }
-    actors.push({
-      z: 0.85,
-      draw: () => drawSprite(ride, car.x, car.z, carW, carH, car.facing, 0, carGroundY()),
-    });
+    if (car.street === streetId) {
+      actors.push({
+        z: 0.85,
+        draw: () => drawSprite(ride, car.x, car.z, carW, carH, car.facing, 0, carGroundY()),
+      });
+    }
     if (!inCar) {
       const sheet = heroSheet();
       const img = sheet[Math.floor(player.anim * WALK_FPS) % sheet.length];
@@ -617,7 +906,7 @@ function drawActors() {
   }
   actors.sort((a, b) => a.z - b.z);
   for (const a of actors) a.draw();
-  if (mode === "play") {
+  if (mode === "play" && streetHasSpots()) {
     drawLabel(at(CRIB), 0.12, "CRIB", "#e81818");
     drawLabel(at(PLUG), 0.12, "PLUG", "#f0c430");
     for (const m of MEETS) {
@@ -656,6 +945,27 @@ function syncHud() {
   padCar.querySelectorAll("[data-role='gas'],[data-role='brake']").forEach((el) => {
     el.classList.toggle("on", el.dataset.role === "gas" ? gasHeld() : brakeHeld());
   });
+  syncTurnHint();
+}
+function syncTurnHint() {
+  const el = document.getElementById("turn-hint");
+  const row = document.getElementById("turn-exits");
+  if (!el || !row) return;
+  const ix = mode === "play" ? nearIntersection() : null;
+  if (!ix) {
+    el.classList.add("hidden");
+    row.innerHTML = "";
+    return;
+  }
+  el.classList.remove("hidden");
+  if (speedNow() > TURN_SPEED) {
+    row.innerHTML = `<button type="button" class="pad-btn" disabled>SLOW DOWN</button>`;
+    return;
+  }
+  row.innerHTML = ix.exits.map((ex) => {
+    const arrow = ex.dir === "down" ? "▼" : "▲";
+    return `<button type="button" class="pad-btn accent" data-role="turn" data-dir="${ex.dir}">${arrow} ${ex.sign}</button>`;
+  }).join("");
 }
 function keysHasRole(role) {
   if (role === "left") return keys.has("ArrowLeft") || keys.has("KeyA");
@@ -679,7 +989,8 @@ function update(dt) {
   const stallPulse = pulses.stall;
   const savePulse = pulses.save;
   const stashPulse = pulses.stash;
-  pulses = { act: false, jump: false, start: false, car: false, phone: false, crib: false, pullover: false, accept: false, stall: false, save: false, stash: false, gear: null };
+  const turnPulse = pulses.turn;
+  pulses = { act: false, jump: false, start: false, car: false, phone: false, crib: false, pullover: false, accept: false, stall: false, save: false, stash: false, gear: null, turn: null };
 
   blink += dt;
   if (mode === "title") {
@@ -715,6 +1026,12 @@ function update(dt) {
   if (carPulse) doCarBtn();
   if (act) doAct();
   if (acceptPulse) acceptOrder();
+
+  turnLock = Math.max(0, turnLock - dt);
+  const edgeTurn = ax.z < -0.5 && prevTurnZ >= -0.5 ? "up" : ax.z > 0.5 && prevTurnZ <= 0.5 ? "down" : null;
+  prevTurnZ = ax.z;
+  const turnDir = turnPulse || edgeTurn;
+  if (turnDir) tryTurn(turnDir);
 
   if (inCar) {
     if (gearPulse) tryShift(gearPulse, brakeHeld());
@@ -810,6 +1127,7 @@ function update(dt) {
 function renderNes() {
   nctx.imageSmoothingEnabled = false;
   drawParallax();
+  if (mode === "play") drawStreetSigns();
   if (mode === "play") drawActors();
   nctx.font = "8px 'Press Start 2P', monospace";
   for (const p of pops) text(nctx, p.text, worldToScreen(p.x), depthY(p.z) - 48, "#f8f8f8", "center");
@@ -825,8 +1143,9 @@ function renderNes() {
   nctx.fillRect(0, 0, nesW, 16);
   nctx.font = "8px 'Press Start 2P', monospace";
   text(nctx, "$" + String(Math.floor(cash)).padStart(4, "0"), 4, 4, "#f0c430");
-  text(nctx, fmtG(grams) + "G", Math.round(nesW * 0.38), 4, grams > 0 ? "#38f070" : "#8a8696");
-  text(nctx, "REP " + rep, nesW - 64, 4, "#f8f8f8");
+  text(nctx, fmtG(grams) + "G", Math.round(nesW * 0.34), 4, grams > 0 ? "#38f070" : "#8a8696");
+  text(nctx, (currentStreet()?.name || "").replace(" ST", ""), Math.round(nesW * 0.58), 4, "#c8b89a");
+  text(nctx, "REP " + rep, nesW - 56, 4, "#f8f8f8");
   if (mode === "title") {
     nctx.fillStyle = "rgba(7,6,12,0.72)";
     nctx.fillRect(0, 16, nesW, nesH - 16);
@@ -865,6 +1184,7 @@ function pulseFromRole(role, extra) {
   if (role === "accept") pulses.accept = true;
   if (role === "stall") pulses.stall = true;
   if (role === "gear") pulses.gear = extra || null;
+  if (role === "turn") pulses.turn = extra || null;
   if (role === "nes" || role === "act") pulses.start = true;
 }
 
@@ -896,7 +1216,7 @@ document.getElementById("app").addEventListener("pointerdown", (e) => {
     return;
   }
   holds.add(role);
-  pulseFromRole(role, e.target.dataset.gear);
+  pulseFromRole(role, e.target.dataset.gear || e.target.dataset.dir);
   try { e.target.setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
   e.preventDefault();
 });
@@ -950,10 +1270,15 @@ window.__br = {
     heroPx: HERO_SRC_H * spriteScale * cssScale,
     nesW, nesH, cssScale, spriteScale,
     world: WORLD,
-    plugX: at(PLUG),
-    cribX: at(CRIB),
-    orderX: order ? at(meetById(order.spot)) : 0,
-    hasStreet: !!(longStreet || art?.street),
+    streetId,
+    streetName: currentStreet()?.name || "",
+    plugX: streetHasSpots() ? at(PLUG) : 0,
+    cribX: streetHasSpots() ? at(CRIB) : 0,
+    orderX: order && streetHasSpots() ? at(meetById(order.spot)) : 0,
+    intersectX: currentStreet()?.intersections[0]?.x || 0,
+    exits: (nearIntersection()?.exits || []).map((e) => e.dir + ":" + e.sign),
+    canTurn: !!(nearIntersection() && speedNow() <= TURN_SPEED && turnLock <= 0),
+    hasStreet: !!(currentStreet()?.strip || longStreet || art?.street),
     hasCar: !!art?.car,
   }),
   start: () => beginPlay(false),
@@ -988,6 +1313,8 @@ window.__br = {
   spawnOrder: () => rollOrder(),
   acceptOrder,
   persist,
+  tryTurn,
+  setStreet: (id, x) => enterStreet(id, x ?? player.x, inCar),
   ready: false,
 };
 
@@ -1004,8 +1331,10 @@ Promise.all([
   loadImage(`sprites/car.png?v=${ASSET_V}`),
 ]).then(([idle, walk, walkNew, thug, runner, walkFront, walkBack, pack, street, carImg]) => {
   if (!idle || !thug || !runner || !pack || !street || !carImg) return;
-  longStreet = buildLongStreet(street);
-  WORLD = longStreet.width;
+  bakeStreets(street);
+  streetId = "cali";
+  longStreet = streets.cali.strip;
+  WORLD = streets.cali.length;
   art = {
     idle, walk: walkNew || walk, walkNew: walkNew || walk, thug, runner, pack, street,
     walkFront, walkBack,

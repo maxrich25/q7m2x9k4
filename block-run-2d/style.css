@@ -82,6 +82,27 @@ html, body {
   touch-action: none;
 }
 
+#turn-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  z-index: 4;
+  pointer-events: auto;
+}
+#turn-hint.hidden { display: none; }
+#turn-exits {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+#turn-exits .pad-btn {
+  min-width: 88px;
+  height: 36px;
+  padding: 0 8px;
+  font-size: 8px;
+}
+
 #pad {
   flex: 0 0 auto;
   height: 200px;
