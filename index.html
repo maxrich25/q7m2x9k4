@@ -9,10 +9,10 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="BLOCK RUN" />
-  <meta name="description" content="BLOCK RUN arcade. Classic 2D cart or the 2.5D night-street prototype." />
+  <meta name="description" content="BLOCK RUN. NES-style night block. Drive deals, hit the plug, stash at the crib." />
   <link rel="manifest" href="./manifest.json" />
   <link rel="apple-touch-icon" href="./block-run-25d/apple-touch-icon.png" />
-  <link rel="icon" type="image/svg+xml" href="./block-run/favicon.svg" />
+  <link rel="icon" type="image/svg+xml" href="./block-run/favicon.svg?v=7" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <style>
     :root {
@@ -73,16 +73,19 @@
       flex-direction: column;
       gap: 14px;
     }
-    a.pick {
+    a.pick, button.pick {
       display: block;
+      width: 100%;
       text-decoration: none;
       color: var(--cream);
       border: 3px solid #3a3644;
       background: #121018;
       padding: 22px 14px 18px;
       min-height: 92px;
+      font-family: inherit;
+      cursor: pointer;
     }
-    a.pick:hover, a.pick:focus-visible {
+    a.pick:hover, a.pick:focus-visible, button.pick:hover, button.pick:focus-visible {
       border-color: var(--cyan);
       box-shadow: 0 0 18px rgba(61, 224, 255, 0.28);
       outline: none;
@@ -91,21 +94,28 @@
       border-color: var(--pink);
       box-shadow: 0 0 18px rgba(226, 27, 122, 0.3);
     }
-    a.pick strong {
+    a.pick strong, button.pick strong {
       display: block;
-      font-size: 11px;
+      font-size: 16px;
       line-height: 1.45;
       margin-bottom: 10px;
+      letter-spacing: 1px;
     }
-    a.pick em {
+    a.pick em, button.pick em {
       display: block;
       font-style: normal;
       font-size: 7px;
       color: #8a8696;
       line-height: 1.5;
     }
-    a.pick.plus strong { color: var(--cyan); }
+    a.pick.plus strong, button.pick.start strong { color: var(--cyan); }
     a.pick.classic strong { color: var(--pink); }
+    button.pick.more { min-height: 72px; padding: 16px 14px; }
+    button.pick.more strong { font-size: 8px; color: var(--gold); margin-bottom: 0; }
+    #more-panel { display: none; flex-direction: column; gap: 12px; }
+    #more-panel.open { display: flex; }
+    #more-panel a.pick { min-height: 72px; padding: 16px 14px; }
+    #more-panel a.pick strong { font-size: 8px; }
     footer {
       margin-top: 26px;
       font-size: 7px;
@@ -120,34 +130,36 @@
     <h1>BLOCK<br><span>RUN</span></h1>
     <p class="cali">CALI</p>
     <div class="picks">
-      <a class="pick classic" href="./block-run/?v=58&fresh=clear">
-        <strong>BLOCK RUN<br>(CLASSIC)</strong>
-        <em>2D PIXEL SIDE-VIEW</em>
-      </a>
-      <a class="pick" href="./block-run-2d/?v=1">
-        <strong>ON FOOT</strong>
-        <em>2D PIXEL. PHONE AND PLUG. NO CARS.</em>
-      </a>
-      <a class="pick plus" href="./block-run-25d/?v=79&fresh=clear">
-        <strong>BLOCK RUN 2.5D</strong>
+      <a class="pick plus start" href="./block-run-2d/?v=7">
+        <strong>START</strong>
         <em>DRIVE DEALS ON THE NIGHT BLOCK</em>
       </a>
-      <a class="pick" href="./versions/">
-        <strong>VERSIONS</strong>
-        <em>PLAY ANY PAST 2.5D BATCH</em>
-      </a>
+      <button type="button" class="pick more" id="btn-more">
+        <strong>MORE</strong>
+      </button>
+      <div id="more-panel">
+        <a class="pick plus" href="./block-run-25d/?v=79&fresh=clear">
+          <strong>2.5D</strong>
+          <em>LATEST NIGHT-STREET PROTOTYPE</em>
+        </a>
+        <a class="pick classic" href="./block-run/?v=58&fresh=clear">
+          <strong>CLASSIC</strong>
+          <em>ORIGINAL 2D SHOOTER</em>
+        </a>
+        <a class="pick" href="./versions/">
+          <strong>OLDER VERSIONS</strong>
+          <em>PLAY ANY PAST 2.5D BATCH</em>
+        </a>
+      </div>
     </div>
-    <footer>TAP A MODE TO START</footer>
+    <footer>TAP START</footer>
   </main>
-  <script type="module">
-    import { bindAudioUnlock, unlockAudio, startMusic } from "./block-run-25d/js/audio.js?v=79";
-    bindAudioUnlock();
-    const go = () => {
-      unlockAudio();
-      startMusic();
-    };
-    document.addEventListener("pointerdown", go, { capture: true, passive: true });
-    document.addEventListener("touchstart", go, { capture: true, passive: true });
+  <script>
+    document.getElementById("btn-more").addEventListener("click", () => {
+      const panel = document.getElementById("more-panel");
+      const open = panel.classList.toggle("open");
+      document.getElementById("btn-more").querySelector("strong").textContent = open ? "LESS" : "MORE";
+    });
   </script>
 </body>
 </html>
