@@ -7,7 +7,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const CHROME = "/usr/bin/google-chrome-stable";
 const PORT = process.env.PORT || "8767";
 const ROOT = `http://127.0.0.1:${PORT}/`;
-const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=8&fresh=clear`;
+const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=9&fresh=clear`;
 
 async function shot(page, name) {
   const file = path.join(OUT, name);
@@ -82,6 +82,12 @@ async function main() {
   await page.evaluate(() => window.__br.start());
   await page.waitForTimeout(250);
 
+  await page.evaluate(() => {
+    const st = window.__br.getState();
+    window.__br.setPlayerX(st.plugX - 28);
+    window.__br.setDepth(0.28);
+  });
+  await page.waitForTimeout(200);
   const standing = await ground(page);
   console.log("STANDING", JSON.stringify(standing, null, 2));
   await shot(page, "feet_standing.png");
