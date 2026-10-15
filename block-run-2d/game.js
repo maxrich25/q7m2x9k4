@@ -1,7 +1,7 @@
 /* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
-const ASSET_V = "11";
+const ASSET_V = "12";
 const STEP = 1 / 60;
-const SAVE_KEY = "block-run-2d-v2";
+const SAVE_KEY = "block-run-2d-v3";
 const HERO_SRC_W = 40;
 const HERO_SRC_H = 40;
 const NES_W = 256;
@@ -35,13 +35,13 @@ const CAR_CREEP = 22;
 const CAR_STOP = 8;
 const NAMES = ["DEZ", "MARI", "KILO", "NIA", "JUNO"];
 const MEETS = [
-  { id: "taco", label: "TACO", t: 0.56 },
-  { id: "motel", label: "MOTEL", t: 0.8 },
-  { id: "alley", label: "ALLEY", t: 0.36 },
-  { id: "park", label: "PARK", t: 0.94 },
+  { id: "taco", label: "TACO", t: 0.58 },
+  { id: "motel", label: "MOTEL", t: 0.72 },
+  { id: "alley", label: "ALLEY", t: 0.34 },
+  { id: "park", label: "PARK", t: 0.66 },
 ];
-const PLUG = { id: "plug", label: "PLUG", t: 0.2 };
-const CRIB = { id: "crib", label: "CRIB", t: 0.06 };
+const PLUG = { id: "plug", label: "PLUG", t: 0.40 };
+const CRIB = { id: "crib", label: "CRIB", t: 0.26 };
 const Z_WALK_MIN = 0.20;
 const Z_WALK_MAX = 0.40;
 const Z_STREET_MIN = 0.52;
@@ -49,28 +49,37 @@ const Z_STREET_MAX = 0.92;
 const Z_CAR_PARK = 0.58;
 const Z_CAR_DRIVE = 0.74;
 const TURN_SPEED = 26;
-const INTERSECT_REACH = 42;
-/** Named streets. Each has a backdrop id, length (px, or from the baked strip), and intersections. */
+const INTERSECT_REACH = 44;
+const AXIS_LEN = 720;
+const IX_T = [0.18, 0.50, 0.82];
+const EW_STREETS = [
+  { id: "sunset", name: "SUNSET", row: 0, style: "sunset" },
+  { id: "santa_monica", name: "SANTA MONICA", row: 1, style: "blvd" },
+  { id: "melrose", name: "MELROSE", row: 2, style: "shop" },
+];
+const NS_STREETS = [
+  { id: "western", name: "WESTERN", col: 0, style: "ave" },
+  { id: "normandie", name: "NORMANDIE", col: 1, style: "ave" },
+  { id: "vermont", name: "VERMONT", col: 2, style: "ave" },
+];
+const LEFT_OF = { E: "N", N: "W", W: "S", S: "E" };
+const RIGHT_OF = { E: "S", S: "W", W: "N", N: "E" };
+/** 4-block grid: 3 east-west × 3 north-south. */
 const STREET_DEFS = [
-  {
-    id: "cali",
-    name: "CALI ST",
-    backdrop: "classic",
-    spots: true,
-    intersections: [
-      { id: "cali-mid", t: 0.48, exits: [{ dir: "up", sign: "HILLS ST", to: { street: "hills", at: "hills-west" } }] },
-    ],
-  },
-  {
-    id: "hills",
-    name: "HILLS ST",
-    backdrop: "hills",
-    length: 800,
-    spots: false,
-    intersections: [
-      { id: "hills-west", t: 0.16, exits: [{ dir: "down", sign: "CALI ST", to: { street: "cali", at: "cali-mid" } }] },
-    ],
-  },
+  ...EW_STREETS.map((ew) => ({
+    id: ew.id, name: ew.name, axis: "ew", row: ew.row, style: ew.style,
+    spots: ew.id === "sunset", length: AXIS_LEN,
+    intersections: NS_STREETS.map((ns, i) => ({
+      id: `${ew.id}-${ns.id}`, t: IX_T[i], cross: ns.id, crossName: ns.name, row: ew.row, col: ns.col,
+    })),
+  })),
+  ...NS_STREETS.map((ns) => ({
+    id: ns.id, name: ns.name, axis: "ns", col: ns.col, style: ns.style,
+    spots: false, length: AXIS_LEN,
+    intersections: EW_STREETS.map((ew, i) => ({
+      id: `${ew.id}-${ns.id}`, t: IX_T[i], cross: ew.id, crossName: ew.name, row: ew.row, col: ns.col,
+    })),
+  })),
 ];
 function walkSpeed() {
   return STRIDE_NATIVE * WALK_FPS * spriteScale;
@@ -95,14 +104,17 @@ let spriteScale = 1;
 let WORLD = 398 * 4;
 let longStreet = null;
 let streets = {};
-let streetId = "cali";
+let streetId = "sunset";
+let heading = "E";
 let turnLock = 0;
 let prevTurnZ = 0;
+let prevTurnX = 0;
+let crossSpawnT = 5;
 let art = null;
 let mode = "title";
 let ui = null;
 let player = { x: 70, z: 0.28, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
-let car = { x: 140, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0, street: "cali" };
+let car = { x: 140, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0, street: "sunset" };
 let inCar = false;
 let cash = START_CASH;
 let grams = 0;
@@ -156,6 +168,61 @@ function meetById(id) {
 function speedNow() {
   return Math.abs(inCar ? car.vx : player.vx);
 }
+function alongMin() {
+  const ix = currentStreet()?.intersections?.[0];
+  return ix ? ix.x - 48 : 28;
+}
+function alongMax() {
+  const list = currentStreet()?.intersections;
+  const ix = list?.[list.length - 1];
+  return ix ? ix.x + 48 : WORLD - 28;
+}
+function clampAlong(x) {
+  return Math.max(alongMin(), Math.min(alongMax(), Number(x) || alongMin()));
+}
+function applyHeading(h) {
+  heading = h;
+  const face = (h === "E" || h === "N") ? 1 : -1;
+  player.facing = face;
+  car.facing = face;
+}
+function syncHeadingFromFacing() {
+  const st = currentStreet();
+  const face = inCar ? car.facing : player.facing;
+  if (st?.axis === "ns") heading = face > 0 ? "N" : "S";
+  else heading = face > 0 ? "E" : "W";
+}
+function neighbor(ix, h) {
+  if (!ix) return null;
+  if (h === "E") return ix.col < 2 ? { street: EW_STREETS[ix.row].id, heading: "E" } : null;
+  if (h === "W") return ix.col > 0 ? { street: EW_STREETS[ix.row].id, heading: "W" } : null;
+  if (h === "N") return ix.row > 0 ? { street: NS_STREETS[ix.col].id, heading: "N" } : null;
+  if (h === "S") return ix.row < 2 ? { street: NS_STREETS[ix.col].id, heading: "S" } : null;
+  return null;
+}
+function exitsAt(ix, h) {
+  if (!ix) return [];
+  const out = [];
+  const pack = (dir, nh) => {
+    const n = neighbor(ix, nh);
+    if (!n) return;
+    const dest = streets[n.street];
+    out.push({
+      dir,
+      street: n.street,
+      heading: n.heading,
+      label: dest ? dest.name : n.street,
+      same: n.street === streetId,
+    });
+  };
+  pack("straight", h);
+  pack("left", LEFT_OF[h]);
+  pack("right", RIGHT_OF[h]);
+  return out;
+}
+function liveExits() {
+  return exitsAt(nearIntersection(), heading);
+}
 function nearIntersection() {
   const st = currentStreet();
   if (!st) return null;
@@ -163,7 +230,7 @@ function nearIntersection() {
   let best = null;
   let bestD = INTERSECT_REACH;
   for (const ix of st.intersections) {
-    const d = Math.abs(wrapDelta(x, ix.x, WORLD));
+    const d = Math.abs(x - ix.x);
     if (d <= bestD) {
       bestD = d;
       best = ix;
@@ -171,13 +238,15 @@ function nearIntersection() {
   }
   return best;
 }
-function enterStreet(id, x, viaCar) {
+function enterStreet(id, x, viaCar, nextHeading, quiet) {
   const dest = streets[id];
   if (!dest) return false;
   streetId = id;
   WORLD = dest.length;
   longStreet = dest.strip;
-  const nx = wrap(Number(x) || 0, WORLD);
+  if (nextHeading) applyHeading(nextHeading);
+  else syncHeadingFromFacing();
+  const nx = clampAlong(Number(x) || alongMin());
   if (viaCar || inCar) {
     car.street = id;
     car.x = nx;
@@ -190,27 +259,42 @@ function enterStreet(id, x, viaCar) {
   }
   spawnPeds();
   spawnTraffic();
-  cam = wrap(player.x - nesW * 0.42, WORLD);
-  turnLock = 0.45;
-  addPop(player.x, player.z, dest.name);
-  if (typeof BRAudio !== "undefined") BRAudio.sfx.shift();
+  cam = Math.max(0, Math.min(Math.max(0, WORLD - nesW), player.x - nesW * 0.42));
+  turnLock = quiet ? 0 : 0.45;
+  if (!quiet) {
+    addPop(player.x, player.z, dest.name);
+    if (typeof BRAudio !== "undefined") BRAudio.sfx.shift();
+  }
   return true;
 }
 function tryTurn(dir) {
   if (!dir || turnLock > 0) return false;
+  if (dir === "up") dir = "straight";
+  if (dir === "down") {
+    const ex = liveExits();
+    dir = ex.find((e) => e.dir === "straight") ? "straight" : (ex[0]?.dir || "");
+  }
   const ix = nearIntersection();
   if (!ix) return false;
   if (speedNow() > TURN_SPEED) {
     addPop(player.x, player.z, "SLOW DOWN");
     return false;
   }
-  const exit = ix.exits.find((e) => e.dir === dir);
+  const exit = exitsAt(ix, heading).find((e) => e.dir === dir);
   if (!exit) return false;
-  const dest = streets[exit.to.street];
-  if (!dest) return false;
-  const destIx = dest.intersections.find((i) => i.id === exit.to.at) || dest.intersections[0];
-  const land = destIx ? destIx.x + player.facing * 28 : dest.length * 0.2;
-  return enterStreet(exit.to.street, land, inCar);
+  const bump = (exit.heading === "E" || exit.heading === "N") ? 36 : -36;
+  if (exit.same) {
+    applyHeading(exit.heading);
+    const nx = clampAlong((inCar ? car.x : player.x) + bump);
+    player.x = nx;
+    if (inCar) car.x = nx;
+    turnLock = 0.4;
+    addPop(player.x, player.z, "STRAIGHT");
+    return true;
+  }
+  const dest = streets[exit.street];
+  const destIx = dest.intersections.find((i) => i.id === ix.id) || dest.intersections[0];
+  return enterStreet(exit.street, destIx.x + bump, inCar, exit.heading);
 }
 function loadImage(src) {
   return new Promise((resolve) => {
@@ -248,7 +332,7 @@ function persist() {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       cash, grams, stash, rep, hi, x: player.x, z: player.z, facing: player.facing,
-      streetId, carX: car.x, carZ: car.z, carFacing: car.facing, carStreet: car.street, order, inbox,
+      streetId, heading, carX: car.x, carZ: car.z, carFacing: car.facing, carStreet: car.street, order, inbox,
     }));
     hasSave = true;
   } catch { /* ignore */ }
@@ -258,30 +342,117 @@ function addPop(x, z, s) {
 }
 function spawnPeds() {
   const n = streetHasSpots() ? 6 : 3;
+  const lo = alongMin();
+  const hi = alongMax();
   peds = Array.from({ length: n }, (_, i) => ({
-    x: wrap((WORLD / n) * i + 40, WORLD),
+    x: lo + ((hi - lo) / n) * i + 20,
     z: clampWalkZ(0.22 + (i % 3) * 0.06),
     facing: i % 2 ? -1 : 1,
     look: i % 2,
     anim: Math.random(),
     speed: 18 + (i % 3) * 6,
+    mode: "walk",
+    wantCross: false,
+    crossT: 0,
   }));
+}
+function carComingNear(x) {
+  const cars = [];
+  if (car.street === streetId) cars.push(car);
+  for (const t of traffic) cars.push(t);
+  for (const c of cars) {
+    const d = c.x - x;
+    const spd = Math.abs(c.vx);
+    if (spd > 8 && ((c.vx > 0 && d < 0 && d > -110) || (c.vx < 0 && d > 0 && d < 110))) return true;
+    if (spd > 4 && Math.abs(d) < 30) return true;
+  }
+  return false;
+}
+function updatePeds(dt) {
+  const lo = alongMin();
+  const hi = alongMax();
+  for (const ped of peds) {
+    ped.anim += dt;
+    if (ped.mode === "cross") {
+      ped.crossT += dt;
+      const u = ped.crossT / 1.5;
+      if (u < 0.45) ped.z = Z_WALK_MAX + (0.78 - Z_WALK_MAX) * (u / 0.45);
+      else if (u < 1) ped.z = 0.78 + (Z_WALK_MIN - 0.78) * ((u - 0.45) / 0.55);
+      else {
+        ped.mode = "walk";
+        ped.z = clampWalkZ(0.26);
+        ped.facing *= -1;
+        ped.crossT = 0;
+      }
+      continue;
+    }
+    if (ped.wantCross || Math.random() < 0.0018) {
+      ped.wantCross = true;
+      ped.z = Z_WALK_MAX;
+      if (carComingNear(ped.x)) {
+        ped.mode = "wait";
+      } else {
+        ped.mode = "cross";
+        ped.crossT = 0;
+        ped.wantCross = false;
+      }
+      continue;
+    }
+    ped.mode = "walk";
+    ped.x = Math.max(lo, Math.min(hi, ped.x + ped.facing * ped.speed * dt));
+    ped.z = clampWalkZ(ped.z);
+    if (ped.x <= lo + 1 || ped.x >= hi - 1) ped.facing *= -1;
+    if (Math.random() < 0.002) ped.facing *= -1;
+  }
+}
+function updateTraffic(dt) {
+  const lo = alongMin();
+  const hi = alongMax();
+  for (const t of traffic) {
+    t.justTurned = Math.max(0, (t.justTurned || 0) - dt);
+    t.x += t.vx * dt;
+    if (t.x < lo || t.x > hi) {
+      t.facing *= -1;
+      t.vx *= -1;
+      t.x = Math.max(lo, Math.min(hi, t.x));
+    }
+  }
+  crossSpawnT -= dt;
+  if (crossSpawnT <= 0) {
+    crossSpawnT = 5 + Math.random() * 7;
+    const st = currentStreet();
+    const ix = st?.intersections[Math.floor(Math.random() * st.intersections.length)];
+    if (ix && traffic.length < 5) {
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      traffic.push({
+        x: clampAlong(ix.x + dir * 10),
+        z: Z_CAR_DRIVE,
+        facing: dir,
+        vx: dir * (40 + Math.random() * 16),
+        justTurned: 1.4,
+      });
+    }
+  }
 }
 function spawnTraffic() {
   const n = streetHasSpots() ? 2 : 1;
+  const lo = alongMin();
+  const hi = alongMax();
   traffic = Array.from({ length: n }, (_, i) => ({
-    x: wrap((WORLD / (n + 1)) * (i + 1) + 180, WORLD),
+    x: lo + ((hi - lo) / (n + 1)) * (i + 1),
     z: Z_CAR_DRIVE,
     facing: i % 2 ? -1 : 1,
     vx: (i % 2 ? -1 : 1) * 48,
+    justTurned: 0,
   }));
 }
 function fresh() {
-  streetId = "cali";
-  WORLD = streets.cali?.length || WORLD;
-  longStreet = streets.cali?.strip || longStreet;
+  streetId = "sunset";
+  heading = "E";
+  WORLD = streets.sunset?.length || WORLD;
+  longStreet = streets.sunset?.strip || longStreet;
   player = { x: at(CRIB) + 18, z: 0.28, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
-  car = { x: at(CRIB) + 86, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0, street: "cali" };
+  car = { x: at(CRIB) + 86, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0, street: "sunset" };
   inCar = false;
   cash = START_CASH;
   grams = 0;
@@ -294,22 +465,23 @@ function fresh() {
   ui = null;
   spawnPeds();
   spawnTraffic();
-  cam = wrap(player.x - nesW * 0.42, WORLD);
+  cam = Math.max(0, Math.min(Math.max(0, WORLD - nesW), player.x - nesW * 0.42));
   addPop(player.x, player.z, "COP A PACK");
 }
 function continueSave(s) {
-  streetId = streets[s.streetId] ? s.streetId : "cali";
+  streetId = streets[s.streetId] ? s.streetId : "sunset";
+  heading = ["E", "W", "N", "S"].includes(s.heading) ? s.heading : "E";
   WORLD = currentStreet()?.length || WORLD;
   longStreet = currentStreet()?.strip || longStreet;
   player = {
-    x: wrap(s.x || at(CRIB), WORLD),
+    x: clampAlong(s.x || at(CRIB)),
     z: clampWalkZ(s.z ?? 0.28),
     vx: 0, vz: 0,
     facing: s.facing === -1 ? -1 : 1,
     anim: 0, moveDir: "side",
   };
   car = {
-    x: wrap(s.carX || at(CRIB) + 86, WORLD),
+    x: clampAlong(s.carX || at(CRIB) + 86),
     z: s.carZ ?? Z_CAR_PARK,
     vx: 0,
     facing: s.carFacing === -1 ? -1 : 1,
@@ -329,16 +501,16 @@ function continueSave(s) {
   ui = null;
   spawnPeds();
   spawnTraffic();
-  cam = wrap(player.x - nesW * 0.42, WORLD);
+  cam = Math.max(0, Math.min(Math.max(0, WORLD - nesW), player.x - nesW * 0.42));
 }
 function closeTo(x) {
-  return Math.abs(wrapDelta(inCar ? car.x : player.x, x, WORLD)) <= REACH;
+  return Math.abs((inCar ? car.x : player.x) - x) <= REACH;
 }
 function onWalk() {
   return player.z <= Z_WALK_MAX + 0.02;
 }
 function nearCar() {
-  return !inCar && car.street === streetId && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 36;
+  return !inCar && car.street === streetId && Math.abs(player.x - car.x) < 36;
 }
 function nearCrib() {
   return !inCar && closeTo(at(CRIB)) && onWalk();
@@ -545,7 +717,7 @@ function clampWalkZ(z) {
   return Math.max(Z_WALK_MIN, Math.min(Z_WALK_MAX, Number(z) || Z_WALK_MIN));
 }
 function worldToScreen(wx) {
-  return wrapDelta(cam, wx, WORLD);
+  return wx - cam;
 }
 
 const footPadCache = new WeakMap();
@@ -751,12 +923,132 @@ function buildHillsStreet(width) {
   return c;
 }
 
-function bakeStreets(classicSrc) {
+function drawDowntownSkyline() {
+  const towers = [
+    [18, 78, 22], [44, 54, 16], [64, 92, 20], [90, 48, 14],
+    [110, 70, 18], [136, 100, 24], [164, 62, 16], [186, 84, 20],
+    [212, 56, 14], [230, 74, 18],
+  ];
+  for (const [x, h, w] of towers) {
+    const y = 176 - h;
+    px(nctx, x, y, w, h, "#1a1230");
+    px(nctx, x + w - 3, y, 3, h, "#120c24");
+    px(nctx, x, y, w, 2, "#2a2048");
+    for (let wy = y + 6; wy < y + h - 8; wy += 6) {
+      for (let wx = x + 3; wx < x + w - 4; wx += 5) {
+        if (((wx + wy) * 17) % 5 !== 0) px(nctx, wx, wy, 2, 2, "#c8a830");
+      }
+    }
+  }
+}
+function drawHollywoodHillsSkyline() {
+  fillHill(nctx, NES_W, 118, 18, 30, 0.04, "#2a1848");
+  strokeRidge(nctx, NES_W, 118, 18, 30, 0.04, "#4a3468");
+  fillHill(nctx, NES_W, 142, 14, 80, 0.05, "#3a2458");
+  strokeRidge(nctx, NES_W, 142, 14, 80, 0.05, "#5c4474");
+  fillHill(nctx, NES_W, 158, 10, 10, 0.06, "#4a3060");
+  strokeRidge(nctx, NES_W, 158, 10, 10, 0.06, "#7a6088");
+  drawMoon(nctx, 208, 28);
+}
+function drawWestHorizon() {
+  px(nctx, 0, 70, NES_W, 20, "#2a1030");
+  px(nctx, 0, 90, NES_W, 18, "#3a1840");
+  px(nctx, 0, 108, NES_W, 16, "#4a2048");
+  px(nctx, 0, 124, NES_W, 14, "#5a2850");
+  px(nctx, 0, 138, NES_W, 12, "#3a2040");
+  for (const x of [24, 70, 130, 190, 236]) {
+    px(nctx, x, 150, 3, 26, "#1a1028");
+    px(nctx, x - 8, 156, 20, 3, "#241838");
+    px(nctx, x - 4, 148, 12, 3, "#241838");
+  }
+}
+function drawSouthBasin() {
+  px(nctx, 0, 130, NES_W, 46, "#1a1028");
+  const mids = [[20, 28, 22], [60, 20, 16], [100, 34, 18], [150, 24, 20], [190, 30, 16], [226, 22, 18]];
+  for (const [x, h, w] of mids) {
+    px(nctx, x, 176 - h, w, h, "#241838");
+    px(nctx, x + 4, 176 - h + 6, 2, 2, "#a88830");
+    px(nctx, x + w - 6, 176 - h + 10, 2, 2, "#a88830");
+  }
+}
+function drawSkyline(h) {
+  nctx.fillStyle = "#0c011f";
+  nctx.fillRect(0, 0, NES_W, 176);
+  for (let i = 0; i < 28; i++) {
+    px(nctx, (i * 37 + 11) % NES_W, 6 + (i * 13) % 60, 1, 1, i % 4 === 0 ? "#d8d0e4" : "#6a6080");
+  }
+  if (h === "E") drawDowntownSkyline();
+  else if (h === "N") drawHollywoodHillsSkyline();
+  else if (h === "W") drawWestHorizon();
+  else drawSouthBasin();
+}
+function drawRoad(g, w) {
+  px(g, 0, 176, w, 3, "#7d655e");
+  px(g, 0, 179, w, 1, "#aca190");
+  px(g, 0, 180, w, 1, "#322833");
+  px(g, 0, 181, w, 27, "#292131");
+  px(g, 0, 208, w, 16, "#2a2434");
+  for (let x = 0; x < w; x += 16) px(g, x, 200, 8, 2, "#aca190");
+  px(g, 0, 220, w, 4, "#191928");
+}
+function drawShopFront(g, x, gy, w, h, body, roof, neon) {
+  const y = gy - h;
+  px(g, x, y, w, h, body);
+  px(g, x, y, w, 5, roof);
+  px(g, x + w - 2, y, 2, h, "#1a1018");
+  px(g, x + 3, y + 16, w - 6, 4, neon || "#6a2038");
+  px(g, x + Math.floor(w / 2) - 3, y + h - 14, 7, 14, "#2a181c");
+  px(g, x + 4, y + 24, 8, 8, "#3a4860");
+  px(g, x + w - 13, y + 24, 8, 8, "#3a4860");
+  if (h > 50) {
+    px(g, x + 5, y + 8, 4, 4, "#f0c430");
+    px(g, x + w - 10, y + 8, 4, 4, "#f0c430");
+  }
+}
+function drawAptFront(g, x, gy, w, h, body) {
+  const y = gy - h;
+  px(g, x, y, w, h, body);
+  px(g, x, y, w, 3, "#2a1824");
+  px(g, x + w - 2, y, 2, h, "#1a1018");
+  for (let row = y + 8; row < y + h - 16; row += 10) {
+    for (let col = x + 4; col < x + w - 6; col += 8) px(g, col, row, 4, 5, ((col + row) % 16 < 8) ? "#f0c430" : "#2a3850");
+  }
+  px(g, x + Math.floor(w / 2) - 4, y + h - 16, 8, 16, "#2a181c");
+}
+function buildStreetStrip(def) {
+  const w = def.length || AXIS_LEN;
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = NES_H;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  let x = 6;
+  let n = 0;
+  const palettes = {
+    sunset: [["#8a6058", "#4a2830", "#c83060"], ["#6a4850", "#2a1820", "#f0c430"], ["#5a4038", "#3a2028", "#38d8f8"]],
+    blvd: [["#7a6a60", "#3a3028", "#6a2038"], ["#9a8070", "#4a3830", "#c83060"], ["#5a5048", "#2a2018", "#f0c430"]],
+    shop: [["#b89070", "#5a3840", "#e21b7a"], ["#c8b090", "#4a3038", "#38d8f8"], ["#8a5848", "#3a2028", "#f0c430"]],
+    ave: [["#6a5850", "#3a2820", "#6a2038"], ["#8a7060", "#4a3028", "#f0c430"], ["#5a4038", "#2a1818", "#38d8f8"]],
+  };
+  const pal = palettes[def.style] || palettes.ave;
+  while (x < w - 10) {
+    const p = pal[n % pal.length];
+    const kind = def.style === "ave" ? (n % 3 === 0 ? "house" : "apt") : (n % 4 === 0 ? "apt" : "shop");
+    const bw = kind === "house" ? 36 + (n % 3) * 6 : 32 + (n * 7 + def.name.length) % 28;
+    const bh = kind === "house" ? 34 + (n % 2) * 8 : 48 + (n * 11) % 36;
+    if (kind === "house") drawHouse(g, x, 176, { w: bw, h: bh, kind: n % 2 ? "pale" : "brick", fence: n % 2 === 0 });
+    else if (kind === "apt") drawAptFront(g, x, 176, bw, Math.max(54, bh), p[0]);
+    else drawShopFront(g, x, 176, bw, Math.max(46, bh), p[0], p[1], p[2]);
+    x += bw + 5 + (n % 4);
+    n += 1;
+  }
+  drawRoad(g, w);
+  return c;
+}
+function bakeStreets() {
   streets = {};
   for (const def of STREET_DEFS) {
-    const strip = def.backdrop === "classic"
-      ? buildLongStreet(classicSrc)
-      : buildHillsStreet(def.length || 800);
+    const strip = buildStreetStrip(def);
     const length = strip.width;
     streets[def.id] = {
       ...def,
@@ -767,23 +1059,13 @@ function bakeStreets(classicSrc) {
   }
 }
 
-/** Classic street blit, copied from block-run/: wrap a 256×224 window of the strip. */
 function drawCurrentStreet() {
-  const src = currentStreet()?.strip || longStreet || art?.street;
-  if (!src) {
-    nctx.fillStyle = "#0c011f";
-    nctx.fillRect(0, 0, NES_W, NES_H);
-    return;
-  }
-  const o = src.width || src.naturalWidth || 398;
-  let e = Math.round(cam);
-  e = ((e % o) + o) % o;
   nctx.imageSmoothingEnabled = false;
+  drawSkyline(heading);
+  const src = currentStreet()?.strip || longStreet;
+  if (!src) return;
+  const e = Math.max(0, Math.min(src.width - NES_W, Math.round(cam)));
   nctx.drawImage(src, e, 0, NES_W, NES_H, 0, 0, NES_W, NES_H);
-  if (e + NES_W > o) {
-    const t = e + NES_W - o;
-    nctx.drawImage(src, 0, 0, t, NES_H, NES_W - t, 0, t, NES_H);
-  }
 }
 
 function drawStreetSigns() {
@@ -806,8 +1088,8 @@ function drawStreetSigns() {
     nctx.fillStyle = "#8a8894";
     nctx.fillRect(sx - 3, baseY - 64, 6, 4);
     const blades = [
-      { name: ix.exits[0]?.sign || "HILL", fill: "#2d8a4a" },
-      { name: st.name, fill: "#1f6a38" },
+      { name: st.name, fill: "#2d8a4a" },
+      { name: ix.crossName || "", fill: "#1f6a38" },
     ];
     blades.forEach((blade, i) => {
       const bw = Math.max(58, blade.name.length * 8 + 12);
@@ -822,34 +1104,6 @@ function drawStreetSigns() {
       text(nctx, blade.name, bx + 6, by + 2, "#f8f4e8");
     });
   }
-}
-
-/** Tile classic building slices in varied order so the strip is long, not a single copy-paste. */
-function buildLongStreet(src) {
-  const sw = src.naturalWidth || src.width;
-  const sh = src.naturalHeight || src.height || NES_H;
-  const pieces = [[0, 99], [99, 190], [190, 275], [275, sw]];
-  const pattern = [
-    [0, 1, 2, 3],
-    [2, 0, 3, 1],
-    [3, 2, 1, 0],
-    [1, 3, 0, 2],
-  ];
-  const seq = pattern.flat();
-  let total = 0;
-  for (const i of seq) total += pieces[i][1] - pieces[i][0];
-  const c = document.createElement("canvas");
-  c.width = total;
-  c.height = NES_H;
-  const g = c.getContext("2d");
-  g.imageSmoothingEnabled = false;
-  let x = 0;
-  for (const i of seq) {
-    const [a, b] = pieces[i];
-    g.drawImage(src, a, 0, b - a, sh, x, 0, b - a, NES_H);
-    x += b - a;
-  }
-  return c;
 }
 
 function drawParallax() {
@@ -873,7 +1127,7 @@ function drawActors() {
       const spot = meetById(order.spot);
       const sheet = NAMES.indexOf(order.name) % 2 === 0 ? art.thug : art.runner;
       const img = sheet[Math.floor(buyerAnim * WALK_FPS) % sheet.length];
-      const face = wrapDelta(at(spot), player.x, WORLD) >= 0 ? 1 : -1;
+      const face = at(spot) >= player.x ? 1 : -1;
       const bz = clampWalkZ(0.30);
       actors.push({ z: bz, draw: () => drawPerson(img, at(spot), bz, face) });
     }
@@ -962,10 +1216,11 @@ function syncTurnHint() {
     row.innerHTML = `<button type="button" class="pad-btn" disabled>SLOW DOWN</button>`;
     return;
   }
-  row.innerHTML = ix.exits.map((ex) => {
-    const arrow = ex.dir === "down" ? "▼" : "▲";
-    return `<button type="button" class="pad-btn accent" data-role="turn" data-dir="${ex.dir}">${arrow} ${ex.sign}</button>`;
-  }).join("");
+  const exits = exitsAt(ix, heading);
+  const mark = { left: "◀", right: "▶", straight: "▲" };
+  row.innerHTML = exits.map((ex) => (
+    `<button type="button" class="pad-btn accent" data-role="turn" data-dir="${ex.dir}">${mark[ex.dir] || "▲"} ${ex.label}</button>`
+  )).join("");
 }
 function keysHasRole(role) {
   if (role === "left") return keys.has("ArrowLeft") || keys.has("KeyA");
@@ -1028,10 +1283,17 @@ function update(dt) {
   if (acceptPulse) acceptOrder();
 
   turnLock = Math.max(0, turnLock - dt);
-  const edgeTurn = ax.z < -0.5 && prevTurnZ >= -0.5 ? "up" : ax.z > 0.5 && prevTurnZ <= 0.5 ? "down" : null;
+  const ixNow = nearIntersection();
+  const slowNow = speedNow() <= TURN_SPEED;
+  let edgeTurn = turnPulse;
+  if (!edgeTurn && ixNow && slowNow) {
+    if (ax.z < -0.5 && prevTurnZ >= -0.5) edgeTurn = "straight";
+    if (inCar && ax.x < -0.5 && prevTurnX >= -0.5) edgeTurn = "left";
+    if (inCar && ax.x > 0.5 && prevTurnX <= 0.5) edgeTurn = "right";
+  }
   prevTurnZ = ax.z;
-  const turnDir = turnPulse || edgeTurn;
-  if (turnDir) tryTurn(turnDir);
+  prevTurnX = ax.x;
+  if (edgeTurn) tryTurn(edgeTurn);
 
   if (inCar) {
     if (gearPulse) tryShift(gearPulse, brakeHeld());
@@ -1054,8 +1316,8 @@ function update(dt) {
       }
     } else if (car.gear === "P") {
       car.vx = 0;
-      if (ax.x < 0) car.facing = -1;
-      if (ax.x > 0) car.facing = 1;
+      if (ax.x < 0) { car.facing = -1; syncHeadingFromFacing(); }
+      if (ax.x > 0) { car.facing = 1; syncHeadingFromFacing(); }
     } else if (car.gear === "N") {
       car.vx *= Math.exp(-1.2 * dt);
       if (brake) car.vx *= Math.exp(-4 * dt);
@@ -1078,7 +1340,8 @@ function update(dt) {
     }
     car.vx = Math.max(-CAR_MAX, Math.min(CAR_MAX, car.vx));
     if (brake && Math.abs(car.vx) < CAR_STOP) car.vx = 0;
-    car.x = wrap(car.x + car.vx * dt, WORLD);
+    car.x = clampAlong(car.x + car.vx * dt);
+    if (car.x <= alongMin() || car.x >= alongMax()) car.vx = 0;
     if (!car.parked && car.gear !== "P") car.z = Z_CAR_DRIVE;
     player.x = car.x;
     player.z = car.z;
@@ -1089,12 +1352,13 @@ function update(dt) {
     BRAudio.setEngine("off");
     if (ax.x < 0) player.facing = -1;
     if (ax.x > 0) player.facing = 1;
+    if (ax.x) syncHeadingFromFacing();
     const spd = walkSpeed();
     player.vx = ax.x * spd;
     player.vz = ax.z * (spd * 0.62);
     if (Math.abs(ax.z) > Math.abs(ax.x) + 0.1) player.moveDir = ax.z > 0 ? "front" : "back";
     else player.moveDir = "side";
-    player.x = wrap(player.x + player.vx * dt, WORLD);
+    player.x = clampAlong(player.x + player.vx * dt);
     player.z = clampWalkZ(player.z + (player.vz / 80) * dt);
     if (Math.abs(ax.x) > 0 || Math.abs(ax.z) > 0) player.anim += dt;
     else player.anim = 0;
@@ -1104,15 +1368,8 @@ function update(dt) {
   }
 
   buyerAnim += dt;
-  for (const ped of peds) {
-    ped.x = wrap(ped.x + ped.facing * ped.speed * dt, WORLD);
-    ped.z = clampWalkZ(ped.z);
-    ped.anim += dt;
-    if (Math.random() < 0.002) ped.facing *= -1;
-  }
-  for (const t of traffic) {
-    t.x = wrap(t.x + t.vx * dt, WORLD);
-  }
+  updatePeds(dt);
+  updateTraffic(dt);
   if (!order && grams > 0) {
     phoneT -= dt;
     if (phoneT <= 0) rollOrder();
@@ -1120,8 +1377,9 @@ function update(dt) {
   for (const p of pops) p.life -= dt;
   pops = pops.filter((p) => p.life > 0);
   const follow = inCar ? car.x : player.x;
-  const target = wrap(follow - nesW * 0.42, WORLD);
-  cam = wrap(cam + wrapDelta(cam, target, WORLD) * (1 - Math.exp(-7 * dt)), WORLD);
+  const maxCam = Math.max(0, WORLD - nesW);
+  const target = Math.max(0, Math.min(maxCam, follow - nesW * 0.42));
+  cam += (target - cam) * (1 - Math.exp(-7 * dt));
 }
 
 function renderNes() {
@@ -1144,8 +1402,9 @@ function renderNes() {
   nctx.font = "8px 'Press Start 2P', monospace";
   text(nctx, "$" + String(Math.floor(cash)).padStart(4, "0"), 4, 4, "#f0c430");
   text(nctx, fmtG(grams) + "G", Math.round(nesW * 0.34), 4, grams > 0 ? "#38f070" : "#8a8696");
-  text(nctx, (currentStreet()?.name || "").replace(" ST", ""), Math.round(nesW * 0.58), 4, "#c8b89a");
-  text(nctx, "REP " + rep, nesW - 56, 4, "#f8f8f8");
+  text(nctx, currentStreet()?.name || "", Math.round(nesW * 0.50), 4, "#c8b89a");
+  text(nctx, heading, nesW - 72, 4, "#38d8f8");
+  text(nctx, "R" + rep, nesW - 28, 4, "#f8f8f8");
   if (mode === "title") {
     nctx.fillStyle = "rgba(7,6,12,0.72)";
     nctx.fillRect(0, 16, nesW, nesH - 16);
@@ -1272,13 +1531,15 @@ window.__br = {
     world: WORLD,
     streetId,
     streetName: currentStreet()?.name || "",
+    heading,
     plugX: streetHasSpots() ? at(PLUG) : 0,
     cribX: streetHasSpots() ? at(CRIB) : 0,
     orderX: order && streetHasSpots() ? at(meetById(order.spot)) : 0,
     intersectX: currentStreet()?.intersections[0]?.x || 0,
-    exits: (nearIntersection()?.exits || []).map((e) => e.dir + ":" + e.sign),
+    intersectIds: (currentStreet()?.intersections || []).map((i) => i.id),
+    exits: liveExits().map((e) => e.dir + ":" + e.label),
     canTurn: !!(nearIntersection() && speedNow() <= TURN_SPEED && turnLock <= 0),
-    hasStreet: !!(currentStreet()?.strip || longStreet || art?.street),
+    hasStreet: !!currentStreet()?.strip,
     hasCar: !!art?.car,
   }),
   start: () => beginPlay(false),
@@ -1286,8 +1547,9 @@ window.__br = {
   setInCar: (on) => { if (on) { player.x = car.x; player.z = Math.max(player.z, Z_STREET_MIN); enterCar(true); } else leaveCar(); },
   setGear: (g) => { if (GEARS.includes(g)) car.gear = g; },
   tryShift: (g, brake) => tryShift(g, !!brake),
-  setPlayerX: (x) => { player.x = wrap(Number(x) || 0, WORLD); },
-  setCarX: (x) => { car.x = wrap(Number(x) || 0, WORLD); },
+  setPlayerX: (x) => { player.x = clampAlong(Number(x) || 0); },
+  setCarX: (x) => { car.x = clampAlong(Number(x) || 0); },
+  setHeading: (h) => { if (["E", "W", "N", "S"].includes(h)) applyHeading(h); },
   setDepth: (z) => { player.z = inCar ? Math.max(Z_STREET_MIN, Math.min(Z_STREET_MAX, Number(z) || 0)) : clampWalkZ(z); },
   ground: () => {
     const sheet = art ? heroSheet() : null;
@@ -1314,7 +1576,14 @@ window.__br = {
   acceptOrder,
   persist,
   tryTurn,
-  setStreet: (id, x) => enterStreet(id, x ?? player.x, inCar),
+  setStreet: (id, x, h) => enterStreet(id, x ?? player.x, inCar, h, true),
+  setIntersect: (id) => {
+    const ix = currentStreet()?.intersections.find((i) => i.id === id) || currentStreet()?.intersections[0];
+    if (!ix) return null;
+    player.x = ix.x;
+    if (inCar) car.x = ix.x;
+    return ix.id;
+  },
   ready: false,
 };
 
@@ -1327,16 +1596,16 @@ Promise.all([
   loadDirSheet("walk-front"),
   loadDirSheet("walk-back"),
   loadImage(`../block-run/sprites/pack.png?v=${ASSET_V}`),
-  loadImage(`map/street.png?v=${ASSET_V}`),
   loadImage(`sprites/car.png?v=${ASSET_V}`),
-]).then(([idle, walk, walkNew, thug, runner, walkFront, walkBack, pack, street, carImg]) => {
-  if (!idle || !thug || !runner || !pack || !street || !carImg) return;
-  bakeStreets(street);
-  streetId = "cali";
-  longStreet = streets.cali.strip;
-  WORLD = streets.cali.length;
+]).then(([idle, walk, walkNew, thug, runner, walkFront, walkBack, pack, carImg]) => {
+  if (!idle || !thug || !runner || !pack || !carImg) return;
+  bakeStreets();
+  streetId = "sunset";
+  heading = "E";
+  longStreet = streets.sunset.strip;
+  WORLD = streets.sunset.length;
   art = {
-    idle, walk: walkNew || walk, walkNew: walkNew || walk, thug, runner, pack, street,
+    idle, walk: walkNew || walk, walkNew: walkNew || walk, thug, runner, pack,
     walkFront, walkBack,
     car: carImg,
     sedan: carImg,
