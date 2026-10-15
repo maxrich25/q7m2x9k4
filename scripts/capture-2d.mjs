@@ -1,4 +1,5 @@
 import { chromium } from "playwright-core";
+import { spawnSync } from "child_process";
 import fs from "fs";
 import path from "path";
 
@@ -7,7 +8,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const CHROME = "/usr/bin/google-chrome-stable";
 const PORT = process.env.PORT || "8767";
 const ROOT = `http://127.0.0.1:${PORT}/`;
-const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=12&fresh=clear`;
+const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=13&fresh=clear`;
 
 async function shot(page, name) {
   const file = path.join(OUT, name);
@@ -90,16 +91,16 @@ async function main() {
     window.__br.setMuted(false);
   });
   await page.evaluate(() => window.__br.start());
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(1100);
 
   await page.evaluate(() => {
-    const st = window.__br.getState();
-    window.__br.setPlayerX(st.plugX - 28);
+    window.__br.setStreet("sunset", 200, "E");
     window.__br.setDepth(0.28);
   });
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(250);
   const standing = await ground(page);
   console.log("STANDING", JSON.stringify(standing, null, 2));
+  await shot(page, "classic_fix_onfoot.png");
   await shot(page, "classic_world_onfoot.png");
 
   await page.evaluate(() => {
@@ -119,18 +120,19 @@ async function main() {
   await page.evaluate(() => window.__br.setHold("down", false));
 
   await page.evaluate(() => {
-    const st = window.__br.getState();
-    window.__br.setCarX(st.plugX + 40);
-    window.__br.setPlayerX(st.plugX + 40);
+    window.__br.setStreet("sunset", 250, "E");
+    window.__br.setCarX(250);
+    window.__br.setPlayerX(250);
     window.__br.setInCar(true);
     window.__br.setBrake(true);
     window.__br.tryShift("D", true);
     window.__br.setBrake(false);
     window.__br.setGas(true);
   });
-  await page.waitForTimeout(900);
+  await page.waitForTimeout(500);
   const driving = await ground(page);
   console.log("DRIVING", JSON.stringify(driving, null, 2));
+  await shot(page, "classic_fix_driving.png");
   await shot(page, "classic_world_driving.png");
   await page.evaluate(() => {
     window.__br.setGas(false);
@@ -178,6 +180,7 @@ async function main() {
   await page.waitForTimeout(250);
   const atSign = await ground(page);
   console.log("INTERSECT", JSON.stringify(atSign, null, 2));
+  await shot(page, "classic_fix_intersect.png");
   await shot(page, "classic_world_intersect.png");
   await shot(page, "streets_intersect.png");
 
@@ -195,6 +198,7 @@ async function main() {
   await page.waitForTimeout(250);
   const hills = await ground(page);
   console.log("NORTH", JSON.stringify(hills, null, 2));
+  await shot(page, "classic_fix_hills.png");
   await shot(page, "classic_world_hills.png");
   await shot(page, "streets_hills.png");
   await shot(page, "streets_north_hills.png");
@@ -213,7 +217,7 @@ async function main() {
   const afterForce = await ground(page);
   console.log("FORCED", JSON.stringify({ streetId: afterForce.streetId, heading: afterForce.heading, exits: afterForce.exits }, null, 2));
 
-  const scaleOk = standing.nesW === 256 && standing.nesH === 224 && standing.spriteScale === 1
+  const scaleOk = standing.nesW === 256 && standing.nesH >= 224 && standing.spriteScale === 1
     && standing.hasStreet && standing.hasCar && standing.mute === "SOUND: ON";
   const driveOk = driving.inCar && driving.car && driving.car.gear === "D";
   const dealOk = dealing.mode === "play" && !dealing.inCar;
@@ -246,6 +250,30 @@ async function main() {
     console.error("FORCE_FAIL west-edge turn did not go south on Western");
     process.exit(1);
   }
+  if (standing.canvas.top > 8) {
+    console.error("FRAME_FAIL empty band above play view", standing.canvas);
+    process.exit(1);
+  }
+  const pair = spawnSync("python3", ["-"], {
+    input: `
+from PIL import Image
+classic = Image.open("/home/ubuntu/.cursor/projects/workspace/uploads/classic-target_d68c.png").convert("RGB")
+ours = Image.open("${path.join(OUT, "classic_fix_onfoot.png")}").convert("RGB")
+classic = classic.resize((375, 667), Image.NEAREST)
+out = Image.new("RGB", (756, 667), (7, 6, 12))
+out.paste(classic, (0, 0))
+out.paste(ours, (381, 0))
+out.save("${path.join(OUT, "side_by_side_classic.png")}")
+print("SIDE_BY_SIDE", out.size)
+`,
+    encoding: "utf8",
+  });
+  if (pair.status !== 0) {
+    console.error(pair.stderr || pair.stdout);
+    console.error("SIDE_FAIL");
+    process.exit(1);
+  }
+  console.log(pair.stdout.trim());
   console.log("CLASSIC_WORLD_OK");
   await browser.close();
 }

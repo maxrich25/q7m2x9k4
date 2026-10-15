@@ -1,16 +1,21 @@
 /* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
-const ASSET_V = "12";
+const ASSET_V = "13";
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v3";
 const HERO_SRC_W = 40;
 const HERO_SRC_H = 40;
 const NES_W = 256;
 const NES_H = 224;
-/** Classic ground line from block-run (sprite feet at y=198 on the 224 canvas). */
-const GROUND_Y = 198;
-const SIDEWALK_BACK = 186;
-const SIDEWALK_CURB = 198;
-const ROAD_Y = 208;
+/** Classic ground from block-run/map/street.png: tan sidewalk y=171–179, road below. */
+const GROUND_Y = 179;
+const SIDEWALK_BACK = 171;
+const SIDEWALK_CURB = 179;
+const ROAD_Y = 186;
+const FACADE_Y = 86;
+const STREET_SRC_W = 398;
+const STREET_SRC_H = 224;
+const SLICE_X = [0, 99, 190, 275, 398];
+const CAR_ERASE = { x: 6, y: 156, w: 86, h: 20 };
 const GEARS = ["P", "R", "N", "D"];
 const WALK_FPS = 8;
 const STRIDE_NATIVE = 4.5;
@@ -101,6 +106,8 @@ let nesW = NES_W;
 let nesH = NES_H;
 let cssScale = 1;
 let spriteScale = 1;
+let worldZoom = 1;
+let worldY0 = 0;
 let WORLD = 398 * 4;
 let longStreet = null;
 let streets = {};
@@ -124,6 +131,7 @@ let hi = 0;
 let order = null;
 let phoneT = 0;
 let pops = [];
+let toast = { text: "", life: 0 };
 let peds = [];
 let traffic = [];
 let cam = 0;
@@ -337,8 +345,8 @@ function persist() {
     hasSave = true;
   } catch { /* ignore */ }
 }
-function addPop(x, z, s) {
-  pops.push({ x, z, text: s, life: 0.9 });
+function addPop(_x, _z, s) {
+  toast = { text: String(s || ""), life: 0.95 };
 }
 function spawnPeds() {
   const n = streetHasSpots() ? 6 : 3;
@@ -405,27 +413,44 @@ function updatePeds(dt) {
     if (Math.random() < 0.002) ped.facing *= -1;
   }
 }
+function carClearOf(x, ignore) {
+  const gap = 112;
+  if (car.street === streetId && (!ignore || ignore !== car) && Math.abs(car.x - x) < gap) return false;
+  for (const t of traffic) {
+    if (t === ignore) continue;
+    if (Math.abs(t.x - x) < gap) return false;
+  }
+  return true;
+}
 function updateTraffic(dt) {
   const lo = alongMin();
   const hi = alongMax();
   for (const t of traffic) {
     t.justTurned = Math.max(0, (t.justTurned || 0) - dt);
-    t.x += t.vx * dt;
+    const nx = t.x + t.vx * dt;
+    if (!carClearOf(nx, t)) {
+      t.facing *= -1;
+      t.vx *= -1;
+      continue;
+    }
+    t.x = nx;
     if (t.x < lo || t.x > hi) {
       t.facing *= -1;
       t.vx *= -1;
       t.x = Math.max(lo, Math.min(hi, t.x));
     }
   }
+  if (traffic.length > 1) traffic.length = 1;
   crossSpawnT -= dt;
   if (crossSpawnT <= 0) {
-    crossSpawnT = 5 + Math.random() * 7;
+    crossSpawnT = 7 + Math.random() * 8;
     const st = currentStreet();
     const ix = st?.intersections[Math.floor(Math.random() * st.intersections.length)];
-    if (ix && traffic.length < 5) {
+    const x = ix ? clampAlong(ix.x) : 0;
+    if (ix && traffic.length < 1 && carClearOf(x)) {
       const dir = Math.random() < 0.5 ? 1 : -1;
       traffic.push({
-        x: clampAlong(ix.x + dir * 10),
+        x,
         z: Z_CAR_DRIVE,
         facing: dir,
         vx: dir * (40 + Math.random() * 16),
@@ -435,16 +460,19 @@ function updateTraffic(dt) {
   }
 }
 function spawnTraffic() {
-  const n = streetHasSpots() ? 2 : 1;
   const lo = alongMin();
   const hi = alongMax();
-  traffic = Array.from({ length: n }, (_, i) => ({
-    x: lo + ((hi - lo) / (n + 1)) * (i + 1),
-    z: Z_CAR_DRIVE,
-    facing: i % 2 ? -1 : 1,
-    vx: (i % 2 ? -1 : 1) * 48,
-    justTurned: 0,
-  }));
+  traffic = [];
+  const mid = lo + (hi - lo) * 0.62;
+  if (carClearOf(mid)) {
+    traffic.push({
+      x: mid,
+      z: Z_CAR_DRIVE,
+      facing: heading === "W" || heading === "S" ? -1 : 1,
+      vx: (heading === "W" || heading === "S" ? -1 : 1) * 44,
+      justTurned: 0,
+    });
+  }
 }
 function fresh() {
   streetId = "sunset";
@@ -682,36 +710,41 @@ function brakeHeld() {
   return testBrake || holds.has("brake") || keys.has("KeyL") || keys.has("Slash") || keys.has("Space");
 }
 
+function streetDestY(srcY) {
+  return Math.round((srcY - worldY0) * worldZoom);
+}
 function snapView() {
   const vw = Math.max(160, viewEl?.clientWidth || 375);
   const vh = Math.max(140, viewEl?.clientHeight || 400);
-  nesW = NES_W;
-  nesH = NES_H;
   spriteScale = 1;
-  // Classic letterbox: fit 256×224 into the view, hard pixels, same framing as block-run/.
-  cssScale = Math.max(0.5, Math.min(vw / NES_W, vh / NES_H));
-  if (nes.width !== NES_W || nes.height !== NES_H) {
-    nes.width = NES_W;
-    nes.height = NES_H;
+  nesW = NES_W;
+  cssScale = Math.max(0.5, vw / NES_W);
+  nesH = Math.max(NES_H, Math.round(vh / cssScale));
+  worldY0 = 12;
+  const roadPad = 34;
+  worldZoom = (nesH - roadPad) / Math.max(1, SIDEWALK_CURB - worldY0);
+  if (nes.width !== nesW || nes.height !== nesH) {
+    nes.width = nesW;
+    nes.height = nesH;
   }
-  canvas.width = NES_W;
-  canvas.height = NES_H;
-  canvas.style.width = Math.round(NES_W * cssScale) + "px";
-  canvas.style.height = Math.round(NES_H * cssScale) + "px";
+  canvas.width = nesW;
+  canvas.height = nesH;
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
 }
 
 function depthY(z) {
   const u = (clampWalkZ(z) - Z_WALK_MIN) / Math.max(0.001, Z_WALK_MAX - Z_WALK_MIN);
-  return Math.round(SIDEWALK_BACK + u * (SIDEWALK_CURB - SIDEWALK_BACK));
+  return streetDestY(SIDEWALK_BACK + u * (SIDEWALK_CURB - SIDEWALK_BACK));
 }
 function sidewalkTop() {
-  return SIDEWALK_BACK;
+  return streetDestY(SIDEWALK_BACK);
 }
 function sidewalkCurb() {
-  return SIDEWALK_CURB;
+  return streetDestY(SIDEWALK_CURB);
 }
 function carGroundY() {
-  return (car.parked || car.gear === "P") ? SIDEWALK_CURB : ROAD_Y;
+  return streetDestY((car.parked || car.gear === "P") ? SIDEWALK_CURB + 4 : ROAD_Y);
 }
 function clampWalkZ(z) {
   return Math.max(Z_WALK_MIN, Math.min(Z_WALK_MAX, Number(z) || Z_WALK_MIN));
@@ -797,258 +830,168 @@ function px(g, x, y, w, h, color) {
   g.fillStyle = color;
   g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
 }
-function hillY(x, base, amp, phase, freq) {
-  return Math.round(base + Math.sin((x + phase) * freq) * amp + Math.sin((x + phase * 1.7) * freq * 2.3) * amp * 0.32);
-}
-function fillHill(g, w, base, amp, phase, freq, color) {
-  g.fillStyle = color;
-  for (let x = 0; x < w; x++) {
-    const y = Math.max(48, Math.min(176, hillY(x, base, amp, phase, freq)));
-    g.fillRect(x, y, 1, 176 - y);
-  }
-}
-function drawMoon(g, cx, cy) {
-  const r = 8;
-  for (let y = -r; y <= r; y++) {
-    for (let x = -r; x <= r; x++) {
-      if (x * x + y * y <= r * r) px(g, cx + x, cy + y, 1, 1, "#e4dcc8");
-    }
-  }
-  px(g, cx - 2, cy - 1, 2, 2, "#c8c0ac");
-  px(g, cx + 2, cy + 2, 2, 1, "#d0c8b4");
-}
-function strokeRidge(g, w, base, amp, phase, freq, color) {
-  g.fillStyle = color;
-  for (let x = 0; x < w; x++) {
-    const y = Math.max(48, Math.min(175, hillY(x, base, amp, phase, freq)));
-    g.fillRect(x, y, 1, 2);
-  }
-}
-function drawHouse(g, x, gy, spec) {
-  const w = spec.w;
-  const h = spec.h;
-  const kind = spec.kind;
-  const body = kind === "brick" ? "#7a4a3a" : kind === "pale" ? "#d0bca4" : "#b89878";
-  const shade = kind === "brick" ? "#5a3028" : "#8a6c54";
-  const roof = kind === "brick" ? "#3a2030" : "#5a3844";
-  const y = gy - h;
-  const roofH = Math.max(8, Math.round(h * 0.28));
-  for (let i = 0; i < roofH; i++) {
-    const grow = roofH - 1 - i;
-    px(g, x - grow, y - roofH + i, w + grow * 2, 1, i === 0 ? "#6a4854" : roof);
-  }
-  px(g, x, y, w, h, body);
-  px(g, x, y + h - 3, w, 3, shade);
-  px(g, x + w - 1, y, 1, h, shade);
-  const doorW = 6;
-  const doorH = Math.min(14, h - 8);
-  px(g, x + Math.floor(w / 2) - 3, y + h - doorH, doorW, doorH, "#2a181c");
-  px(g, x + 5, y + 6, 7, 6, "#f0c430");
-  px(g, x + w - 13, y + 6, 7, 6, spec.dark ? "#3a4860" : "#f0c430");
-  px(g, x + 8, y + 6, 1, 6, "#2a181c");
-  px(g, x + w - 10, y + 6, 1, 6, "#2a181c");
-  if (h >= 58) {
-    px(g, x + 5, y + 16, 7, 6, "#f0c430");
-    px(g, x + w - 13, y + 16, 7, 6, spec.dark ? "#3a4860" : "#e8b020");
-    px(g, x + 8, y + 16, 1, 6, "#2a181c");
-    px(g, x + w - 10, y + 16, 1, 6, "#2a181c");
-  }
-  px(g, x + w - 10, y - roofH - 6, 5, 8, "#4a3038");
-  if (spec.fence) {
-    px(g, x - 8, gy - 7, w + 16, 1, "#6a5a48");
-    for (let fx = x - 8; fx < x + w + 8; fx += 5) px(g, fx, gy - 7, 1, 7, "#6a5a48");
-  }
-}
-function drawYucca(g, x, gy) {
-  px(g, x, gy - 14, 2, 14, "#3a5040");
-  px(g, x - 5, gy - 10, 5, 2, "#4a6850");
-  px(g, x + 2, gy - 12, 5, 2, "#4a6850");
-  px(g, x - 3, gy - 16, 3, 2, "#5a7860");
-  px(g, x + 2, gy - 18, 3, 2, "#5a7860");
-}
-
-/** Original hills strip — same classic night palette, no third-party art. */
-function buildHillsStreet(width) {
-  const w = width || 800;
+function mkCanvas(w, h) {
   const c = document.createElement("canvas");
   c.width = w;
-  c.height = NES_H;
+  c.height = h;
   const g = c.getContext("2d");
   g.imageSmoothingEnabled = false;
-  px(g, 0, 0, w, 176, "#0c011f");
-  for (let i = 0; i < 52; i++) {
-    const sx = (i * 97 + 13) % w;
-    const sy = 4 + ((i * 17) % 64);
-    px(g, sx, sy, 1, 1, i % 5 === 0 ? "#d8d0e4" : "#6a6080");
-  }
-  drawMoon(g, 188, 26);
-  fillHill(g, w, 72, 20, 40, 0.01, "#2a1848");
-  strokeRidge(g, w, 72, 20, 40, 0.01, "#3a2870");
-  fillHill(g, w, 100, 22, 90, 0.013, "#3a2458");
-  strokeRidge(g, w, 100, 22, 90, 0.013, "#4a3468");
-  fillHill(g, w, 128, 20, 20, 0.016, "#4a3060");
-  strokeRidge(g, w, 128, 20, 20, 0.016, "#5c4474");
-  fillHill(g, w, 152, 12, 140, 0.019, "#5c4068");
-  strokeRidge(g, w, 152, 12, 140, 0.019, "#7a6088");
-  const far = [
-    [54, 10, 12], [168, 8, 10], [290, 11, 13], [410, 9, 11], [540, 10, 12], [670, 8, 10],
-  ];
-  for (const [hx, hw, hh] of far) {
-    const gy = Math.min(168, hillY(hx, 108, 18, 90, 0.014) + 2);
-    px(g, hx, gy - hh, hw, hh, "#241038");
-    px(g, hx + 2, gy - hh + 3, 2, 2, "#c8a830");
-    px(g, hx + hw - 4, gy - hh + 3, 2, 2, "#c8a830");
-  }
-  const homes = [
-    { x: 64, w: 58, h: 62, kind: "pale", gy: 176, fence: true },
-    { x: 156, w: 52, h: 70, kind: "brick", gy: 176, dark: true },
-    { x: 246, w: 60, h: 58, kind: "ranch", gy: 176, fence: true },
-    { x: 348, w: 54, h: 64, kind: "pale", gy: 176 },
-    { x: 438, w: 62, h: 68, kind: "brick", gy: 176, dark: true, fence: true },
-    { x: 538, w: 56, h: 60, kind: "ranch", gy: 176 },
-    { x: 628, w: 58, h: 66, kind: "pale", gy: 176, fence: true },
-    { x: 718, w: 54, h: 70, kind: "brick", gy: 176, dark: true },
-  ];
-  for (const h of homes) drawHouse(g, h.x, h.gy, h);
-  for (const x of [44, 118, 220, 310, 400, 500, 590, 680, 760]) {
-    drawYucca(g, x, 176);
-  }
-  px(g, 0, 176, w, 3, "#7d655e");
-  px(g, 0, 179, w, 1, "#aca190");
-  px(g, 0, 180, w, 1, "#322833");
-  px(g, 0, 181, w, 27, "#292131");
-  px(g, 0, 208, w, 16, "#2a2434");
-  for (let x = 0; x < w; x += 16) px(g, x, 200, 8, 2, "#aca190");
-  px(g, 0, 220, w, 4, "#191928");
-  return c;
+  return { c, g };
 }
-
+function sliceW(i) {
+  return SLICE_X[i + 1] - SLICE_X[i];
+}
+function eraseBakedCar(g, img, dx) {
+  const { x, y, w } = CAR_ERASE;
+  g.drawImage(img, x, 140, w, 16, dx + x, y, w, 16);
+  g.drawImage(img, x, 171, w, 9, dx + x, 171, w, 9);
+  g.drawImage(img, 120, 180, w, 10, dx + x, 180, w, 10);
+}
+function tintBuildings(canvas, mr, mg, mb) {
+  if (mr === 1 && mg === 1 && mb === 1) return canvas;
+  const g = canvas.getContext("2d");
+  const id = g.getImageData(0, 0, canvas.width, canvas.height);
+  const d = id.data;
+  const w = canvas.width;
+  for (let i = 0; i < d.length; i += 4) {
+    const y = ((i >> 2) / w) | 0;
+    if (y < FACADE_Y || y >= 171) continue;
+    if (d[i + 3] < 10) continue;
+    d[i] = Math.max(0, Math.min(255, d[i] * mr + 0.5));
+    d[i + 1] = Math.max(0, Math.min(255, d[i + 1] * mg + 0.5));
+    d[i + 2] = Math.max(0, Math.min(255, d[i + 2] * mb + 0.5));
+  }
+  g.putImageData(id, 0, 0);
+  return canvas;
+}
+/*
+ * Classic world inventory (block-run/ is not modified):
+ *   map/street.png — sky, moon, skyline, brick, stucco, CALI wall, sidewalk, road, baked car
+ *   sprites/car.png — purple lowrider
+ * Classic blit from block-run/game.js Fe():
+ *   drawImage(street, e, 0, 256, 224, 0, 0, 256, 224)
+ *   if (e+256>o) drawImage(street, 0, 0, t, 224, 256-t, 0, t, 224)
+ */
+function blitClassic(g, src, e, sy, sh, dy) {
+  if (!src) return;
+  const o = src.width;
+  const dw = nesW;
+  const srcY = sy == null ? 0 : sy;
+  const srcH = sh == null ? src.height : sh;
+  const destY = dy == null ? streetDestY(srcY) : dy;
+  const destH = Math.max(1, Math.round(srcH * worldZoom));
+  const x = Math.max(0, Math.min(Math.max(0, o - dw), Math.round(e)));
+  g.drawImage(src, x, srcY, dw, srcH, 0, destY, dw, destH);
+  if (x + dw > o) {
+    const t = x + dw - o;
+    g.drawImage(src, 0, srcY, t, srcH, dw - t, destY, t, destH);
+  }
+}
+function drawNightSky() {
+  const src = art?.street;
+  const top = streetDestY(FACADE_Y);
+  if (!src) {
+    nctx.fillStyle = "#0c011f";
+    nctx.fillRect(0, 0, nesW, Math.max(1, top));
+    return;
+  }
+  blitClassic(nctx, src, Math.round(cam * 0.14), worldY0, 56 - worldY0);
+}
+function drawClassicSkylineBand(scroll) {
+  const src = art?.street;
+  if (!src) return;
+  blitClassic(nctx, src, scroll, 40, FACADE_Y - 40);
+}
 function drawDowntownSkyline() {
-  const towers = [
-    [18, 78, 22], [44, 54, 16], [64, 92, 20], [90, 48, 14],
-    [110, 70, 18], [136, 100, 24], [164, 62, 16], [186, 84, 20],
-    [212, 56, 14], [230, 74, 18],
-  ];
-  for (const [x, h, w] of towers) {
-    const y = 176 - h;
-    px(nctx, x, y, w, h, "#1a1230");
-    px(nctx, x + w - 3, y, 3, h, "#120c24");
-    px(nctx, x, y, w, 2, "#2a2048");
-    for (let wy = y + 6; wy < y + h - 8; wy += 6) {
-      for (let wx = x + 3; wx < x + w - 4; wx += 5) {
-        if (((wx + wy) * 17) % 5 !== 0) px(nctx, wx, wy, 2, 2, "#c8a830");
-      }
+  const src = art?.street;
+  drawClassicSkylineBand(Math.round(cam * 0.2) + 18);
+  if (!src) return;
+  const towers = [[18, 7, 22], [74, 6, 18], [140, 9, 16], [210, 5, 20], [300, 8, 14]];
+  for (const [sx, tw, lift] of towers) {
+    const dx = (sx * 2 + 36 + Math.round(cam * 0.2)) % Math.max(1, nesW);
+    const dy = streetDestY(Math.max(18, 48 - lift));
+    const dh = Math.round((38 + Math.min(14, lift)) * worldZoom);
+    nctx.drawImage(src, sx, 48, tw, 38, dx, dy, tw, dh);
+  }
+}
+function drawHillsSkyline() {
+  const src = art?.street;
+  if (src) blitClassic(nctx, src, Math.round(cam * 0.1), worldY0, 40 - worldY0);
+  const cols = ["#18092e", "#1e0a3e", "#220a40", "#0a0220", "#14101f"];
+  const base = streetDestY(FACADE_Y);
+  for (let x = 0; x < nesW; x++) {
+    const n1 = Math.sin(x * 0.055 + 1.1);
+    const n2 = Math.sin(x * 0.17 + 3.4);
+    const step = ((x * 13 + 7) % 9);
+    const ht = Math.round((28 + n1 * 12 + n2 * 7 + step * 0.7) * worldZoom);
+    const top = base - ht;
+    for (let y = top; y < base; y++) {
+      const c = cols[(x * 3 + y * 5 + step) % cols.length];
+      px(nctx, x, y, 1, 1, c);
     }
+    px(nctx, x, top, 1, 1, "#3a2870");
+    if ((x * 11 + 3) % 19 === 0) px(nctx, x, top + 6 + (x % 5), 1, 1, "#aca190");
+    if ((x * 7 + 1) % 23 === 0) px(nctx, x, top + 10 + (x % 3), 1, 1, "#c8a830");
+  }
+  for (let i = 0; i < 7; i++) {
+    const hx = (i * 37 + 14 + Math.round(cam * 0.08)) % nesW;
+    const hy = base - Math.round((16 + ((i * 5) % 10)) * worldZoom);
+    px(nctx, hx, hy, 5, Math.round(8 * worldZoom), "#14101f");
+    px(nctx, hx + 1, hy + 2, 1, 1, "#c8a830");
+    px(nctx, hx + 3, hy + 4, 1, 1, "#aca190");
   }
 }
-function drawHollywoodHillsSkyline() {
-  fillHill(nctx, NES_W, 118, 18, 30, 0.04, "#2a1848");
-  strokeRidge(nctx, NES_W, 118, 18, 30, 0.04, "#4a3468");
-  fillHill(nctx, NES_W, 142, 14, 80, 0.05, "#3a2458");
-  strokeRidge(nctx, NES_W, 142, 14, 80, 0.05, "#5c4474");
-  fillHill(nctx, NES_W, 158, 10, 10, 0.06, "#4a3060");
-  strokeRidge(nctx, NES_W, 158, 10, 10, 0.06, "#7a6088");
-  drawMoon(nctx, 208, 28);
+function drawWestSkyline() {
+  drawClassicSkylineBand(Math.round(cam * 0.16) + 220);
 }
-function drawWestHorizon() {
-  px(nctx, 0, 70, NES_W, 20, "#2a1030");
-  px(nctx, 0, 90, NES_W, 18, "#3a1840");
-  px(nctx, 0, 108, NES_W, 16, "#4a2048");
-  px(nctx, 0, 124, NES_W, 14, "#5a2850");
-  px(nctx, 0, 138, NES_W, 12, "#3a2040");
-  for (const x of [24, 70, 130, 190, 236]) {
-    px(nctx, x, 150, 3, 26, "#1a1028");
-    px(nctx, x - 8, 156, 20, 3, "#241838");
-    px(nctx, x - 4, 148, 12, 3, "#241838");
+function drawSouthSkyline() {
+  drawClassicSkylineBand(Math.round(cam * 0.18) + 90);
+  const y0 = streetDestY(58);
+  nctx.fillStyle = "rgba(10,2,32,0.28)";
+  nctx.fillRect(0, y0, nesW, Math.max(1, streetDestY(FACADE_Y) - y0));
+}
+function drawHeadingSky() {
+  drawNightSky();
+  if (heading === "N") drawHillsSkyline();
+  else if (heading === "E") drawDowntownSkyline();
+  else if (heading === "W") drawWestSkyline();
+  else drawSouthSkyline();
+}
+function streetTint(style) {
+  if (style === "blvd") return [0.92, 0.97, 1.08];
+  if (style === "shop") return [1.08, 0.94, 0.90];
+  if (style === "ave") return [0.86, 0.84, 0.96];
+  return [1, 1, 1];
+}
+function streetPattern(def) {
+  if (def.id === "sunset") return [0, 1, 2, 3, 1, 2, 0, 3];
+  if (def.id === "santa_monica") return [1, 3, 0, 2, 3, 1, 0, 2];
+  if (def.id === "melrose") return [2, 0, 3, 1, 2, 3, 0, 1];
+  if (def.id === "western") return [3, 1, 0, 3, 1, 2];
+  if (def.id === "normandie") return [0, 3, 1, 2, 0, 3];
+  return [1, 0, 3, 2, 1, 0];
+}
+function buildStreetStrip(def, streetImg) {
+  const pattern = streetPattern(def);
+  let width = 0;
+  for (const i of pattern) width += sliceW(i);
+  const { c, g } = mkCanvas(width, STREET_SRC_H);
+  let x = 0;
+  for (const i of pattern) {
+    const sx = SLICE_X[i];
+    const sw = sliceW(i);
+    g.drawImage(streetImg, sx, 0, sw, STREET_SRC_H, x, 0, sw, STREET_SRC_H);
+    if (i === 0) eraseBakedCar(g, streetImg, x);
+    x += sw;
   }
-}
-function drawSouthBasin() {
-  px(nctx, 0, 130, NES_W, 46, "#1a1028");
-  const mids = [[20, 28, 22], [60, 20, 16], [100, 34, 18], [150, 24, 20], [190, 30, 16], [226, 22, 18]];
-  for (const [x, h, w] of mids) {
-    px(nctx, x, 176 - h, w, h, "#241838");
-    px(nctx, x + 4, 176 - h + 6, 2, 2, "#a88830");
-    px(nctx, x + w - 6, 176 - h + 10, 2, 2, "#a88830");
-  }
-}
-function drawSkyline(h) {
-  nctx.fillStyle = "#0c011f";
-  nctx.fillRect(0, 0, NES_W, 176);
-  for (let i = 0; i < 28; i++) {
-    px(nctx, (i * 37 + 11) % NES_W, 6 + (i * 13) % 60, 1, 1, i % 4 === 0 ? "#d8d0e4" : "#6a6080");
-  }
-  if (h === "E") drawDowntownSkyline();
-  else if (h === "N") drawHollywoodHillsSkyline();
-  else if (h === "W") drawWestHorizon();
-  else drawSouthBasin();
-}
-function drawRoad(g, w) {
-  px(g, 0, 176, w, 3, "#7d655e");
-  px(g, 0, 179, w, 1, "#aca190");
-  px(g, 0, 180, w, 1, "#322833");
-  px(g, 0, 181, w, 27, "#292131");
-  px(g, 0, 208, w, 16, "#2a2434");
-  for (let x = 0; x < w; x += 16) px(g, x, 200, 8, 2, "#aca190");
-  px(g, 0, 220, w, 4, "#191928");
-}
-function drawShopFront(g, x, gy, w, h, body, roof, neon) {
-  const y = gy - h;
-  px(g, x, y, w, h, body);
-  px(g, x, y, w, 5, roof);
-  px(g, x + w - 2, y, 2, h, "#1a1018");
-  px(g, x + 3, y + 16, w - 6, 4, neon || "#6a2038");
-  px(g, x + Math.floor(w / 2) - 3, y + h - 14, 7, 14, "#2a181c");
-  px(g, x + 4, y + 24, 8, 8, "#3a4860");
-  px(g, x + w - 13, y + 24, 8, 8, "#3a4860");
-  if (h > 50) {
-    px(g, x + 5, y + 8, 4, 4, "#f0c430");
-    px(g, x + w - 10, y + 8, 4, 4, "#f0c430");
-  }
-}
-function drawAptFront(g, x, gy, w, h, body) {
-  const y = gy - h;
-  px(g, x, y, w, h, body);
-  px(g, x, y, w, 3, "#2a1824");
-  px(g, x + w - 2, y, 2, h, "#1a1018");
-  for (let row = y + 8; row < y + h - 16; row += 10) {
-    for (let col = x + 4; col < x + w - 6; col += 8) px(g, col, row, 4, 5, ((col + row) % 16 < 8) ? "#f0c430" : "#2a3850");
-  }
-  px(g, x + Math.floor(w / 2) - 4, y + h - 16, 8, 16, "#2a181c");
-}
-function buildStreetStrip(def) {
-  const w = def.length || AXIS_LEN;
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = NES_H;
-  const g = c.getContext("2d");
-  g.imageSmoothingEnabled = false;
-  let x = 6;
-  let n = 0;
-  const palettes = {
-    sunset: [["#8a6058", "#4a2830", "#c83060"], ["#6a4850", "#2a1820", "#f0c430"], ["#5a4038", "#3a2028", "#38d8f8"]],
-    blvd: [["#7a6a60", "#3a3028", "#6a2038"], ["#9a8070", "#4a3830", "#c83060"], ["#5a5048", "#2a2018", "#f0c430"]],
-    shop: [["#b89070", "#5a3840", "#e21b7a"], ["#c8b090", "#4a3038", "#38d8f8"], ["#8a5848", "#3a2028", "#f0c430"]],
-    ave: [["#6a5850", "#3a2820", "#6a2038"], ["#8a7060", "#4a3028", "#f0c430"], ["#5a4038", "#2a1818", "#38d8f8"]],
-  };
-  const pal = palettes[def.style] || palettes.ave;
-  while (x < w - 10) {
-    const p = pal[n % pal.length];
-    const kind = def.style === "ave" ? (n % 3 === 0 ? "house" : "apt") : (n % 4 === 0 ? "apt" : "shop");
-    const bw = kind === "house" ? 36 + (n % 3) * 6 : 32 + (n * 7 + def.name.length) % 28;
-    const bh = kind === "house" ? 34 + (n % 2) * 8 : 48 + (n * 11) % 36;
-    if (kind === "house") drawHouse(g, x, 176, { w: bw, h: bh, kind: n % 2 ? "pale" : "brick", fence: n % 2 === 0 });
-    else if (kind === "apt") drawAptFront(g, x, 176, bw, Math.max(54, bh), p[0]);
-    else drawShopFront(g, x, 176, bw, Math.max(46, bh), p[0], p[1], p[2]);
-    x += bw + 5 + (n % 4);
-    n += 1;
-  }
-  drawRoad(g, w);
+  const tint = streetTint(def.style);
+  tintBuildings(c, tint[0], tint[1], tint[2]);
   return c;
 }
-function bakeStreets() {
+function bakeStreets(streetImg) {
   streets = {};
   for (const def of STREET_DEFS) {
-    const strip = buildStreetStrip(def);
+    const strip = buildStreetStrip(def, streetImg);
     const length = strip.width;
     streets[def.id] = {
       ...def,
@@ -1061,49 +1004,46 @@ function bakeStreets() {
 
 function drawCurrentStreet() {
   nctx.imageSmoothingEnabled = false;
-  drawSkyline(heading);
-  const src = currentStreet()?.strip || longStreet;
+  const src = currentStreet()?.strip || longStreet || art?.street;
+  nctx.fillStyle = "#0c011f";
+  nctx.fillRect(0, 0, nesW, nesH);
   if (!src) return;
-  const e = Math.max(0, Math.min(src.width - NES_W, Math.round(cam)));
-  nctx.drawImage(src, e, 0, NES_W, NES_H, 0, 0, NES_W, NES_H);
+  const e = Math.max(0, Math.min(Math.max(0, src.width - nesW), Math.round(cam)));
+  if (heading === "E" && streetId === "sunset") {
+    blitClassic(nctx, src, e, worldY0, STREET_SRC_H - worldY0);
+  } else {
+    drawHeadingSky();
+    blitClassic(nctx, src, e, FACADE_Y, STREET_SRC_H - FACADE_Y);
+  }
 }
 
 function drawStreetSigns() {
   const st = currentStreet();
-  if (!st) return;
+  const ix = nearIntersection();
+  if (!st || !ix) return;
   nctx.imageSmoothingEnabled = false;
   nctx.font = "8px 'Press Start 2P', monospace";
-  for (const ix of st.intersections) {
-    const sx = Math.round(worldToScreen(ix.x));
-    if (sx < -90 || sx > nesW + 90) continue;
-    const baseY = SIDEWALK_CURB;
-    nctx.fillStyle = "#1a181c";
-    nctx.fillRect(sx - 5, baseY - 3, 10, 3);
-    nctx.fillStyle = "#5a5864";
-    nctx.fillRect(sx - 2, baseY - 62, 4, 59);
-    nctx.fillStyle = "#8a8894";
-    nctx.fillRect(sx - 2, baseY - 62, 1, 59);
-    nctx.fillStyle = "#3a3844";
-    nctx.fillRect(sx + 1, baseY - 62, 1, 59);
-    nctx.fillStyle = "#8a8894";
-    nctx.fillRect(sx - 3, baseY - 64, 6, 4);
-    const blades = [
-      { name: st.name, fill: "#2d8a4a" },
-      { name: ix.crossName || "", fill: "#1f6a38" },
-    ];
-    blades.forEach((blade, i) => {
-      const bw = Math.max(58, blade.name.length * 8 + 12);
-      const bx = sx + 4;
-      const by = baseY - 60 + i * 14;
-      nctx.fillStyle = "#0a180c";
-      nctx.fillRect(bx - 1, by - 1, bw + 2, 14);
-      nctx.fillStyle = blade.fill;
-      nctx.fillRect(bx, by, bw, 12);
-      nctx.fillStyle = "#7ad090";
-      nctx.fillRect(bx, by, bw, 1);
-      text(nctx, blade.name, bx + 6, by + 2, "#f8f4e8");
-    });
-  }
+  const sx = Math.round(worldToScreen(ix.x - 40));
+  if (sx < -36 || sx > nesW + 8) return;
+  const baseY = streetDestY(SIDEWALK_CURB);
+  const poleH = Math.round(20 * worldZoom);
+  nctx.fillStyle = "#3a3844";
+  nctx.fillRect(sx, baseY - poleH, 2, poleH);
+  nctx.fillStyle = "#8a8894";
+  nctx.fillRect(sx, baseY - poleH, 1, poleH);
+  const blades = [
+    { name: st.name, fill: "#2d8a4a" },
+    { name: ix.crossName || "", fill: "#1f6a38" },
+  ];
+  blades.forEach((blade, i) => {
+    const label = blade.name.length > 6 ? blade.name.slice(0, 6) : blade.name;
+    const bw = Math.max(24, label.length * 6 + 4);
+    const bx = sx + 3;
+    const by = baseY - poleH + i * 9;
+    nctx.fillStyle = blade.fill;
+    nctx.fillRect(bx, by, bw, 8);
+    text(nctx, label, bx + 2, by + 1, "#f8f4e8");
+  });
 }
 
 function drawParallax() {
@@ -1135,9 +1075,10 @@ function drawActors() {
     const carW = (ride?.naturalWidth || ride?.width || 95) * spriteScale;
     const carH = (ride?.naturalHeight || ride?.height || 29) * spriteScale;
     for (const t of traffic) {
+      if (car.street === streetId && Math.abs(t.x - car.x) < 110) continue;
       actors.push({
         z: 0.9,
-        draw: () => drawSprite(ride, t.x, t.z, carW, carH, t.facing, 0, ROAD_Y),
+        draw: () => drawSprite(ride, t.x, t.z, carW, carH, t.facing, 0, streetDestY(ROAD_Y)),
       });
     }
     if (car.street === streetId) {
@@ -1374,8 +1315,8 @@ function update(dt) {
     phoneT -= dt;
     if (phoneT <= 0) rollOrder();
   }
-  for (const p of pops) p.life -= dt;
-  pops = pops.filter((p) => p.life > 0);
+  if (toast.life > 0) toast.life -= dt;
+  if (toast.life <= 0) toast.text = "";
   const follow = inCar ? car.x : player.x;
   const maxCam = Math.max(0, WORLD - nesW);
   const target = Math.max(0, Math.min(maxCam, follow - nesW * 0.42));
@@ -1388,23 +1329,21 @@ function renderNes() {
   if (mode === "play") drawStreetSigns();
   if (mode === "play") drawActors();
   nctx.font = "8px 'Press Start 2P', monospace";
-  for (const p of pops) text(nctx, p.text, worldToScreen(p.x), depthY(p.z) - 48, "#f8f8f8", "center");
-  if (mode === "play" && order) {
-    nctx.fillStyle = "#121018";
-    nctx.fillRect(4, 18, Math.min(200, nesW - 8), 26);
-    nctx.strokeStyle = "#38d8f8";
-    nctx.strokeRect(5, 19, Math.min(198, nesW - 10), 24);
-    text(nctx, order.name, 10, 22, "#38d8f8");
-    text(nctx, (order.phase === "active" ? order.label : "TXT") + " $" + order.pay, 10, 32, "#f8f8f8");
+  if (mode === "play") {
+    text(nctx, "$" + String(Math.floor(cash)).padStart(4, "0"), 48, 6, "#f0c430");
+    text(nctx, fmtG(grams) + "G", Math.round(nesW * 0.42), 6, grams > 0 ? "#38f070" : "#8a8696");
+    text(nctx, heading, nesW - 52, 6, "#38d8f8");
+    text(nctx, "R" + rep, nesW - 22, 6, "#f8f8f8");
   }
-  nctx.fillStyle = "#07060c";
-  nctx.fillRect(0, 0, nesW, 16);
-  nctx.font = "8px 'Press Start 2P', monospace";
-  text(nctx, "$" + String(Math.floor(cash)).padStart(4, "0"), 4, 4, "#f0c430");
-  text(nctx, fmtG(grams) + "G", Math.round(nesW * 0.34), 4, grams > 0 ? "#38f070" : "#8a8696");
-  text(nctx, currentStreet()?.name || "", Math.round(nesW * 0.50), 4, "#c8b89a");
-  text(nctx, heading, nesW - 72, 4, "#38d8f8");
-  text(nctx, "R" + rep, nesW - 28, 4, "#f8f8f8");
+  if (toast.life > 0 && toast.text) {
+    const msg = toast.text;
+    const tw = Math.min(nesW - 20, msg.length * 8 + 14);
+    const tx = Math.round((nesW - tw) / 2);
+    const ty = Math.min(nesH - 16, streetDestY(ROAD_Y) + 6);
+    nctx.fillStyle = "rgba(7,6,12,0.78)";
+    nctx.fillRect(tx, ty, tw, 13);
+    text(nctx, msg, nesW / 2, ty + 3, "#f8f8f8", "center");
+  }
   if (mode === "title") {
     nctx.fillStyle = "rgba(7,6,12,0.72)";
     nctx.fillRect(0, 16, nesW, nesH - 16);
@@ -1597,9 +1536,10 @@ Promise.all([
   loadDirSheet("walk-back"),
   loadImage(`../block-run/sprites/pack.png?v=${ASSET_V}`),
   loadImage(`sprites/car.png?v=${ASSET_V}`),
-]).then(([idle, walk, walkNew, thug, runner, walkFront, walkBack, pack, carImg]) => {
-  if (!idle || !thug || !runner || !pack || !carImg) return;
-  bakeStreets();
+  loadImage(`map/street.png?v=${ASSET_V}`),
+]).then(([idle, walk, walkNew, thug, runner, walkFront, walkBack, pack, carImg, streetImg]) => {
+  if (!idle || !thug || !runner || !pack || !carImg || !streetImg) return;
+  bakeStreets(streetImg);
   streetId = "sunset";
   heading = "E";
   longStreet = streets.sunset.strip;
@@ -1609,6 +1549,7 @@ Promise.all([
     walkFront, walkBack,
     car: carImg,
     sedan: carImg,
+    street: streetImg,
   };
   window.__br.ready = true;
 });
