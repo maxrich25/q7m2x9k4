@@ -34,6 +34,7 @@ html, body {
 }
 
 #app {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -43,21 +44,26 @@ html, body {
 }
 
 #chrome {
-  flex: 0 0 auto;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: calc(4px + var(--sat)) calc(8px + var(--sar)) 2px calc(8px + var(--sal));
   z-index: 5;
+  pointer-events: none;
 }
 
 #chrome a, #btn-mute {
+  pointer-events: auto;
   font-family: var(--font);
   font-size: 8px;
   color: var(--muted);
   text-decoration: none;
   padding: 6px 8px;
-  background: var(--pad);
+  background: rgba(18, 16, 24, 0.72);
   border: 2px solid var(--line);
 }
 
@@ -68,18 +74,38 @@ html, body {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #05040a;
+  display: block;
+  background: #191828;
 }
 
 #game {
   display: block;
-  background: #05040a;
+  width: 100%;
+  background: #191828;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   touch-action: none;
+}
+
+#turn-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  z-index: 4;
+  pointer-events: auto;
+}
+#turn-hint.hidden { display: none; }
+#turn-exits {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+#turn-exits .pad-btn {
+  min-width: 88px;
+  height: 36px;
+  padding: 0 8px;
+  font-size: 8px;
 }
 
 #pad {
@@ -223,7 +249,7 @@ html, body {
 
 @media (orientation: landscape) and (max-height: 430px) {
   #app { flex-direction: row; }
-  #chrome { position: absolute; top: 0; left: 0; right: auto; }
+  #chrome { right: auto; }
   #view { flex: 1 1 auto; }
   #pad {
     width: 200px;

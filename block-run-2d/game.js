@@ -1,11 +1,21 @@
-/* BLOCK RUN — flat SNES belt-scroller. Hard pixels, no 3D. */
-const ASSET_V = "9";
+/* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
+const ASSET_V = "13";
 const STEP = 1 / 60;
-const SAVE_KEY = "block-run-2d-v2";
+const SAVE_KEY = "block-run-2d-v3";
 const HERO_SRC_W = 40;
 const HERO_SRC_H = 40;
-/** On-screen hero target on a 375-wide SE. Integer zoom, no smoothing. */
-const TARGET_HERO_PX = 86;
+const NES_W = 256;
+const NES_H = 224;
+/** Classic ground from block-run/map/street.png: tan sidewalk y=171–179, road below. */
+const GROUND_Y = 179;
+const SIDEWALK_BACK = 171;
+const SIDEWALK_CURB = 179;
+const ROAD_Y = 186;
+const FACADE_Y = 86;
+const STREET_SRC_W = 398;
+const STREET_SRC_H = 224;
+const SLICE_X = [0, 99, 190, 275, 398];
+const CAR_ERASE = { x: 6, y: 156, w: 86, h: 20 };
 const GEARS = ["P", "R", "N", "D"];
 const WALK_FPS = 8;
 const STRIDE_NATIVE = 4.5;
@@ -24,36 +34,57 @@ const START_CASH = 130;
 const GRAM_PAY = 14;
 const MAX_G = 56;
 const SALES = [20, 40, 60];
-const CAR_ACCEL = 210;
-const CAR_MAX = 230;
-const CAR_CREEP = 34;
-const CAR_STOP = 10;
+const CAR_ACCEL = 140;
+const CAR_MAX = 120;
+const CAR_CREEP = 22;
+const CAR_STOP = 8;
 const NAMES = ["DEZ", "MARI", "KILO", "NIA", "JUNO"];
 const MEETS = [
-  { id: "taco", label: "TACO", t: 0.56 },
-  { id: "motel", label: "MOTEL", t: 0.8 },
-  { id: "alley", label: "ALLEY", t: 0.36 },
-  { id: "park", label: "PARK", t: 0.94 },
+  { id: "taco", label: "TACO", t: 0.58 },
+  { id: "motel", label: "MOTEL", t: 0.72 },
+  { id: "alley", label: "ALLEY", t: 0.34 },
+  { id: "park", label: "PARK", t: 0.66 },
 ];
-const PLUG = { id: "plug", label: "PLUG", t: 0.2 };
-const CRIB = { id: "crib", label: "CRIB", t: 0.06 };
+const PLUG = { id: "plug", label: "PLUG", t: 0.40 };
+const CRIB = { id: "crib", label: "CRIB", t: 0.26 };
 const Z_WALK_MIN = 0.20;
 const Z_WALK_MAX = 0.40;
 const Z_STREET_MIN = 0.52;
 const Z_STREET_MAX = 0.92;
 const Z_CAR_PARK = 0.58;
 const Z_CAR_DRIVE = 0.74;
-const PALETTE = [
-  [7, 6, 12], [12, 8, 28], [20, 12, 40], [32, 18, 56], [48, 28, 72],
-  [8, 8, 8], [20, 20, 24], [40, 40, 44], [64, 64, 72],
-  [232, 24, 24], [200, 16, 16], [168, 8, 8], [104, 8, 8],
-  [248, 184, 104], [232, 152, 80], [200, 112, 56],
-  [24, 72, 152], [16, 56, 128], [8, 40, 104], [8, 24, 72],
-  [248, 248, 248], [216, 216, 220], [168, 168, 176],
-  [200, 72, 24], [168, 56, 16], [104, 32, 8], [224, 104, 48],
-  [56, 216, 248], [240, 196, 48], [56, 240, 112],
-  [90, 74, 104], [138, 134, 150], [184, 176, 164], [120, 112, 104],
-  [26, 36, 28], [20, 56, 32], [40, 88, 48], [72, 120, 56],
+const TURN_SPEED = 26;
+const INTERSECT_REACH = 44;
+const AXIS_LEN = 720;
+const IX_T = [0.18, 0.50, 0.82];
+const EW_STREETS = [
+  { id: "sunset", name: "SUNSET", row: 0, style: "sunset" },
+  { id: "santa_monica", name: "SANTA MONICA", row: 1, style: "blvd" },
+  { id: "melrose", name: "MELROSE", row: 2, style: "shop" },
+];
+const NS_STREETS = [
+  { id: "western", name: "WESTERN", col: 0, style: "ave" },
+  { id: "normandie", name: "NORMANDIE", col: 1, style: "ave" },
+  { id: "vermont", name: "VERMONT", col: 2, style: "ave" },
+];
+const LEFT_OF = { E: "N", N: "W", W: "S", S: "E" };
+const RIGHT_OF = { E: "S", S: "W", W: "N", N: "E" };
+/** 4-block grid: 3 east-west × 3 north-south. */
+const STREET_DEFS = [
+  ...EW_STREETS.map((ew) => ({
+    id: ew.id, name: ew.name, axis: "ew", row: ew.row, style: ew.style,
+    spots: ew.id === "sunset", length: AXIS_LEN,
+    intersections: NS_STREETS.map((ns, i) => ({
+      id: `${ew.id}-${ns.id}`, t: IX_T[i], cross: ns.id, crossName: ns.name, row: ew.row, col: ns.col,
+    })),
+  })),
+  ...NS_STREETS.map((ns) => ({
+    id: ns.id, name: ns.name, axis: "ns", col: ns.col, style: ns.style,
+    spots: false, length: AXIS_LEN,
+    intersections: EW_STREETS.map((ew, i) => ({
+      id: `${ew.id}-${ns.id}`, t: IX_T[i], cross: ew.id, crossName: ew.name, row: ew.row, col: ns.col,
+    })),
+  })),
 ];
 function walkSpeed() {
   return STRIDE_NATIVE * WALK_FPS * spriteScale;
@@ -71,16 +102,26 @@ const ctx = canvas.getContext("2d");
 const nes = document.createElement("canvas");
 const nctx = nes.getContext("2d");
 
-let nesW = 256;
-let nesH = 224;
+let nesW = NES_W;
+let nesH = NES_H;
 let cssScale = 1;
-let spriteScale = 2;
-let WORLD = 398 * 3;
+let spriteScale = 1;
+let worldZoom = 1;
+let worldY0 = 0;
+let WORLD = 398 * 4;
+let longStreet = null;
+let streets = {};
+let streetId = "sunset";
+let heading = "E";
+let turnLock = 0;
+let prevTurnZ = 0;
+let prevTurnX = 0;
+let crossSpawnT = 5;
 let art = null;
 let mode = "title";
 let ui = null;
 let player = { x: 70, z: 0.28, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
-let car = { x: 140, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0 };
+let car = { x: 140, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0, street: "sunset" };
 let inCar = false;
 let cash = START_CASH;
 let grams = 0;
@@ -90,6 +131,7 @@ let hi = 0;
 let order = null;
 let phoneT = 0;
 let pops = [];
+let toast = { text: "", life: 0 };
 let peds = [];
 let traffic = [];
 let cam = 0;
@@ -99,7 +141,7 @@ let hasSave = false;
 let inbox = [];
 const keys = new Set();
 const holds = new Set();
-let pulses = { act: false, jump: false, start: false, car: false, phone: false, crib: false, pullover: false, accept: false, stall: false, save: false, stash: false, gear: null };
+let pulses = { act: false, jump: false, start: false, car: false, phone: false, crib: false, pullover: false, accept: false, stall: false, save: false, stash: false, gear: null, turn: null };
 let testGas = false;
 let testBrake = false;
 
@@ -118,23 +160,149 @@ function fmtG(n) {
   const r = Math.round(Math.max(0, n) * 10) / 10;
   return Number.isInteger(r) ? String(r) : r.toFixed(1);
 }
+function currentStreet() {
+  return streets[streetId] || null;
+}
+function streetHasSpots() {
+  return !!(currentStreet()?.spots);
+}
 function at(def) {
+  if (!streetHasSpots()) return -1e9;
   return def.t * WORLD;
 }
 function meetById(id) {
   return MEETS.find((m) => m.id === id) || MEETS[0];
 }
-function palHex(rgb) {
-  return "#" + rgb.map((n) => n.toString(16).padStart(2, "0")).join("");
+function speedNow() {
+  return Math.abs(inCar ? car.vx : player.vx);
 }
-function nearestPal(r, g, b) {
-  let best = PALETTE[0];
-  let bestD = Infinity;
-  for (const p of PALETTE) {
-    const d = (p[0] - r) * (p[0] - r) + (p[1] - g) * (p[1] - g) + (p[2] - b) * (p[2] - b);
-    if (d < bestD) { bestD = d; best = p; }
+function alongMin() {
+  const ix = currentStreet()?.intersections?.[0];
+  return ix ? ix.x - 48 : 28;
+}
+function alongMax() {
+  const list = currentStreet()?.intersections;
+  const ix = list?.[list.length - 1];
+  return ix ? ix.x + 48 : WORLD - 28;
+}
+function clampAlong(x) {
+  return Math.max(alongMin(), Math.min(alongMax(), Number(x) || alongMin()));
+}
+function applyHeading(h) {
+  heading = h;
+  const face = (h === "E" || h === "N") ? 1 : -1;
+  player.facing = face;
+  car.facing = face;
+}
+function syncHeadingFromFacing() {
+  const st = currentStreet();
+  const face = inCar ? car.facing : player.facing;
+  if (st?.axis === "ns") heading = face > 0 ? "N" : "S";
+  else heading = face > 0 ? "E" : "W";
+}
+function neighbor(ix, h) {
+  if (!ix) return null;
+  if (h === "E") return ix.col < 2 ? { street: EW_STREETS[ix.row].id, heading: "E" } : null;
+  if (h === "W") return ix.col > 0 ? { street: EW_STREETS[ix.row].id, heading: "W" } : null;
+  if (h === "N") return ix.row > 0 ? { street: NS_STREETS[ix.col].id, heading: "N" } : null;
+  if (h === "S") return ix.row < 2 ? { street: NS_STREETS[ix.col].id, heading: "S" } : null;
+  return null;
+}
+function exitsAt(ix, h) {
+  if (!ix) return [];
+  const out = [];
+  const pack = (dir, nh) => {
+    const n = neighbor(ix, nh);
+    if (!n) return;
+    const dest = streets[n.street];
+    out.push({
+      dir,
+      street: n.street,
+      heading: n.heading,
+      label: dest ? dest.name : n.street,
+      same: n.street === streetId,
+    });
+  };
+  pack("straight", h);
+  pack("left", LEFT_OF[h]);
+  pack("right", RIGHT_OF[h]);
+  return out;
+}
+function liveExits() {
+  return exitsAt(nearIntersection(), heading);
+}
+function nearIntersection() {
+  const st = currentStreet();
+  if (!st) return null;
+  const x = inCar ? car.x : player.x;
+  let best = null;
+  let bestD = INTERSECT_REACH;
+  for (const ix of st.intersections) {
+    const d = Math.abs(x - ix.x);
+    if (d <= bestD) {
+      bestD = d;
+      best = ix;
+    }
   }
-  return palHex(best);
+  return best;
+}
+function enterStreet(id, x, viaCar, nextHeading, quiet) {
+  const dest = streets[id];
+  if (!dest) return false;
+  streetId = id;
+  WORLD = dest.length;
+  longStreet = dest.strip;
+  if (nextHeading) applyHeading(nextHeading);
+  else syncHeadingFromFacing();
+  const nx = clampAlong(Number(x) || alongMin());
+  if (viaCar || inCar) {
+    car.street = id;
+    car.x = nx;
+    car.vx = 0;
+    player.x = nx;
+    player.vx = 0;
+  } else {
+    player.x = nx;
+    player.vx = 0;
+  }
+  spawnPeds();
+  spawnTraffic();
+  cam = Math.max(0, Math.min(Math.max(0, WORLD - nesW), player.x - nesW * 0.42));
+  turnLock = quiet ? 0 : 0.45;
+  if (!quiet) {
+    addPop(player.x, player.z, dest.name);
+    if (typeof BRAudio !== "undefined") BRAudio.sfx.shift();
+  }
+  return true;
+}
+function tryTurn(dir) {
+  if (!dir || turnLock > 0) return false;
+  if (dir === "up") dir = "straight";
+  if (dir === "down") {
+    const ex = liveExits();
+    dir = ex.find((e) => e.dir === "straight") ? "straight" : (ex[0]?.dir || "");
+  }
+  const ix = nearIntersection();
+  if (!ix) return false;
+  if (speedNow() > TURN_SPEED) {
+    addPop(player.x, player.z, "SLOW DOWN");
+    return false;
+  }
+  const exit = exitsAt(ix, heading).find((e) => e.dir === dir);
+  if (!exit) return false;
+  const bump = (exit.heading === "E" || exit.heading === "N") ? 36 : -36;
+  if (exit.same) {
+    applyHeading(exit.heading);
+    const nx = clampAlong((inCar ? car.x : player.x) + bump);
+    player.x = nx;
+    if (inCar) car.x = nx;
+    turnLock = 0.4;
+    addPop(player.x, player.z, "STRAIGHT");
+    return true;
+  }
+  const dest = streets[exit.street];
+  const destIx = dest.intersections.find((i) => i.id === ix.id) || dest.intersections[0];
+  return enterStreet(exit.street, destIx.x + bump, inCar, exit.heading);
 }
 function loadImage(src) {
   return new Promise((resolve) => {
@@ -157,79 +325,6 @@ async function loadSheet(name, base = `../block-run/sprites/`) {
 async function loadDirSheet(name) {
   return loadSheet(name);
 }
-function paintSedan(body, rust) {
-  const w = 64;
-  const h = 24;
-  const c = document.createElement("canvas");
-  c.width = w;
-  c.height = h;
-  const g = c.getContext("2d");
-  g.imageSmoothingEnabled = false;
-  const shade = rust ? "#681808" : "#141418";
-  const mid = body;
-  const hi = rust ? "#e87838" : "#787888";
-  const deep = rust ? "#401004" : "#0a0a0c";
-  const rustSpot = rust ? "#8a3010" : "#202028";
-  g.fillStyle = "#080808";
-  g.fillRect(8, 16, 12, 8);
-  g.fillRect(42, 16, 12, 8);
-  g.fillStyle = "#2a2a30";
-  g.fillRect(10, 18, 8, 4);
-  g.fillRect(44, 18, 8, 4);
-  g.fillStyle = "#585860";
-  g.fillRect(12, 19, 3, 2);
-  g.fillRect(46, 19, 3, 2);
-  g.fillStyle = "#a8a8b0";
-  g.fillRect(13, 19, 1, 1);
-  g.fillRect(47, 19, 1, 1);
-  g.fillStyle = "#3a3a40";
-  g.fillRect(6, 20, 16, 2);
-  g.fillRect(40, 20, 16, 2);
-  g.fillStyle = deep;
-  g.fillRect(2, 13, 60, 6);
-  g.fillStyle = shade;
-  g.fillRect(3, 12, 58, 6);
-  g.fillStyle = mid;
-  g.fillRect(4, 10, 56, 6);
-  g.fillStyle = hi;
-  g.fillRect(5, 10, 54, 2);
-  g.fillStyle = rustSpot;
-  g.fillRect(8, 13, 4, 2);
-  g.fillRect(28, 14, 5, 2);
-  g.fillRect(50, 12, 3, 2);
-  g.fillStyle = "#181820";
-  g.fillRect(17, 3, 28, 8);
-  g.fillStyle = shade;
-  g.fillRect(17, 3, 28, 2);
-  g.fillRect(17, 3, 2, 8);
-  g.fillRect(43, 3, 2, 8);
-  g.fillStyle = hi;
-  g.fillRect(19, 3, 24, 1);
-  g.fillStyle = "#0c2848";
-  g.fillRect(20, 5, 9, 5);
-  g.fillRect(32, 5, 10, 5);
-  g.fillStyle = "#1a4870";
-  g.fillRect(20, 8, 9, 2);
-  g.fillRect(32, 8, 10, 2);
-  g.fillStyle = "#5a88a8";
-  g.fillRect(21, 5, 4, 2);
-  g.fillRect(33, 5, 4, 2);
-  g.fillStyle = "#d0e8f0";
-  g.fillRect(21, 5, 2, 1);
-  g.fillRect(33, 5, 2, 1);
-  g.fillStyle = "#c8c8d0";
-  g.fillRect(58, 12, 4, 3);
-  g.fillStyle = "#f0f0f8";
-  g.fillRect(59, 12, 2, 1);
-  g.fillStyle = "#e81818";
-  g.fillRect(2, 12, 4, 3);
-  g.fillStyle = "#f86848";
-  g.fillRect(3, 12, 2, 1);
-  g.fillStyle = "#f0c430";
-  g.fillRect(4, 15, 2, 1);
-  g.fillRect(56, 15, 2, 1);
-  return c;
-}
 
 function readSave() {
   try {
@@ -245,38 +340,147 @@ function persist() {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       cash, grams, stash, rep, hi, x: player.x, z: player.z, facing: player.facing,
-      carX: car.x, carZ: car.z, carFacing: car.facing, order, inbox,
+      streetId, heading, carX: car.x, carZ: car.z, carFacing: car.facing, carStreet: car.street, order, inbox,
     }));
     hasSave = true;
   } catch { /* ignore */ }
 }
-function addPop(x, z, s) {
-  pops.push({ x, z, text: s, life: 0.9 });
+function addPop(_x, _z, s) {
+  toast = { text: String(s || ""), life: 0.95 };
 }
 function spawnPeds() {
-  peds = [0, 1, 2, 3, 4, 5].map((i) => ({
-    x: wrap((WORLD / 6) * i + 40, WORLD),
+  const n = streetHasSpots() ? 6 : 3;
+  const lo = alongMin();
+  const hi = alongMax();
+  peds = Array.from({ length: n }, (_, i) => ({
+    x: lo + ((hi - lo) / n) * i + 20,
     z: clampWalkZ(0.22 + (i % 3) * 0.06),
     facing: i % 2 ? -1 : 1,
     look: i % 2,
     anim: Math.random(),
     speed: 18 + (i % 3) * 6,
+    mode: "walk",
+    wantCross: false,
+    crossT: 0,
   }));
+}
+function carComingNear(x) {
+  const cars = [];
+  if (car.street === streetId) cars.push(car);
+  for (const t of traffic) cars.push(t);
+  for (const c of cars) {
+    const d = c.x - x;
+    const spd = Math.abs(c.vx);
+    if (spd > 8 && ((c.vx > 0 && d < 0 && d > -110) || (c.vx < 0 && d > 0 && d < 110))) return true;
+    if (spd > 4 && Math.abs(d) < 30) return true;
+  }
+  return false;
+}
+function updatePeds(dt) {
+  const lo = alongMin();
+  const hi = alongMax();
+  for (const ped of peds) {
+    ped.anim += dt;
+    if (ped.mode === "cross") {
+      ped.crossT += dt;
+      const u = ped.crossT / 1.5;
+      if (u < 0.45) ped.z = Z_WALK_MAX + (0.78 - Z_WALK_MAX) * (u / 0.45);
+      else if (u < 1) ped.z = 0.78 + (Z_WALK_MIN - 0.78) * ((u - 0.45) / 0.55);
+      else {
+        ped.mode = "walk";
+        ped.z = clampWalkZ(0.26);
+        ped.facing *= -1;
+        ped.crossT = 0;
+      }
+      continue;
+    }
+    if (ped.wantCross || Math.random() < 0.0018) {
+      ped.wantCross = true;
+      ped.z = Z_WALK_MAX;
+      if (carComingNear(ped.x)) {
+        ped.mode = "wait";
+      } else {
+        ped.mode = "cross";
+        ped.crossT = 0;
+        ped.wantCross = false;
+      }
+      continue;
+    }
+    ped.mode = "walk";
+    ped.x = Math.max(lo, Math.min(hi, ped.x + ped.facing * ped.speed * dt));
+    ped.z = clampWalkZ(ped.z);
+    if (ped.x <= lo + 1 || ped.x >= hi - 1) ped.facing *= -1;
+    if (Math.random() < 0.002) ped.facing *= -1;
+  }
+}
+function carClearOf(x, ignore) {
+  const gap = 112;
+  if (car.street === streetId && (!ignore || ignore !== car) && Math.abs(car.x - x) < gap) return false;
+  for (const t of traffic) {
+    if (t === ignore) continue;
+    if (Math.abs(t.x - x) < gap) return false;
+  }
+  return true;
+}
+function updateTraffic(dt) {
+  const lo = alongMin();
+  const hi = alongMax();
+  for (const t of traffic) {
+    t.justTurned = Math.max(0, (t.justTurned || 0) - dt);
+    const nx = t.x + t.vx * dt;
+    if (!carClearOf(nx, t)) {
+      t.facing *= -1;
+      t.vx *= -1;
+      continue;
+    }
+    t.x = nx;
+    if (t.x < lo || t.x > hi) {
+      t.facing *= -1;
+      t.vx *= -1;
+      t.x = Math.max(lo, Math.min(hi, t.x));
+    }
+  }
+  if (traffic.length > 1) traffic.length = 1;
+  crossSpawnT -= dt;
+  if (crossSpawnT <= 0) {
+    crossSpawnT = 7 + Math.random() * 8;
+    const st = currentStreet();
+    const ix = st?.intersections[Math.floor(Math.random() * st.intersections.length)];
+    const x = ix ? clampAlong(ix.x) : 0;
+    if (ix && traffic.length < 1 && carClearOf(x)) {
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      traffic.push({
+        x,
+        z: Z_CAR_DRIVE,
+        facing: dir,
+        vx: dir * (40 + Math.random() * 16),
+        justTurned: 1.4,
+      });
+    }
+  }
 }
 function spawnTraffic() {
-  const colors = ["#184898", "#282828", "#a80808", "#082868"];
-  traffic = [0, 1, 2, 3].map((i) => ({
-    x: wrap((WORLD / 4) * i + 220, WORLD),
-    z: 0.66 + (i % 2) * 0.1,
-    facing: i % 2 ? -1 : 1,
-    vx: (i % 2 ? -1 : 1) * (70 + i * 12),
-    color: colors[i % colors.length],
-    img: paintSedan(colors[i % colors.length], false),
-  }));
+  const lo = alongMin();
+  const hi = alongMax();
+  traffic = [];
+  const mid = lo + (hi - lo) * 0.62;
+  if (carClearOf(mid)) {
+    traffic.push({
+      x: mid,
+      z: Z_CAR_DRIVE,
+      facing: heading === "W" || heading === "S" ? -1 : 1,
+      vx: (heading === "W" || heading === "S" ? -1 : 1) * 44,
+      justTurned: 0,
+    });
+  }
 }
 function fresh() {
+  streetId = "sunset";
+  heading = "E";
+  WORLD = streets.sunset?.length || WORLD;
+  longStreet = streets.sunset?.strip || longStreet;
   player = { x: at(CRIB) + 18, z: 0.28, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
-  car = { x: at(CRIB) + 86, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0 };
+  car = { x: at(CRIB) + 86, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0, street: "sunset" };
   inCar = false;
   cash = START_CASH;
   grams = 0;
@@ -289,23 +493,28 @@ function fresh() {
   ui = null;
   spawnPeds();
   spawnTraffic();
-  cam = wrap(player.x - nesW * 0.42, WORLD);
+  cam = Math.max(0, Math.min(Math.max(0, WORLD - nesW), player.x - nesW * 0.42));
   addPop(player.x, player.z, "COP A PACK");
 }
 function continueSave(s) {
+  streetId = streets[s.streetId] ? s.streetId : "sunset";
+  heading = ["E", "W", "N", "S"].includes(s.heading) ? s.heading : "E";
+  WORLD = currentStreet()?.length || WORLD;
+  longStreet = currentStreet()?.strip || longStreet;
   player = {
-    x: wrap(s.x || at(CRIB), WORLD),
+    x: clampAlong(s.x || at(CRIB)),
     z: clampWalkZ(s.z ?? 0.28),
     vx: 0, vz: 0,
     facing: s.facing === -1 ? -1 : 1,
     anim: 0, moveDir: "side",
   };
   car = {
-    x: wrap(s.carX || at(CRIB) + 86, WORLD),
+    x: clampAlong(s.carX || at(CRIB) + 86),
     z: s.carZ ?? Z_CAR_PARK,
     vx: 0,
     facing: s.carFacing === -1 ? -1 : 1,
     gear: "P", parked: true, pullOverT: 0, shiftHint: 0,
+    street: streets[s.carStreet] ? s.carStreet : streetId,
   };
   inCar = false;
   cash = s.cash;
@@ -320,16 +529,16 @@ function continueSave(s) {
   ui = null;
   spawnPeds();
   spawnTraffic();
-  cam = wrap(player.x - nesW * 0.42, WORLD);
+  cam = Math.max(0, Math.min(Math.max(0, WORLD - nesW), player.x - nesW * 0.42));
 }
 function closeTo(x) {
-  return Math.abs(wrapDelta(inCar ? car.x : player.x, x, WORLD)) <= REACH;
+  return Math.abs((inCar ? car.x : player.x) - x) <= REACH;
 }
 function onWalk() {
   return player.z <= Z_WALK_MAX + 0.02;
 }
 function nearCar() {
-  return !inCar && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 36;
+  return !inCar && car.street === streetId && Math.abs(player.x - car.x) < 36;
 }
 function nearCrib() {
   return !inCar && closeTo(at(CRIB)) && onWalk();
@@ -501,45 +710,47 @@ function brakeHeld() {
   return testBrake || holds.has("brake") || keys.has("KeyL") || keys.has("Slash") || keys.has("Space");
 }
 
+function streetDestY(srcY) {
+  return Math.round((srcY - worldY0) * worldZoom);
+}
 function snapView() {
   const vw = Math.max(160, viewEl?.clientWidth || 375);
   const vh = Math.max(140, viewEl?.clientHeight || 400);
-  // Integer CSS zoom: SE is 2× (~188×224 of world) so less street is shown and
-  // the skyline fills the leftover sky. Hard pixels, no smoothing.
-  cssScale = vw >= 800 ? 3 : 2;
-  if (vw < 260) cssScale = 1;
-  // 40×2 source × 2 CSS = 160px cell. Prior 80px cell read as ~45px of ink /
-  // ants; this 2× framing puts visible body near 80–90px like 2.5D on-foot.
-  spriteScale = 2;
-  if (HERO_SRC_H * spriteScale * cssScale < 80) spriteScale += 1;
-  nesW = Math.max(140, Math.floor(vw / cssScale));
-  nesH = Math.max(120, Math.floor(vh / cssScale));
+  spriteScale = 1;
+  nesW = NES_W;
+  cssScale = Math.max(0.5, vw / NES_W);
+  nesH = Math.max(NES_H, Math.round(vh / cssScale));
+  worldY0 = 12;
+  const roadPad = 34;
+  worldZoom = (nesH - roadPad) / Math.max(1, SIDEWALK_CURB - worldY0);
   if (nes.width !== nesW || nes.height !== nesH) {
     nes.width = nesW;
     nes.height = nesH;
   }
   canvas.width = nesW;
   canvas.height = nesH;
-  canvas.style.width = (nesW * cssScale) + "px";
-  canvas.style.height = (nesH * cssScale) + "px";
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
 }
 
 function depthY(z) {
-  const top = Math.round(nesH * 0.50);
-  const bot = nesH - 8;
-  return Math.round(top + Math.max(0, Math.min(1, z)) * (bot - top));
+  const u = (clampWalkZ(z) - Z_WALK_MIN) / Math.max(0.001, Z_WALK_MAX - Z_WALK_MIN);
+  return streetDestY(SIDEWALK_BACK + u * (SIDEWALK_CURB - SIDEWALK_BACK));
 }
 function sidewalkTop() {
-  return depthY(0.18);
+  return streetDestY(SIDEWALK_BACK);
 }
 function sidewalkCurb() {
-  return depthY(0.55) - 4;
+  return streetDestY(SIDEWALK_CURB);
+}
+function carGroundY() {
+  return streetDestY((car.parked || car.gear === "P") ? SIDEWALK_CURB + 4 : ROAD_Y);
 }
 function clampWalkZ(z) {
   return Math.max(Z_WALK_MIN, Math.min(Z_WALK_MAX, Number(z) || Z_WALK_MIN));
 }
 function worldToScreen(wx) {
-  return wrapDelta(cam, wx, WORLD);
+  return wx - cam;
 }
 
 const footPadCache = new WeakMap();
@@ -583,10 +794,10 @@ function heroSheet() {
   return pickWalkSheet(player.moveDir);
 }
 
-function drawSprite(img, wx, z, w, h, facing, footPad = 0) {
+function drawSprite(img, wx, z, w, h, facing, footPad = 0, yLock) {
   if (!img) return;
   const sx = worldToScreen(wx);
-  const sy = depthY(z) + Math.round(footPad);
+  const sy = (yLock != null ? yLock : depthY(z)) + Math.round(footPad);
   const dw = Math.round(w);
   const dh = Math.round(h);
   if (sx < -dw || sx > nesW + dw) return;
@@ -615,264 +826,234 @@ function text(c, s, x, y, color, align) {
   c.fillText(s, Math.round(x), Math.round(y));
 }
 
-function drawPalm(x, baseY, h) {
-  const trunkX = x + 5;
-  nctx.fillStyle = "#2a1810";
-  nctx.fillRect(trunkX, baseY - h, 5, h);
-  nctx.fillStyle = "#5a3820";
-  nctx.fillRect(trunkX, baseY - h, 3, h);
-  nctx.fillStyle = "#8a5830";
-  nctx.fillRect(trunkX, baseY - h, 1, h);
-  nctx.fillStyle = "#3a2014";
-  for (let y = baseY - h + 4; y < baseY - 2; y += 5) nctx.fillRect(trunkX, y, 5, 1);
-  nctx.fillStyle = "#c07038";
-  nctx.fillRect(trunkX + 1, baseY - h + 2, 2, 2);
-  nctx.fillRect(trunkX + 1, baseY - h + 8, 2, 2);
-  const top = baseY - h;
-  nctx.fillStyle = "#104028";
-  nctx.fillRect(x - 8, top - 2, 12, 4);
-  nctx.fillRect(x + 8, top - 2, 12, 4);
-  nctx.fillRect(x - 2, top - 10, 16, 6);
-  nctx.fillStyle = "#1c6840";
-  nctx.fillRect(x - 10, top, 10, 3);
-  nctx.fillRect(x + 8, top, 12, 3);
-  nctx.fillRect(x - 4, top - 8, 20, 4);
-  nctx.fillRect(x + 2, top - 14, 10, 5);
-  nctx.fillStyle = "#38a058";
-  nctx.fillRect(x - 8, top, 8, 2);
-  nctx.fillRect(x + 10, top, 8, 2);
-  nctx.fillRect(x, top - 8, 14, 3);
-  nctx.fillRect(x + 3, top - 13, 8, 3);
-  nctx.fillStyle = "#70d878";
-  nctx.fillRect(x + 2, top - 8, 6, 2);
-  nctx.fillRect(x + 4, top - 12, 4, 2);
-  nctx.fillStyle = "#c07028";
-  nctx.fillRect(trunkX - 1, top + 2, 2, 2);
-  nctx.fillRect(trunkX + 4, top + 3, 2, 2);
+function px(g, x, y, w, h, color) {
+  g.fillStyle = color;
+  g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+}
+function mkCanvas(w, h) {
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  return { c, g };
+}
+function sliceW(i) {
+  return SLICE_X[i + 1] - SLICE_X[i];
+}
+function eraseBakedCar(g, img, dx) {
+  const { x, y, w } = CAR_ERASE;
+  g.drawImage(img, x, 140, w, 16, dx + x, y, w, 16);
+  g.drawImage(img, x, 171, w, 9, dx + x, 171, w, 9);
+  g.drawImage(img, 120, 180, w, 10, dx + x, 180, w, 10);
+}
+function tintBuildings(canvas, mr, mg, mb) {
+  if (mr === 1 && mg === 1 && mb === 1) return canvas;
+  const g = canvas.getContext("2d");
+  const id = g.getImageData(0, 0, canvas.width, canvas.height);
+  const d = id.data;
+  const w = canvas.width;
+  for (let i = 0; i < d.length; i += 4) {
+    const y = ((i >> 2) / w) | 0;
+    if (y < FACADE_Y || y >= 171) continue;
+    if (d[i + 3] < 10) continue;
+    d[i] = Math.max(0, Math.min(255, d[i] * mr + 0.5));
+    d[i + 1] = Math.max(0, Math.min(255, d[i + 1] * mg + 0.5));
+    d[i + 2] = Math.max(0, Math.min(255, d[i + 2] * mb + 0.5));
+  }
+  g.putImageData(id, 0, 0);
+  return canvas;
+}
+/*
+ * Classic world inventory (block-run/ is not modified):
+ *   map/street.png — sky, moon, skyline, brick, stucco, CALI wall, sidewalk, road, baked car
+ *   sprites/car.png — purple lowrider
+ * Classic blit from block-run/game.js Fe():
+ *   drawImage(street, e, 0, 256, 224, 0, 0, 256, 224)
+ *   if (e+256>o) drawImage(street, 0, 0, t, 224, 256-t, 0, t, 224)
+ */
+function blitClassic(g, src, e, sy, sh, dy) {
+  if (!src) return;
+  const o = src.width;
+  const dw = nesW;
+  const srcY = sy == null ? 0 : sy;
+  const srcH = sh == null ? src.height : sh;
+  const destY = dy == null ? streetDestY(srcY) : dy;
+  const destH = Math.max(1, Math.round(srcH * worldZoom));
+  const x = Math.max(0, Math.min(Math.max(0, o - dw), Math.round(e)));
+  g.drawImage(src, x, srcY, dw, srcH, 0, destY, dw, destH);
+  if (x + dw > o) {
+    const t = x + dw - o;
+    g.drawImage(src, 0, srcY, t, srcH, dw - t, destY, t, destH);
+  }
+}
+function drawNightSky() {
+  const src = art?.street;
+  const top = streetDestY(FACADE_Y);
+  if (!src) {
+    nctx.fillStyle = "#0c011f";
+    nctx.fillRect(0, 0, nesW, Math.max(1, top));
+    return;
+  }
+  blitClassic(nctx, src, Math.round(cam * 0.14), worldY0, 56 - worldY0);
+}
+function drawClassicSkylineBand(scroll) {
+  const src = art?.street;
+  if (!src) return;
+  blitClassic(nctx, src, scroll, 40, FACADE_Y - 40);
+}
+function drawDowntownSkyline() {
+  const src = art?.street;
+  drawClassicSkylineBand(Math.round(cam * 0.2) + 18);
+  if (!src) return;
+  const towers = [[18, 7, 22], [74, 6, 18], [140, 9, 16], [210, 5, 20], [300, 8, 14]];
+  for (const [sx, tw, lift] of towers) {
+    const dx = (sx * 2 + 36 + Math.round(cam * 0.2)) % Math.max(1, nesW);
+    const dy = streetDestY(Math.max(18, 48 - lift));
+    const dh = Math.round((38 + Math.min(14, lift)) * worldZoom);
+    nctx.drawImage(src, sx, 48, tw, 38, dx, dy, tw, dh);
+  }
+}
+function drawHillsSkyline() {
+  const src = art?.street;
+  if (src) blitClassic(nctx, src, Math.round(cam * 0.1), worldY0, 40 - worldY0);
+  const cols = ["#18092e", "#1e0a3e", "#220a40", "#0a0220", "#14101f"];
+  const base = streetDestY(FACADE_Y);
+  for (let x = 0; x < nesW; x++) {
+    const n1 = Math.sin(x * 0.055 + 1.1);
+    const n2 = Math.sin(x * 0.17 + 3.4);
+    const step = ((x * 13 + 7) % 9);
+    const ht = Math.round((28 + n1 * 12 + n2 * 7 + step * 0.7) * worldZoom);
+    const top = base - ht;
+    for (let y = top; y < base; y++) {
+      const c = cols[(x * 3 + y * 5 + step) % cols.length];
+      px(nctx, x, y, 1, 1, c);
+    }
+    px(nctx, x, top, 1, 1, "#3a2870");
+    if ((x * 11 + 3) % 19 === 0) px(nctx, x, top + 6 + (x % 5), 1, 1, "#aca190");
+    if ((x * 7 + 1) % 23 === 0) px(nctx, x, top + 10 + (x % 3), 1, 1, "#c8a830");
+  }
+  for (let i = 0; i < 7; i++) {
+    const hx = (i * 37 + 14 + Math.round(cam * 0.08)) % nesW;
+    const hy = base - Math.round((16 + ((i * 5) % 10)) * worldZoom);
+    px(nctx, hx, hy, 5, Math.round(8 * worldZoom), "#14101f");
+    px(nctx, hx + 1, hy + 2, 1, 1, "#c8a830");
+    px(nctx, hx + 3, hy + 4, 1, 1, "#aca190");
+  }
+}
+function drawWestSkyline() {
+  drawClassicSkylineBand(Math.round(cam * 0.16) + 220);
+}
+function drawSouthSkyline() {
+  drawClassicSkylineBand(Math.round(cam * 0.18) + 90);
+  const y0 = streetDestY(58);
+  nctx.fillStyle = "rgba(10,2,32,0.28)";
+  nctx.fillRect(0, y0, nesW, Math.max(1, streetDestY(FACADE_Y) - y0));
+}
+function drawHeadingSky() {
+  drawNightSky();
+  if (heading === "N") drawHillsSkyline();
+  else if (heading === "E") drawDowntownSkyline();
+  else if (heading === "W") drawWestSkyline();
+  else drawSouthSkyline();
+}
+function streetTint(style) {
+  if (style === "blvd") return [0.92, 0.97, 1.08];
+  if (style === "shop") return [1.08, 0.94, 0.90];
+  if (style === "ave") return [0.86, 0.84, 0.96];
+  return [1, 1, 1];
+}
+function streetPattern(def) {
+  if (def.id === "sunset") return [0, 1, 2, 3, 1, 2, 0, 3];
+  if (def.id === "santa_monica") return [1, 3, 0, 2, 3, 1, 0, 2];
+  if (def.id === "melrose") return [2, 0, 3, 1, 2, 3, 0, 1];
+  if (def.id === "western") return [3, 1, 0, 3, 1, 2];
+  if (def.id === "normandie") return [0, 3, 1, 2, 0, 3];
+  return [1, 0, 3, 2, 1, 0];
+}
+function buildStreetStrip(def, streetImg) {
+  const pattern = streetPattern(def);
+  let width = 0;
+  for (const i of pattern) width += sliceW(i);
+  const { c, g } = mkCanvas(width, STREET_SRC_H);
+  let x = 0;
+  for (const i of pattern) {
+    const sx = SLICE_X[i];
+    const sw = sliceW(i);
+    g.drawImage(streetImg, sx, 0, sw, STREET_SRC_H, x, 0, sw, STREET_SRC_H);
+    if (i === 0) eraseBakedCar(g, streetImg, x);
+    x += sw;
+  }
+  const tint = streetTint(def.style);
+  tintBuildings(c, tint[0], tint[1], tint[2]);
+  return c;
+}
+function bakeStreets(streetImg) {
+  streets = {};
+  for (const def of STREET_DEFS) {
+    const strip = buildStreetStrip(def, streetImg);
+    const length = strip.width;
+    streets[def.id] = {
+      ...def,
+      strip,
+      length,
+      intersections: def.intersections.map((ix) => ({ ...ix, x: Math.round(ix.t * length) })),
+    };
+  }
+}
+
+function drawCurrentStreet() {
+  nctx.imageSmoothingEnabled = false;
+  const src = currentStreet()?.strip || longStreet || art?.street;
+  nctx.fillStyle = "#0c011f";
+  nctx.fillRect(0, 0, nesW, nesH);
+  if (!src) return;
+  const e = Math.max(0, Math.min(Math.max(0, src.width - nesW), Math.round(cam)));
+  if (heading === "E" && streetId === "sunset") {
+    blitClassic(nctx, src, e, worldY0, STREET_SRC_H - worldY0);
+  } else {
+    drawHeadingSky();
+    blitClassic(nctx, src, e, FACADE_Y, STREET_SRC_H - FACADE_Y);
+  }
+}
+
+function drawStreetSigns() {
+  const st = currentStreet();
+  const ix = nearIntersection();
+  if (!st || !ix) return;
+  nctx.imageSmoothingEnabled = false;
+  nctx.font = "8px 'Press Start 2P', monospace";
+  const sx = Math.round(worldToScreen(ix.x - 40));
+  if (sx < -36 || sx > nesW + 8) return;
+  const baseY = streetDestY(SIDEWALK_CURB);
+  const poleH = Math.round(20 * worldZoom);
+  nctx.fillStyle = "#3a3844";
+  nctx.fillRect(sx, baseY - poleH, 2, poleH);
+  nctx.fillStyle = "#8a8894";
+  nctx.fillRect(sx, baseY - poleH, 1, poleH);
+  const blades = [
+    { name: st.name, fill: "#2d8a4a" },
+    { name: ix.crossName || "", fill: "#1f6a38" },
+  ];
+  blades.forEach((blade, i) => {
+    const label = blade.name.length > 6 ? blade.name.slice(0, 6) : blade.name;
+    const bw = Math.max(24, label.length * 6 + 4);
+    const bx = sx + 3;
+    const by = baseY - poleH + i * 9;
+    nctx.fillStyle = blade.fill;
+    nctx.fillRect(bx, by, bw, 8);
+    text(nctx, label, bx + 2, by + 1, "#f8f4e8");
+  });
 }
 
 function drawParallax() {
-  const skyH = Math.round(nesH * 0.54);
-  const skyBands = ["#08061a", "#100828", "#1c0c3c", "#2a1050", "#3c1864", "#582070", "#6e2874"];
-  const bandH = Math.ceil(skyH / skyBands.length);
-  for (let i = 0; i < skyBands.length; i++) {
-    nctx.fillStyle = skyBands[i];
-    nctx.fillRect(0, i * bandH, nesW, bandH + 1);
-    if (i < skyBands.length - 1) {
-      nctx.fillStyle = skyBands[i + 1];
-      for (let x = (i % 2); x < nesW; x += 2) nctx.fillRect(x, (i + 1) * bandH - 1, 1, 1);
-    }
-  }
-  nctx.fillStyle = "#8a3878";
-  nctx.fillRect(0, skyH - 8, nesW, 4);
-  nctx.fillStyle = "#a44880";
-  nctx.fillRect(0, skyH - 4, nesW, 4);
-  const starShift = Math.round(cam * 0.05);
-  for (let i = 0; i < 36; i++) {
-    const x = wrap((i * 47 + 9) - starShift, nesW);
-    const y = 6 + ((i * 17) % Math.max(10, skyH - 48));
-    nctx.fillStyle = i % 6 === 0 ? "#fff8e0" : i % 3 === 0 ? "#f0e8ff" : "#a8a0d0";
-    nctx.fillRect(x, y, i % 8 === 0 ? 2 : 1, i % 8 === 0 ? 2 : 1);
-  }
-  const moonX = nesW - 48;
-  nctx.fillStyle = "#f8ecd0";
-  nctx.fillRect(moonX, 14, 14, 14);
-  nctx.fillStyle = "#e8d4a0";
-  nctx.fillRect(moonX + 2, 16, 10, 10);
-  nctx.fillStyle = "#d0b878";
-  nctx.fillRect(moonX + 4, 18, 4, 4);
-  nctx.fillRect(moonX + 9, 21, 3, 3);
-  nctx.fillStyle = "#6e2874";
-  nctx.fillRect(moonX + 11, 15, 3, 3);
-  const hillShift = Math.round(cam * 0.12);
-  for (let i = 0; i < 14; i++) {
-    const x = wrap(i * 38 - hillShift, nesW + 40) - 12;
-    const h = 18 + (i % 4) * 8;
-    nctx.fillStyle = "#20103a";
-    nctx.fillRect(x, skyH - h, 32 + (i % 3) * 6, h);
-    nctx.fillStyle = "#2c1848";
-    nctx.fillRect(x, skyH - h, 32 + (i % 3) * 6, 4);
-  }
-  const midShift = Math.round(cam * 0.2);
-  const midTones = ["#2a1844", "#241840", "#301c48"];
-  for (let i = 0; i < 10; i++) {
-    const x = wrap(i * 46 + 6 - midShift, nesW + 50) - 10;
-    const h = 28 + (i % 5) * 9;
-    nctx.fillStyle = midTones[i % midTones.length];
-    nctx.fillRect(x, skyH - h, 28 + (i % 2) * 10, h);
-    nctx.fillStyle = "#3a2460";
-    nctx.fillRect(x, skyH - h, 28 + (i % 2) * 10, 3);
-    for (let wy = 6; wy < h - 8; wy += 7) {
-      for (let wx = 4; wx < 22; wx += 7) {
-        const on = ((i * 3 + wy + wx) % 5) !== 2;
-        nctx.fillStyle = on ? ((i + wy) % 4 === 0 ? "#f0c430" : "#48d0e8") : "#140c28";
-        nctx.fillRect(x + wx, skyH - h + wy, 3, 3);
-        if (on) {
-          nctx.fillStyle = "#fff4b0";
-          nctx.fillRect(x + wx, skyH - h + wy, 1, 1);
-        }
-      }
-    }
-  }
-  if (art?.street) {
-    const sw = art.street.naturalWidth;
-    nctx.globalAlpha = 0.22;
-    let covered = 0;
-    let worldX = cam * 0.22;
-    while (covered < nesW) {
-      const srcX = Math.floor(wrap(worldX, sw));
-      const span = Math.max(1, Math.min(nesW - covered, sw - srcX));
-      nctx.drawImage(art.street, srcX, 70, span, 50, covered, skyH - 50, span, 50);
-      covered += span;
-      worldX += span;
-    }
-    nctx.globalAlpha = 1;
-  }
-  const palmShift = Math.round(cam * 0.32);
-  for (let i = 0; i < 7; i++) {
-    drawPalm(wrap(i * 78 + 18 - palmShift, nesW + 56) - 12, skyH, 28 + (i % 3) * 5);
-  }
-  const walkY = depthY(0.18);
-  const streetY = depthY(0.55);
-  const wallH = 68;
-  const wallY = walkY - wallH;
-  const wallShift = Math.round(cam);
-  const facades = [
-    { body: "#6a3858", shade: "#3a2034", brick: "#8a4c70", hi: "#b86890", awn: "#e21b7a", trim: "#f0c430" },
-    { body: "#385870", shade: "#203848", brick: "#4c7894", hi: "#70a0b8", awn: "#38d8f8", trim: "#f8f8f8" },
-    { body: "#8a5030", shade: "#4a2818", brick: "#b86840", hi: "#e09058", awn: "#f0c430", trim: "#38d8f8" },
-    { body: "#385048", shade: "#203028", brick: "#4c7064", hi: "#78a890", awn: "#38f070", trim: "#f0c430" },
-    { body: "#584070", shade: "#302448", brick: "#7860a0", hi: "#a088c8", awn: "#c060ff", trim: "#f8f8f8" },
-  ];
-  for (let i = -1; i < Math.ceil(nesW / 56) + 1; i++) {
-    const x = i * 56 - wrap(wallShift, 56);
-    const f = facades[(i + 40) % facades.length];
-    nctx.fillStyle = f.shade;
-    nctx.fillRect(x, wallY, 54, wallH);
-    nctx.fillStyle = f.body;
-    nctx.fillRect(x, wallY, 54, 5);
-    nctx.fillStyle = f.hi;
-    nctx.fillRect(x, wallY, 54, 2);
-    nctx.fillStyle = f.trim;
-    nctx.fillRect(x, wallY + 5, 54, 1);
-    nctx.fillStyle = f.brick;
-    for (let by = wallY + 8; by < walkY - 18; by += 6) {
-      const odd = ((by / 6) | 0) % 2;
-      for (let bx = x + 2 + odd * 4; bx < x + 50; bx += 8) {
-        nctx.fillStyle = f.brick;
-        nctx.fillRect(bx, by, 6, 4);
-        nctx.fillStyle = f.hi;
-        nctx.fillRect(bx, by, 6, 1);
-        nctx.fillStyle = f.shade;
-        nctx.fillRect(bx + 5, by + 1, 1, 3);
-      }
-    }
-    nctx.fillStyle = "#100814";
-    nctx.fillRect(x + 52, wallY, 4, wallH);
-    const lit = (i + Math.floor(cam / 56)) % 4 !== 1;
-    nctx.fillStyle = "#18101c";
-    nctx.fillRect(x + 6, wallY + 14, 14, 14);
-    nctx.fillRect(x + 24, wallY + 14, 14, 14);
-    nctx.fillStyle = f.trim;
-    nctx.fillRect(x + 6, wallY + 14, 14, 2);
-    nctx.fillRect(x + 24, wallY + 14, 14, 2);
-    nctx.fillStyle = lit ? "#f8d848" : "#1a2438";
-    nctx.fillRect(x + 8, wallY + 17, 10, 9);
-    nctx.fillRect(x + 26, wallY + 17, 10, 9);
-    if (lit) {
-      nctx.fillStyle = "#fff6b0";
-      nctx.fillRect(x + 8, wallY + 17, 4, 3);
-      nctx.fillRect(x + 26, wallY + 17, 4, 3);
-      nctx.fillStyle = "#c8a020";
-      nctx.fillRect(x + 8, wallY + 23, 10, 3);
-      nctx.fillRect(x + 26, wallY + 23, 10, 3);
-    }
-    nctx.fillStyle = f.awn;
-    nctx.fillRect(x + 4, wallY + 10, 16, 3);
-    nctx.fillRect(x + 22, wallY + 10, 16, 3);
-    nctx.fillStyle = f.hi;
-    nctx.fillRect(x + 4, wallY + 10, 16, 1);
-    nctx.fillRect(x + 22, wallY + 10, 16, 1);
-    nctx.fillStyle = f.shade;
-    nctx.fillRect(x + 10, walkY - 16, 12, 16);
-    nctx.fillStyle = "#201018";
-    nctx.fillRect(x + 12, walkY - 14, 8, 14);
-    nctx.fillStyle = f.trim;
-    nctx.fillRect(x + 16, walkY - 8, 2, 2);
-    nctx.fillStyle = f.awn;
-    nctx.fillRect(x + 8, walkY - 18, 16, 3);
-  }
-  const nearPalm = Math.round(cam * 0.82);
-  for (let i = 0; i < 4; i++) {
-    drawPalm(wrap(i * 130 + 50 - nearPalm, nesW + 80) - 18, walkY, 40);
-  }
-  for (let i = 0; i < 5; i++) {
-    const lx = wrap(i * 96 + 20 - Math.round(cam * 0.9), nesW + 20);
-    nctx.fillStyle = "#2a2018";
-    nctx.fillRect(lx, walkY - 36, 3, 36);
-    nctx.fillStyle = "#5a4030";
-    nctx.fillRect(lx, walkY - 36, 1, 36);
-    nctx.fillStyle = "#f0c430";
-    nctx.fillRect(lx - 3, walkY - 40, 9, 5);
-    nctx.fillStyle = "#fff2a0";
-    nctx.fillRect(lx - 1, walkY - 39, 3, 3);
-  }
-  nctx.fillStyle = "#7a7680";
-  nctx.fillRect(0, walkY, nesW, streetY - walkY);
-  nctx.fillStyle = "#b0a8b0";
-  nctx.fillRect(0, walkY, nesW, 3);
-  nctx.fillStyle = "#9a929a";
-  nctx.fillRect(0, walkY + 3, nesW, 1);
-  nctx.fillStyle = "#5a5660";
-  for (let x = -Math.round(cam % 16); x < nesW; x += 16) {
-    nctx.fillRect(x, walkY + 5, 1, streetY - walkY - 8);
-  }
-  nctx.fillStyle = "#6a6268";
-  for (let y = walkY + 12; y < streetY - 8; y += 10) {
-    for (let x = -Math.round(cam % 16); x < nesW; x += 16) nctx.fillRect(x + 1, y, 14, 1);
-  }
-  nctx.fillStyle = "#8a8288";
-  for (let x = -Math.round(cam % 16); x < nesW; x += 16) {
-    nctx.fillRect(x + 2, walkY + 7, 4, 2);
-  }
-  nctx.fillStyle = "#3a3640";
-  nctx.fillRect(0, streetY - 6, nesW, 2);
-  nctx.fillStyle = "#d8d0c4";
-  nctx.fillRect(0, streetY - 4, nesW, 4);
-  nctx.fillStyle = "#f0e8dc";
-  nctx.fillRect(0, streetY - 4, nesW, 1);
-  nctx.fillStyle = "#8a8074";
-  nctx.fillRect(0, streetY - 1, nesW, 1);
-  nctx.fillStyle = "#18161e";
-  nctx.fillRect(0, streetY, nesW, nesH - streetY);
-  nctx.fillStyle = "#221e28";
-  nctx.fillRect(0, streetY, nesW, 3);
-  nctx.fillStyle = "#2a2630";
-  for (let i = 0; i < 55; i++) {
-    const x = wrap((i * 27 + Math.floor(cam)) % (nesW + 10), nesW);
-    nctx.fillRect(x, streetY + 6 + (i % 8) * 6, 3, 1);
-  }
-  nctx.fillStyle = "#100e14";
-  for (let i = 0; i < 18; i++) {
-    const x = wrap((i * 41 + Math.floor(cam * 0.5)) % (nesW + 12), nesW);
-    nctx.fillRect(x, streetY + 10 + (i % 5) * 8, 5, 2);
-  }
-  const dash = Math.round(cam % 26);
-  const laneY = depthY(0.74);
-  nctx.fillStyle = "#a08018";
-  for (let x = -dash; x < nesW; x += 26) nctx.fillRect(x, laneY, 14, 2);
-  nctx.fillStyle = "#f0c430";
-  for (let x = -dash; x < nesW; x += 26) nctx.fillRect(x, laneY - 1, 14, 2);
-  nctx.fillStyle = "#fff0a0";
-  for (let x = -dash; x < nesW; x += 26) nctx.fillRect(x, laneY - 1, 14, 1);
+  drawCurrentStreet();
 }
 
 function drawActors() {
-  const carW = 64 * spriteScale;
-  const carH = 24 * spriteScale;
   const actors = [];
   if (art) {
-    {
+    if (streetHasSpots()) {
       const plugSheet = art.thug;
       const plugImg = plugSheet[0];
       actors.push({ z: Z_WALK_MIN + 0.04, draw: () => drawPerson(plugImg, at(PLUG), clampWalkZ(0.26), 1) });
@@ -882,21 +1063,30 @@ function drawActors() {
       const img = sheet[Math.floor(ped.anim * WALK_FPS) % sheet.length];
       actors.push({ z: ped.z, draw: () => drawPerson(img, ped.x, ped.z, ped.facing) });
     }
-    if (order && order.phase === "active") {
+    if (streetHasSpots() && order && order.phase === "active") {
       const spot = meetById(order.spot);
       const sheet = NAMES.indexOf(order.name) % 2 === 0 ? art.thug : art.runner;
       const img = sheet[Math.floor(buyerAnim * WALK_FPS) % sheet.length];
-      const face = wrapDelta(at(spot), player.x, WORLD) >= 0 ? 1 : -1;
+      const face = at(spot) >= player.x ? 1 : -1;
       const bz = clampWalkZ(0.30);
       actors.push({ z: bz, draw: () => drawPerson(img, at(spot), bz, face) });
     }
+    const ride = art.car;
+    const carW = (ride?.naturalWidth || ride?.width || 95) * spriteScale;
+    const carH = (ride?.naturalHeight || ride?.height || 29) * spriteScale;
     for (const t of traffic) {
-      actors.push({ z: t.z, draw: () => drawSprite(t.img, t.x, t.z, carW, carH, t.facing) });
+      if (car.street === streetId && Math.abs(t.x - car.x) < 110) continue;
+      actors.push({
+        z: 0.9,
+        draw: () => drawSprite(ride, t.x, t.z, carW, carH, t.facing, 0, streetDestY(ROAD_Y)),
+      });
     }
-    actors.push({
-      z: car.z + 0.04,
-      draw: () => drawSprite(art.sedan, car.x, car.z, carW, carH, car.facing),
-    });
+    if (car.street === streetId) {
+      actors.push({
+        z: 0.85,
+        draw: () => drawSprite(ride, car.x, car.z, carW, carH, car.facing, 0, carGroundY()),
+      });
+    }
     if (!inCar) {
       const sheet = heroSheet();
       const img = sheet[Math.floor(player.anim * WALK_FPS) % sheet.length];
@@ -911,7 +1101,7 @@ function drawActors() {
   }
   actors.sort((a, b) => a.z - b.z);
   for (const a of actors) a.draw();
-  if (mode === "play") {
+  if (mode === "play" && streetHasSpots()) {
     drawLabel(at(CRIB), 0.12, "CRIB", "#e81818");
     drawLabel(at(PLUG), 0.12, "PLUG", "#f0c430");
     for (const m of MEETS) {
@@ -950,6 +1140,28 @@ function syncHud() {
   padCar.querySelectorAll("[data-role='gas'],[data-role='brake']").forEach((el) => {
     el.classList.toggle("on", el.dataset.role === "gas" ? gasHeld() : brakeHeld());
   });
+  syncTurnHint();
+}
+function syncTurnHint() {
+  const el = document.getElementById("turn-hint");
+  const row = document.getElementById("turn-exits");
+  if (!el || !row) return;
+  const ix = mode === "play" ? nearIntersection() : null;
+  if (!ix) {
+    el.classList.add("hidden");
+    row.innerHTML = "";
+    return;
+  }
+  el.classList.remove("hidden");
+  if (speedNow() > TURN_SPEED) {
+    row.innerHTML = `<button type="button" class="pad-btn" disabled>SLOW DOWN</button>`;
+    return;
+  }
+  const exits = exitsAt(ix, heading);
+  const mark = { left: "◀", right: "▶", straight: "▲" };
+  row.innerHTML = exits.map((ex) => (
+    `<button type="button" class="pad-btn accent" data-role="turn" data-dir="${ex.dir}">${mark[ex.dir] || "▲"} ${ex.label}</button>`
+  )).join("");
 }
 function keysHasRole(role) {
   if (role === "left") return keys.has("ArrowLeft") || keys.has("KeyA");
@@ -973,7 +1185,8 @@ function update(dt) {
   const stallPulse = pulses.stall;
   const savePulse = pulses.save;
   const stashPulse = pulses.stash;
-  pulses = { act: false, jump: false, start: false, car: false, phone: false, crib: false, pullover: false, accept: false, stall: false, save: false, stash: false, gear: null };
+  const turnPulse = pulses.turn;
+  pulses = { act: false, jump: false, start: false, car: false, phone: false, crib: false, pullover: false, accept: false, stall: false, save: false, stash: false, gear: null, turn: null };
 
   blink += dt;
   if (mode === "title") {
@@ -1010,6 +1223,19 @@ function update(dt) {
   if (act) doAct();
   if (acceptPulse) acceptOrder();
 
+  turnLock = Math.max(0, turnLock - dt);
+  const ixNow = nearIntersection();
+  const slowNow = speedNow() <= TURN_SPEED;
+  let edgeTurn = turnPulse;
+  if (!edgeTurn && ixNow && slowNow) {
+    if (ax.z < -0.5 && prevTurnZ >= -0.5) edgeTurn = "straight";
+    if (inCar && ax.x < -0.5 && prevTurnX >= -0.5) edgeTurn = "left";
+    if (inCar && ax.x > 0.5 && prevTurnX <= 0.5) edgeTurn = "right";
+  }
+  prevTurnZ = ax.z;
+  prevTurnX = ax.x;
+  if (edgeTurn) tryTurn(edgeTurn);
+
   if (inCar) {
     if (gearPulse) tryShift(gearPulse, brakeHeld());
     if (pullPulse) startPullOver();
@@ -1031,8 +1257,8 @@ function update(dt) {
       }
     } else if (car.gear === "P") {
       car.vx = 0;
-      if (ax.x < 0) car.facing = -1;
-      if (ax.x > 0) car.facing = 1;
+      if (ax.x < 0) { car.facing = -1; syncHeadingFromFacing(); }
+      if (ax.x > 0) { car.facing = 1; syncHeadingFromFacing(); }
     } else if (car.gear === "N") {
       car.vx *= Math.exp(-1.2 * dt);
       if (brake) car.vx *= Math.exp(-4 * dt);
@@ -1055,7 +1281,8 @@ function update(dt) {
     }
     car.vx = Math.max(-CAR_MAX, Math.min(CAR_MAX, car.vx));
     if (brake && Math.abs(car.vx) < CAR_STOP) car.vx = 0;
-    car.x = wrap(car.x + car.vx * dt, WORLD);
+    car.x = clampAlong(car.x + car.vx * dt);
+    if (car.x <= alongMin() || car.x >= alongMax()) car.vx = 0;
     if (!car.parked && car.gear !== "P") car.z = Z_CAR_DRIVE;
     player.x = car.x;
     player.z = car.z;
@@ -1066,12 +1293,13 @@ function update(dt) {
     BRAudio.setEngine("off");
     if (ax.x < 0) player.facing = -1;
     if (ax.x > 0) player.facing = 1;
+    if (ax.x) syncHeadingFromFacing();
     const spd = walkSpeed();
     player.vx = ax.x * spd;
     player.vz = ax.z * (spd * 0.62);
     if (Math.abs(ax.z) > Math.abs(ax.x) + 0.1) player.moveDir = ax.z > 0 ? "front" : "back";
     else player.moveDir = "side";
-    player.x = wrap(player.x + player.vx * dt, WORLD);
+    player.x = clampAlong(player.x + player.vx * dt);
     player.z = clampWalkZ(player.z + (player.vz / 80) * dt);
     if (Math.abs(ax.x) > 0 || Math.abs(ax.z) > 0) player.anim += dt;
     else player.anim = 0;
@@ -1081,46 +1309,41 @@ function update(dt) {
   }
 
   buyerAnim += dt;
-  for (const ped of peds) {
-    ped.x = wrap(ped.x + ped.facing * ped.speed * dt, WORLD);
-    ped.z = clampWalkZ(ped.z);
-    ped.anim += dt;
-    if (Math.random() < 0.002) ped.facing *= -1;
-  }
-  for (const t of traffic) {
-    t.x = wrap(t.x + t.vx * dt, WORLD);
-  }
+  updatePeds(dt);
+  updateTraffic(dt);
   if (!order && grams > 0) {
     phoneT -= dt;
     if (phoneT <= 0) rollOrder();
   }
-  for (const p of pops) p.life -= dt;
-  pops = pops.filter((p) => p.life > 0);
+  if (toast.life > 0) toast.life -= dt;
+  if (toast.life <= 0) toast.text = "";
   const follow = inCar ? car.x : player.x;
-  const target = wrap(follow - nesW * 0.42, WORLD);
-  cam = wrap(cam + wrapDelta(cam, target, WORLD) * (1 - Math.exp(-7 * dt)), WORLD);
+  const maxCam = Math.max(0, WORLD - nesW);
+  const target = Math.max(0, Math.min(maxCam, follow - nesW * 0.42));
+  cam += (target - cam) * (1 - Math.exp(-7 * dt));
 }
 
 function renderNes() {
   nctx.imageSmoothingEnabled = false;
   drawParallax();
+  if (mode === "play") drawStreetSigns();
   if (mode === "play") drawActors();
   nctx.font = "8px 'Press Start 2P', monospace";
-  for (const p of pops) text(nctx, p.text, worldToScreen(p.x), depthY(p.z) - 48, "#f8f8f8", "center");
-  if (mode === "play" && order) {
-    nctx.fillStyle = "#121018";
-    nctx.fillRect(4, 18, Math.min(200, nesW - 8), 26);
-    nctx.strokeStyle = "#38d8f8";
-    nctx.strokeRect(5, 19, Math.min(198, nesW - 10), 24);
-    text(nctx, order.name, 10, 22, "#38d8f8");
-    text(nctx, (order.phase === "active" ? order.label : "TXT") + " $" + order.pay, 10, 32, "#f8f8f8");
+  if (mode === "play") {
+    text(nctx, "$" + String(Math.floor(cash)).padStart(4, "0"), 48, 6, "#f0c430");
+    text(nctx, fmtG(grams) + "G", Math.round(nesW * 0.42), 6, grams > 0 ? "#38f070" : "#8a8696");
+    text(nctx, heading, nesW - 52, 6, "#38d8f8");
+    text(nctx, "R" + rep, nesW - 22, 6, "#f8f8f8");
   }
-  nctx.fillStyle = "#07060c";
-  nctx.fillRect(0, 0, nesW, 16);
-  nctx.font = "8px 'Press Start 2P', monospace";
-  text(nctx, "$" + String(Math.floor(cash)).padStart(4, "0"), 4, 4, "#f0c430");
-  text(nctx, fmtG(grams) + "G", Math.round(nesW * 0.38), 4, grams > 0 ? "#38f070" : "#8a8696");
-  text(nctx, "REP " + rep, nesW - 64, 4, "#f8f8f8");
+  if (toast.life > 0 && toast.text) {
+    const msg = toast.text;
+    const tw = Math.min(nesW - 20, msg.length * 8 + 14);
+    const tx = Math.round((nesW - tw) / 2);
+    const ty = Math.min(nesH - 16, streetDestY(ROAD_Y) + 6);
+    nctx.fillStyle = "rgba(7,6,12,0.78)";
+    nctx.fillRect(tx, ty, tw, 13);
+    text(nctx, msg, nesW / 2, ty + 3, "#f8f8f8", "center");
+  }
   if (mode === "title") {
     nctx.fillStyle = "rgba(7,6,12,0.72)";
     nctx.fillRect(0, 16, nesW, nesH - 16);
@@ -1159,6 +1382,7 @@ function pulseFromRole(role, extra) {
   if (role === "accept") pulses.accept = true;
   if (role === "stall") pulses.stall = true;
   if (role === "gear") pulses.gear = extra || null;
+  if (role === "turn") pulses.turn = extra || null;
   if (role === "nes" || role === "act") pulses.start = true;
 }
 
@@ -1190,7 +1414,7 @@ document.getElementById("app").addEventListener("pointerdown", (e) => {
     return;
   }
   holds.add(role);
-  pulseFromRole(role, e.target.dataset.gear);
+  pulseFromRole(role, e.target.dataset.gear || e.target.dataset.dir);
   try { e.target.setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
   e.preventDefault();
 });
@@ -1243,16 +1467,28 @@ window.__br = {
     car: { ...car },
     heroPx: HERO_SRC_H * spriteScale * cssScale,
     nesW, nesH, cssScale, spriteScale,
-    plugX: at(PLUG),
-    cribX: at(CRIB),
+    world: WORLD,
+    streetId,
+    streetName: currentStreet()?.name || "",
+    heading,
+    plugX: streetHasSpots() ? at(PLUG) : 0,
+    cribX: streetHasSpots() ? at(CRIB) : 0,
+    orderX: order && streetHasSpots() ? at(meetById(order.spot)) : 0,
+    intersectX: currentStreet()?.intersections[0]?.x || 0,
+    intersectIds: (currentStreet()?.intersections || []).map((i) => i.id),
+    exits: liveExits().map((e) => e.dir + ":" + e.label),
+    canTurn: !!(nearIntersection() && speedNow() <= TURN_SPEED && turnLock <= 0),
+    hasStreet: !!currentStreet()?.strip,
+    hasCar: !!art?.car,
   }),
   start: () => beginPlay(false),
   finishIntro: () => { if (mode === "title") beginPlay(false); },
   setInCar: (on) => { if (on) { player.x = car.x; player.z = Math.max(player.z, Z_STREET_MIN); enterCar(true); } else leaveCar(); },
   setGear: (g) => { if (GEARS.includes(g)) car.gear = g; },
   tryShift: (g, brake) => tryShift(g, !!brake),
-  setPlayerX: (x) => { player.x = wrap(Number(x) || 0, WORLD); },
-  setCarX: (x) => { car.x = wrap(Number(x) || 0, WORLD); },
+  setPlayerX: (x) => { player.x = clampAlong(Number(x) || 0); },
+  setCarX: (x) => { car.x = clampAlong(Number(x) || 0); },
+  setHeading: (h) => { if (["E", "W", "N", "S"].includes(h)) applyHeading(h); },
   setDepth: (z) => { player.z = inCar ? Math.max(Z_STREET_MIN, Math.min(Z_STREET_MAX, Number(z) || 0)) : clampWalkZ(z); },
   ground: () => {
     const sheet = art ? heroSheet() : null;
@@ -1278,6 +1514,15 @@ window.__br = {
   spawnOrder: () => rollOrder(),
   acceptOrder,
   persist,
+  tryTurn,
+  setStreet: (id, x, h) => enterStreet(id, x ?? player.x, inCar, h, true),
+  setIntersect: (id) => {
+    const ix = currentStreet()?.intersections.find((i) => i.id === id) || currentStreet()?.intersections[0];
+    if (!ix) return null;
+    player.x = ix.x;
+    if (inCar) car.x = ix.x;
+    return ix.id;
+  },
   ready: false,
 };
 
@@ -1290,16 +1535,22 @@ Promise.all([
   loadDirSheet("walk-front"),
   loadDirSheet("walk-back"),
   loadImage(`../block-run/sprites/pack.png?v=${ASSET_V}`),
-  loadImage(`../block-run/sprites/dumpster.png?v=${ASSET_V}`),
-  loadImage(`../block-run/map/street.png?v=${ASSET_V}`),
-]).then(([idle, walk, walkNew, thug, runner, walkFront, walkBack, pack, dumpster, street]) => {
-  if (!idle || !thug || !runner || !pack) return;
+  loadImage(`sprites/car.png?v=${ASSET_V}`),
+  loadImage(`map/street.png?v=${ASSET_V}`),
+]).then(([idle, walk, walkNew, thug, runner, walkFront, walkBack, pack, carImg, streetImg]) => {
+  if (!idle || !thug || !runner || !pack || !carImg || !streetImg) return;
+  bakeStreets(streetImg);
+  streetId = "sunset";
+  heading = "E";
+  longStreet = streets.sunset.strip;
+  WORLD = streets.sunset.length;
   art = {
-    idle, walk: walkNew || walk, walkNew: walkNew || walk, thug, runner, pack, dumpster, street,
+    idle, walk: walkNew || walk, walkNew: walkNew || walk, thug, runner, pack,
     walkFront, walkBack,
-    sedan: paintSedan("#c84818", true),
+    car: carImg,
+    sedan: carImg,
+    street: streetImg,
   };
-  if (street) WORLD = street.naturalWidth * 3;
   window.__br.ready = true;
 });
 requestAnimationFrame(frame);
