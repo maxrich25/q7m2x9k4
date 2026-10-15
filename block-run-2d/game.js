@@ -1,5 +1,5 @@
 /* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
-const ASSET_V = "16";
+const ASSET_V = "17";
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v3";
 const HERO_SRC_W = 40;
@@ -18,12 +18,12 @@ const SLICE_X = [0, 99, 190, 275, 398];
 const CAR_ERASE = { x: 6, y: 156, w: 86, h: 20 };
 const GEARS = ["P", "R", "N", "D"];
 const WALK_FPS = 8;
-/** Hero walk: walk13 (locked Oct 14 2026), 12 frames at 12.5 fps, native 40px. */
+/** Hero walk: walk14 (locked Oct 15 2026), 12 frames at 12.5 fps, native 40px. */
 const HERO_WALK_FPS = 12.5;
 /** Native px per frame so feet plant: 2.08 × 12.5 fps ≈ 26 px/s. */
 const STRIDE_NATIVE = 2.08;
-/** Frames live in sprites/walk13.js (data URIs, loaded before this script). */
-const HERO_WALK_FRAMES = window.WALK13_FRAMES || [];
+/** Frames live in sprites/walk14.js (data URIs, loaded before this script). */
+const HERO_WALK_FRAMES = window.WALK14_FRAMES || [];
 const WALK_Z = 52;
 const REACH = 28;
 const HALF_G = 14;
