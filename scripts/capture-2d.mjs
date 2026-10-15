@@ -7,7 +7,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const CHROME = "/usr/bin/google-chrome-stable";
 const PORT = process.env.PORT || "8767";
 const ROOT = `http://127.0.0.1:${PORT}/`;
-const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=7`;
+const GAME = `http://127.0.0.1:${PORT}/block-run-2d/?v=8&fresh=clear`;
 
 async function shot(page, name) {
   const file = path.join(OUT, name);
@@ -20,6 +20,33 @@ async function waitFonts(page) {
     try { await document.fonts.ready; } catch {}
   });
   await page.waitForTimeout(300);
+}
+
+async function ground(page) {
+  return page.evaluate(() => {
+    const st = window.__br.getState();
+    const g = window.__br.ground();
+    const view = document.getElementById("view").getBoundingClientRect();
+    const pad = document.getElementById("pad").getBoundingClientRect();
+    const canvas = document.getElementById("game").getBoundingClientRect();
+    const overlap = !(pad.top >= canvas.bottom - 1 || canvas.top >= pad.bottom - 1);
+    return {
+      mode: st.mode,
+      inCar: st.inCar,
+      heroPx: st.heroPx,
+      nesW: st.nesW,
+      nesH: st.nesH,
+      cssScale: st.cssScale,
+      spriteScale: st.spriteScale,
+      player: st.player,
+      mute: document.getElementById("btn-mute").textContent,
+      overlap,
+      ground: g,
+      onSidewalk: g.footY >= g.walkY && g.footY <= g.curbY,
+      belowCurb: g.footY > g.curbY,
+      canvas: { top: Math.round(canvas.top), h: Math.round(canvas.height) },
+    };
+  });
 }
 
 async function main() {
@@ -42,10 +69,8 @@ async function main() {
 
   await page.goto(ROOT, { waitUntil: "networkidle" });
   await waitFonts(page);
-  await shot(page, "title_root_start.png");
-  await page.click("#btn-more");
-  await page.waitForTimeout(200);
-  await shot(page, "title_root_more.png");
+  const startHref = await page.evaluate(() => document.querySelector("a.start")?.getAttribute("href"));
+  console.log("START_HREF", startHref);
 
   await page.goto(GAME, { waitUntil: "networkidle" });
   await page.waitForFunction(() => window.__br && window.__br.ready, { timeout: 20000 });
@@ -54,68 +79,37 @@ async function main() {
     try { localStorage.clear(); } catch {}
     window.__br.setMuted(false);
   });
-  await page.waitForTimeout(200);
-  await shot(page, "title_game.png");
-
   await page.evaluate(() => window.__br.start());
-  await page.waitForTimeout(200);
-  await page.evaluate(() => window.__br.setHold("right", true));
-  await page.waitForTimeout(320);
-  const onFoot = await page.evaluate(() => {
-    const st = window.__br.getState();
-    const view = document.getElementById("view").getBoundingClientRect();
-    const pad = document.getElementById("pad").getBoundingClientRect();
-    const canvas = document.getElementById("game").getBoundingClientRect();
-    const overlap = !(pad.top >= canvas.bottom - 1 || canvas.top >= pad.bottom - 1);
-    return {
-      mode: st.mode,
-      inCar: st.inCar,
-      heroPx: st.heroPx,
-      nesW: st.nesW,
-      nesH: st.nesH,
-      cssScale: st.cssScale,
-      spriteScale: st.spriteScale,
-      car: st.car,
-      player: st.player,
-      view: { w: Math.round(view.width), h: Math.round(view.height) },
-      pad: { top: Math.round(pad.top), h: Math.round(pad.height) },
-      canvas: { w: Math.round(canvas.width), h: Math.round(canvas.height), bottom: Math.round(canvas.bottom) },
-      overlap,
-      mute: document.getElementById("btn-mute").textContent,
-    };
-  });
-  console.log("ONFOOT", JSON.stringify(onFoot, null, 2));
-  await shot(page, "ingame_on_foot.png");
+  await page.waitForTimeout(250);
+
+  const standing = await ground(page);
+  console.log("STANDING", JSON.stringify(standing, null, 2));
+  await shot(page, "feet_standing.png");
 
   await page.evaluate(() => {
-    const st = window.__br.getState();
-    window.__br.setPlayerX(st.car.x);
-    window.__br.setDepth(0.7);
-    window.__br.setInCar(true);
-    window.__br.setBrake(true);
-    window.__br.tryShift("D", true);
-    window.__br.setBrake(false);
-    window.__br.setGas(true);
+    window.__br.setHold("down", false);
+    window.__br.setHold("up", true);
   });
   await page.waitForTimeout(700);
-  const driving = await page.evaluate(() => {
-    const st = window.__br.getState();
-    const padCar = document.getElementById("pad-car");
-    const padFoot = document.getElementById("pad-foot");
-    return {
-      mode: st.mode,
-      inCar: st.inCar,
-      gear: st.car.gear,
-      vx: st.car.vx,
-      parked: st.car.parked,
-      car: st.car,
-      padCarHidden: padCar.classList.contains("hidden"),
-      padFootHidden: padFoot.classList.contains("hidden"),
-    };
-  });
-  console.log("DRIVING", JSON.stringify(driving, null, 2));
-  await shot(page, "ingame_driving.png");
+  const walkingUp = await ground(page);
+  console.log("WALK_UP", JSON.stringify(walkingUp, null, 2));
+  await shot(page, "feet_walk_up.png");
+  await page.evaluate(() => window.__br.setHold("up", false));
+  await page.waitForTimeout(80);
 
+  await page.evaluate(() => window.__br.setHold("down", true));
+  await page.waitForTimeout(900);
+  const walkingDown = await ground(page);
+  console.log("WALK_DOWN", JSON.stringify(walkingDown, null, 2));
+  await shot(page, "feet_walk_down.png");
+  await page.evaluate(() => window.__br.setHold("down", false));
+
+  const fail = [standing, walkingUp, walkingDown].some((s) => !s.onSidewalk || s.belowCurb || s.overlap);
+  if (fail) {
+    console.error("FEET_FAIL sidewalk checks did not pass");
+    process.exit(1);
+  }
+  console.log("FEET_OK");
   await browser.close();
 }
 

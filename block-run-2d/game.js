@@ -1,5 +1,5 @@
 /* BLOCK RUN — flat SNES belt-scroller. Hard pixels, no 3D. */
-const ASSET_V = "7";
+const ASSET_V = "8";
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v2";
 const HERO_SRC_W = 40;
@@ -9,12 +9,12 @@ const TARGET_HERO_PX = 86;
 const GEARS = ["P", "R", "N", "D"];
 const WALK_FPS = 8;
 const STRIDE_NATIVE = 4.5;
-/** Hero walk sheet. One path list, any length — classic walk-1..4, unchanged. */
+/** Hero walk sheet. One path list, any length. Standing still uses classic idle. */
 const HERO_WALK_FRAMES = [
-  "../block-run/sprites/walk-1.png",
-  "../block-run/sprites/walk-2.png",
-  "../block-run/sprites/walk-3.png",
-  "../block-run/sprites/walk-4.png",
+  "sprites/walk4-1.png",
+  "sprites/walk4-2.png",
+  "sprites/walk4-3.png",
+  "sprites/walk4-4.png",
 ];
 const WALK_Z = 52;
 const REACH = 28;
@@ -37,8 +37,8 @@ const MEETS = [
 ];
 const PLUG = { id: "plug", label: "PLUG", t: 0.2 };
 const CRIB = { id: "crib", label: "CRIB", t: 0.06 };
-const Z_WALK_MIN = 0.08;
-const Z_WALK_MAX = 0.38;
+const Z_WALK_MIN = 0.20;
+const Z_WALK_MAX = 0.40;
 const Z_STREET_MIN = 0.52;
 const Z_STREET_MAX = 0.92;
 const Z_CAR_PARK = 0.58;
@@ -79,7 +79,7 @@ let WORLD = 398 * 3;
 let art = null;
 let mode = "title";
 let ui = null;
-let player = { x: 70, z: 0.22, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
+let player = { x: 70, z: 0.28, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
 let car = { x: 140, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0 };
 let inCar = false;
 let cash = START_CASH;
@@ -275,7 +275,7 @@ function spawnTraffic() {
   }));
 }
 function fresh() {
-  player = { x: at(CRIB) + 18, z: 0.22, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
+  player = { x: at(CRIB) + 18, z: 0.28, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
   car = { x: at(CRIB) + 86, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0 };
   inCar = false;
   cash = START_CASH;
@@ -295,7 +295,7 @@ function fresh() {
 function continueSave(s) {
   player = {
     x: wrap(s.x || at(CRIB), WORLD),
-    z: Math.max(Z_WALK_MIN, Math.min(Z_STREET_MAX, s.z ?? 0.22)),
+    z: clampWalkZ(s.z ?? 0.28),
     vx: 0, vz: 0,
     facing: s.facing === -1 ? -1 : 1,
     anim: 0, moveDir: "side",
@@ -326,10 +326,10 @@ function closeTo(x) {
   return Math.abs(wrapDelta(inCar ? car.x : player.x, x, WORLD)) <= REACH;
 }
 function onWalk() {
-  return player.z <= Z_WALK_MAX + 0.04;
+  return player.z <= Z_WALK_MAX + 0.02;
 }
 function nearCar() {
-  return !inCar && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 30 && player.z >= Z_STREET_MIN - 0.08;
+  return !inCar && Math.abs(wrapDelta(player.x, car.x, WORLD)) < 36;
 }
 function nearCrib() {
   return !inCar && closeTo(at(CRIB)) && onWalk();
@@ -424,7 +424,7 @@ function leaveCar() {
   car.parked = true;
   car.z = Z_CAR_PARK;
   player.x = car.x;
-  player.z = Math.min(Z_WALK_MAX, car.z - 0.12);
+  player.z = Z_WALK_MAX;
   player.vx = 0;
   player.vz = 0;
   player.facing = car.facing;
@@ -529,8 +529,46 @@ function depthY(z) {
   const bot = nesH - 8;
   return Math.round(top + Math.max(0, Math.min(1, z)) * (bot - top));
 }
+function sidewalkTop() {
+  return depthY(0.18);
+}
+function sidewalkCurb() {
+  return depthY(0.55) - 4;
+}
+function clampWalkZ(z) {
+  return Math.max(Z_WALK_MIN, Math.min(Z_WALK_MAX, Number(z) || Z_WALK_MIN));
+}
 function worldToScreen(wx) {
   return wrapDelta(cam, wx, WORLD);
+}
+
+const footPadCache = new WeakMap();
+function opaqueFootPad(img) {
+  if (!img) return 0;
+  if (footPadCache.has(img)) return footPadCache.get(img);
+  const w = img.naturalWidth || img.width || HERO_SRC_W;
+  const h = img.naturalHeight || img.height || HERO_SRC_H;
+  let pad = 0;
+  try {
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    const g = c.getContext("2d");
+    g.imageSmoothingEnabled = false;
+    g.drawImage(img, 0, 0);
+    const data = g.getImageData(0, 0, w, h).data;
+    let last = 0;
+    for (let y = h - 1; y >= 0; y--) {
+      let hit = false;
+      for (let x = 0; x < w; x++) {
+        if (data[(y * w + x) * 4 + 3] > 12) { hit = true; break; }
+      }
+      if (hit) { last = y; break; }
+    }
+    pad = h - 1 - last;
+  } catch { pad = 0; }
+  footPadCache.set(img, pad);
+  return pad;
 }
 
 function pickWalkSheet(dir) {
@@ -545,10 +583,10 @@ function heroSheet() {
   return pickWalkSheet(player.moveDir);
 }
 
-function drawSprite(img, wx, z, w, h, facing) {
+function drawSprite(img, wx, z, w, h, facing, footPad = 0) {
   if (!img) return;
   const sx = worldToScreen(wx);
-  const sy = depthY(z);
+  const sy = depthY(z) + Math.round(footPad);
   const dw = Math.round(w);
   const dh = Math.round(h);
   if (sx < -dw || sx > nesW + dw) return;
@@ -853,10 +891,11 @@ function drawActors() {
       const img = sheet[Math.floor(player.anim * WALK_FPS) % sheet.length];
       const nw = (img.naturalWidth || img.width || HERO_SRC_W) * spriteScale;
       const nh = (img.naturalHeight || img.height || HERO_SRC_H) * spriteScale;
+      const footPad = opaqueFootPad(img) * spriteScale;
       actors.push({
         z: player.z,
         draw: () => {
-          drawSprite(img, player.x, player.z, nw, nh, player.facing);
+          drawSprite(img, player.x, player.z, nw, nh, player.facing, footPad);
           if (grams > 0) drawSprite(art.pack, player.x, player.z, 12 * spriteScale, 12 * spriteScale, 1);
         },
       });
@@ -1025,7 +1064,7 @@ function update(dt) {
     if (Math.abs(ax.z) > Math.abs(ax.x) + 0.1) player.moveDir = ax.z > 0 ? "front" : "back";
     else player.moveDir = "side";
     player.x = wrap(player.x + player.vx * dt, WORLD);
-    player.z = Math.max(Z_WALK_MIN, Math.min(Z_STREET_MAX, player.z + (player.vz / 80) * dt));
+    player.z = clampWalkZ(player.z + (player.vz / 80) * dt);
     if (Math.abs(ax.x) > 0 || Math.abs(ax.z) > 0) player.anim += dt;
     else player.anim = 0;
     if (jump && player.z < Z_STREET_MIN) {
@@ -1178,8 +1217,11 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-if (new URLSearchParams(location.search).get("fresh") === "wipe") {
-  try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ }
+{
+  const freshFlag = new URLSearchParams(location.search).get("fresh");
+  if (freshFlag === "wipe" || freshFlag === "clear") {
+    try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ }
+  }
 }
 hasSave = !!readSave();
 BRAudio.bindUnlock();
@@ -1200,7 +1242,22 @@ window.__br = {
   tryShift: (g, brake) => tryShift(g, !!brake),
   setPlayerX: (x) => { player.x = wrap(Number(x) || 0, WORLD); },
   setCarX: (x) => { car.x = wrap(Number(x) || 0, WORLD); },
-  setDepth: (z) => { player.z = Math.max(Z_WALK_MIN, Math.min(Z_STREET_MAX, Number(z) || 0)); },
+  setDepth: (z) => { player.z = inCar ? Math.max(Z_STREET_MIN, Math.min(Z_STREET_MAX, Number(z) || 0)) : clampWalkZ(z); },
+  ground: () => {
+    const sheet = art ? heroSheet() : null;
+    const img = sheet ? sheet[Math.floor(player.anim * WALK_FPS) % sheet.length] : null;
+    const pad = img ? opaqueFootPad(img) * spriteScale : 0;
+    return {
+      z: player.z,
+      walkY: sidewalkTop(),
+      curbY: sidewalkCurb(),
+      streetY: depthY(0.55),
+      footY: depthY(player.z),
+      footPad: pad,
+      zMin: Z_WALK_MIN,
+      zMax: Z_WALK_MAX,
+    };
+  },
   setGas: (on) => { testGas = !!on; },
   setBrake: (on) => { testBrake = !!on; },
   setHold: (role, on) => { if (on) holds.add(role); else holds.delete(role); },
