@@ -3,17 +3,78 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <title>BLOCK RUN — On Foot</title>
+  <title>BLOCK RUN</title>
+  <meta http-equiv="Cache-Control" content="no-cache" />
   <meta name="theme-color" content="#07060c" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="description" content="BLOCK RUN on foot. Original sprite, phone, and plug. The classic cart stays untouched." />
-  <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="description" content="BLOCK RUN. NES-style night block. Buy from the plug, drive deals, stash at the crib." />
+  <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg?v=7" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
-  <link rel="stylesheet" href="../block-run/style.css?v=58" />
+  <link rel="stylesheet" href="style.css?v=7" />
 </head>
 <body>
-  <a id="menu-home" href="../">MENU</a>
-  <canvas id="game" class="game-canvas" width="256" height="224" aria-label="BLOCK RUN on foot"></canvas>
-  <script src="game.js?v=1"></script>
+  <div id="app">
+    <div id="chrome">
+      <a href="../?v=7">MENU</a>
+      <button type="button" id="btn-mute" aria-label="sound on">SOUND: ON</button>
+    </div>
+    <div id="view">
+      <canvas id="game" width="256" height="224" aria-label="BLOCK RUN street"></canvas>
+      <div id="phone" class="sheet hidden">
+        <div class="sheet-card">
+          <h2>PHONE</h2>
+          <p id="phone-cash" class="sheet-line">CASH $0130</p>
+          <p id="phone-inv" class="sheet-line">GRN 0</p>
+          <div id="phone-texts"></div>
+          <div id="phone-deal" class="hidden">
+            <button type="button" class="accent" data-role="accept">ACCEPT</button>
+            <button type="button" data-role="stall">STALL</button>
+          </div>
+          <button type="button" data-role="phone-close">CLOSE</button>
+        </div>
+      </div>
+      <div id="crib" class="sheet hidden">
+        <div class="sheet-card">
+          <h2>CRIB</h2>
+          <p id="crib-meta" class="sheet-line">HOME</p>
+          <button type="button" class="accent" data-role="crib-save">SAVE</button>
+          <button type="button" data-role="crib-stash">STASH CASH</button>
+          <button type="button" data-role="crib-close">LEAVE</button>
+        </div>
+      </div>
+    </div>
+    <div id="pad">
+      <div id="pad-foot">
+        <button type="button" class="pad-btn" data-role="up" aria-label="up">▲</button>
+        <button type="button" class="pad-btn" data-role="left" aria-label="left">◀</button>
+        <button type="button" class="pad-btn" data-role="down" aria-label="down">▼</button>
+        <button type="button" class="pad-btn" data-role="right" aria-label="right">▶</button>
+        <button type="button" class="pad-btn accent" data-role="act">ACT</button>
+        <button type="button" class="pad-btn" data-role="car" id="btn-car">CAR</button>
+        <button type="button" class="pad-btn" data-role="phone">PHONE</button>
+        <button type="button" class="pad-btn" data-role="crib">CRIB</button>
+      </div>
+      <div id="pad-car" class="hidden">
+        <button type="button" class="pad-btn brake" data-role="brake">BRAKE</button>
+        <button type="button" class="pad-btn gas" data-role="gas">GAS</button>
+        <div id="shifter">
+          <button type="button" class="gear" data-role="gear" data-gear="P">P</button>
+          <button type="button" class="gear" data-role="gear" data-gear="R">R</button>
+          <button type="button" class="gear" data-role="gear" data-gear="N">N</button>
+          <button type="button" class="gear" data-role="gear" data-gear="D">D</button>
+          <div id="shift-hint">HOLD BRAKE</div>
+        </div>
+        <div id="drive-row">
+          <button type="button" class="pad-btn" data-role="pullover">PULL</button>
+          <button type="button" class="pad-btn" data-role="phone">PHONE</button>
+          <button type="button" class="pad-btn accent" data-role="car" id="btn-exit">EXIT</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="audio.js?v=7"></script>
+  <script src="game.js?v=7"></script>
 </body>
 </html>
