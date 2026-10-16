@@ -129,36 +129,62 @@
     <p class="tag">NIGHT ARCADE</p>
     <h1>BLOCK<br><span>RUN</span></h1>
     <p class="cali">CALI</p>
-    <div class="picks">
-      <a class="pick plus start" href="./block-run-2d/?v=18&fresh=clear">
+    <div class="picks" id="menu-line">
+      <button type="button" class="pick plus start" data-line="2d">
         <strong>2D</strong>
-        <em>LATEST ON-FOOT BLOCK</em>
-      </a>
-      <a class="pick plus" href="./block-run-25d/?v=82&fresh=clear">
-        <strong>2.5D</strong>
-        <em>LATEST NIGHT STREET</em>
-      </a>
-      <button type="button" class="pick more" id="btn-more">
-        <strong>MORE</strong>
+        <em>ON-FOOT BLOCK</em>
       </button>
-      <div id="more-panel">
-        <a class="pick classic" href="./block-run/?v=58&fresh=clear">
-          <strong>CLASSIC</strong>
-          <em>ORIGINAL 2D SHOOTER</em>
-        </a>
-        <a class="pick" href="./versions/">
-          <strong>OLDER VERSIONS</strong>
-          <em>PLAY ANY PAST 2.5D BATCH</em>
-        </a>
-      </div>
+      <button type="button" class="pick plus" data-line="25d">
+        <strong>2.5D</strong>
+        <em>NIGHT STREET</em>
+      </button>
+      <button type="button" class="pick classic" data-line="classic">
+        <strong>CLASSIC</strong>
+        <em>ORIGINAL SHOOTER</em>
+      </button>
     </div>
-    <footer>PICK 2D OR 2.5D</footer>
+    <div class="picks" id="menu-step" style="display:none">
+      <a class="pick plus start" id="menu-latest" href="./block-run-2d/?v=18&fresh=clear">
+        <strong>LATEST</strong>
+        <em>CURRENT BUILD</em>
+      </a>
+      <a class="pick plus" id="menu-prev" href="./versions/">
+        <strong>PREVIOUS</strong>
+        <em>OLDER BUILDS</em>
+      </a>
+      <button type="button" class="pick more" id="menu-back">
+        <strong>BACK</strong>
+      </button>
+    </div>
+    <footer>PICK A CART</footer>
   </main>
   <script>
-    document.getElementById("btn-more").addEventListener("click", () => {
-      const panel = document.getElementById("more-panel");
-      const open = panel.classList.toggle("open");
-      document.getElementById("btn-more").querySelector("strong").textContent = open ? "LESS" : "MORE";
+    const lines = {
+      "2d": { latest: "./block-run-2d/?v=18&fresh=clear", prev: null },
+      "25d": { latest: "./block-run-25d/?v=83&fresh=clear", prev: "./versions/" },
+      classic: { latest: "./block-run/?v=58&fresh=clear", prev: null },
+    };
+    const lineEl = document.getElementById("menu-line");
+    const stepEl = document.getElementById("menu-step");
+    const latestEl = document.getElementById("menu-latest");
+    const prevEl = document.getElementById("menu-prev");
+    document.querySelectorAll("#menu-line [data-line]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const pick = lines[btn.dataset.line];
+        latestEl.href = pick.latest;
+        if (pick.prev) {
+          prevEl.href = pick.prev;
+          prevEl.style.display = "";
+        } else {
+          prevEl.style.display = "none";
+        }
+        lineEl.style.display = "none";
+        stepEl.style.display = "";
+      });
+    });
+    document.getElementById("menu-back").addEventListener("click", () => {
+      stepEl.style.display = "none";
+      lineEl.style.display = "";
     });
   </script>
 </body>

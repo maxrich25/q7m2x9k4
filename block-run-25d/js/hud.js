@@ -1,9 +1,9 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=82";
-import { paintClassicHero } from "./paint.js?v=82";
-import { isUnlocked } from "./audio.js?v=82";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=83";
+import { paintClassicHero } from "./paint.js?v=83";
+import { isUnlocked } from "./audio.js?v=83";
 
 export function createHud(opts = {}) {
-  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v82";
+  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v83";
   const cashEl = document.getElementById("hud-cash");
   const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
@@ -349,7 +349,7 @@ export function createHud(opts = {}) {
     document.getElementById("pad")?.classList.toggle("driving", driving);
     padFoot?.classList.toggle("hidden", driving);
     padCar?.classList.toggle("hidden", !driving);
-    const gear = state.car?.gear || "P";
+    const gear = state.car?.shiftPreview || state.car?.gear || "P";
     document.querySelectorAll("#shifter .gear").forEach((el) => {
       el.classList.toggle("on", el.dataset.gear === gear);
     });

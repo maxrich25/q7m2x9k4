@@ -4,8 +4,8 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=82";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=82";
+} from "./config.js?v=83";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=83";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");

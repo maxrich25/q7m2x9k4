@@ -16,7 +16,7 @@
   <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <!-- Cache bust: GitHub Pages max-age=600. Bump ?v= here, on js/main.js, and every relative import in js/*.js (see README). -->
-  <link rel="stylesheet" href="style.css?v=82" />
+  <link rel="stylesheet" href="style.css?v=83" />
   <script type="importmap">
   {
     "imports": {
@@ -35,7 +35,7 @@
           <span id="hud-cash">$0130</span>
           <span id="hud-inv"><span class="g-grn">GRN 0</span> <span class="g-wht">WHT 0</span></span>
           <span id="hud-rep">REP 1</span>
-          <span id="hud-build">v82</span>
+          <span id="hud-build">v83</span>
         </div>
         <span id="hud-heat" class="hidden" title="heat"></span>
         <span id="hud-time" class="hud-sr">9:00 PM</span>
@@ -195,10 +195,18 @@
         <div id="overlay">
           <div id="overlay-card">
             <h1 id="overlay-title">BLOCK<br><span>RUN</span></h1>
-            <p id="overlay-sub">2.5D NIGHT BLOCK  v82</p>
-            <div id="cart-picks" class="hidden">
-              <a class="cart-pick" href="../block-run-2d/?v=18&fresh=clear">2D</a>
-              <a class="cart-pick on" href="../block-run-25d/?v=82&fresh=clear">2.5D</a>
+            <p id="overlay-sub">2.5D NIGHT BLOCK  v83</p>
+            <div id="cart-picks">
+              <div id="cart-line">
+                <button type="button" class="cart-pick" data-line="25d">2.5D</button>
+                <button type="button" class="cart-pick" data-line="2d">2D</button>
+                <button type="button" class="cart-pick" data-line="classic">CLASSIC</button>
+              </div>
+              <div id="cart-step" class="hidden">
+                <button type="button" class="cart-pick" id="cart-latest">LATEST</button>
+                <a class="cart-pick" id="cart-prev" href="../versions/">PREVIOUS</a>
+                <button type="button" class="cart-pick" id="cart-back">BACK</button>
+              </div>
             </div>
             <div id="overlay-body"></div>
             <p id="overlay-hi"></p>
@@ -266,6 +274,42 @@
     </div>
   </div>
   <p id="status" class="sr-only">title</p>
-  <script type="module" src="js/main.js?v=82"></script>
+  <script>
+    (function () {
+      const lines = {
+        "25d": { latest: null, prev: "../versions/" },
+        "2d": { latest: "../block-run-2d/?v=18&fresh=clear", prev: null },
+        classic: { latest: "../block-run/?v=58&fresh=clear", prev: null },
+      };
+      const lineEl = document.getElementById("cart-line");
+      const stepEl = document.getElementById("cart-step");
+      const latestEl = document.getElementById("cart-latest");
+      const prevEl = document.getElementById("cart-prev");
+      document.querySelectorAll("#cart-line [data-line]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const pick = lines[btn.dataset.line];
+          if (!pick) return;
+          latestEl.dataset.href = pick.latest || "";
+          if (pick.prev) {
+            prevEl.href = pick.prev;
+            prevEl.classList.remove("hidden");
+          } else {
+            prevEl.classList.add("hidden");
+          }
+          lineEl.classList.add("hidden");
+          stepEl.classList.remove("hidden");
+        });
+      });
+      latestEl.addEventListener("click", () => {
+        const href = latestEl.dataset.href;
+        if (href) window.location.href = href;
+      });
+      document.getElementById("cart-back").addEventListener("click", () => {
+        stepEl.classList.add("hidden");
+        lineEl.classList.remove("hidden");
+      });
+    })();
+  </script>
+  <script type="module" src="js/main.js?v=83"></script>
 </body>
 </html>

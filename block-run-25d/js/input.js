@@ -1,4 +1,4 @@
-import { unlockAudio } from "./audio.js?v=82";
+import { unlockAudio } from "./audio.js?v=83";
 
 const KEYS = new Set([
   "KeyA", "KeyD", "KeyW", "KeyS", "KeyB", "KeyJ", "KeyK", "KeyZ", "KeyX",
@@ -175,14 +175,29 @@ export function createInput(root = document) {
     if (rec.tapKey === "pick") taps.pickId = rec.pickId || null;
   }
 
+  function overShifter(x, y) {
+    const el = root.querySelector("#shifter");
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    const pad = 16;
+    return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
+  }
+
   function onPointerDown(e) {
+    if (e.target.closest("#cart-latest")) {
+      e.preventDefault();
+      unlockAudio();
+      startPulse = true;
+      return;
+    }
     const role = roleOf(e.target);
     if (!role) {
       if (e.target.closest("#btn-mute, #btn-pause, #btn-phone, #pause-actions, a.menu-link, a.cart-pick, #cart-picks, .sheet, #ctx, #pad-ctx, #pad, #gb-btns, #gb-sys")) {
         return;
       }
       if (e.target.closest("#overlay.pause-mode")) return;
-      // Vertical swipe zoom on any non-button area (street or crib).
+      if (overShifter(e.clientX, e.clientY)) return;
+      // Vertical swipe zoom on the street only. Never on the shifter.
       if (e.target.closest("#view, #scene, canvas, #app")) {
         unlockAudio();
         pointers.set(e.pointerId, {
@@ -253,15 +268,21 @@ export function createInput(root = document) {
       rec.gear = gearFromY(e.clientY, root) || rec.gear;
       return;
     }
+    if (rec.role === "zoom" || rec.role === "zoomSwipe") {
+      if (overShifter(e.clientX, e.clientY)) {
+        rec.role = "shifter";
+        rec.zoomSwiped = false;
+        rec.gear = gearFromY(e.clientY, root);
+        return;
+      }
+      rec.curY = e.clientY;
+      if (Math.abs(e.clientY - rec.startY) > 8) rec.zoomSwiped = true;
+    }
     if (rec.role === "gas") {
       rec.gasAmt = gasAmtFromY(e.clientY, root);
     }
     if (rec.role === "brake") {
       rec.brakeAmt = brakeAmtFromY(e.clientY, root);
-    }
-    if (rec.role === "zoom" || rec.role === "zoomSwipe") {
-      rec.curY = e.clientY;
-      if (Math.abs(e.clientY - rec.startY) > 8) rec.zoomSwiped = true;
     }
   }
 
@@ -275,6 +296,7 @@ export function createInput(root = document) {
       if (btn) btn.classList.remove("held");
     }
     // Short tap on empty view still starts / dismisses overlays.
+    if (rec?.role === "shifter" && rec.gear) taps.shiftCommit = rec.gear;
     if (rec?.role === "zoomSwipe" && (rec.moved || 0) < 10) {
       startPulse = true;
       return;
@@ -449,6 +471,9 @@ export function createInput(root = document) {
       if (role) btn.classList.toggle("held", on);
     });
 
+    const shiftCommit = taps.shiftCommit || null;
+    taps.shiftCommit = null;
+
     return {
       moveX,
       steer: 0,
@@ -471,6 +496,7 @@ export function createInput(root = document) {
       cribBtn: take("cribBtn"),
       pullover: take("pullover"),
       shiftGear,
+      shiftCommit,
       gearTap,
       shiftStep,
       serve: take("serve"),

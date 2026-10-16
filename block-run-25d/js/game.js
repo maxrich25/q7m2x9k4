@@ -15,8 +15,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=82";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=82";
+} from "./config.js?v=83";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=83";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -141,7 +141,8 @@ export function createGame() {
     const nearCribDoor = !!(inCrib && cribX < -1.55);
     const nearWardrobe = !!(inCrib && cribX > 2.15);
     const parked = !!(car.parked || (car.gear === "P" && Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.7));
-    const pullOverOk = !!(inCar && !car.parked && car.gear === "D" && Math.abs(car.vx) > 22 && (car.pullOverT || 0) <= 0 && car.turnT <= 0);
+    const rolling = (car.vx || 0) * (car.facing || 1) > 8;
+    const pullOverOk = !!(inCar && !car.parked && car.gear === "D" && rolling && (car.pullOverT || 0) <= 0 && car.turnT <= 0);
     const exitOk = (inCar && parked) || nearCribDoor;
     // Y: CAR only when on foot near the car. EXIT only when parked in the car.
     const carBtnOk = !!(!inCrib && (
@@ -380,7 +381,7 @@ export function createGame() {
       pop(car.x, 150, "DRIVE");
       return false;
     }
-    if (Math.abs(car.vx) < 22) {
+    if (Math.abs(car.vx) < 8 || (car.vx || 0) * (car.facing || 1) <= 0) {
       pop(car.x, 150, "MOVING");
       return false;
     }
@@ -453,10 +454,19 @@ export function createGame() {
   }
 
   function leaveCar() {
-    if (!carIsParked()) {
+    const nearCurb = Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 1.2 && Math.abs(car.vx) < 28;
+    if (!carIsParked() && !nearCurb) {
       pop(car.x, 150, "PULL OVER FIRST");
       return false;
     }
+    car.pullOverT = 0;
+    car.pullMode = "";
+    car.steer = 0;
+    car.yaw = car.facing < 0 ? Math.PI : 0;
+    car.parked = true;
+    car.gear = "P";
+    car.vx = 0;
+    car.lat = parkLat(car.facing);
     inCar = false;
     boardT = BOARD_T;
     enterLock = ENTER_LOCK;
@@ -475,7 +485,13 @@ export function createGame() {
 
   function tryShift(to, brakeHeld) {
     if (!to || !GEARS.includes(to) || to === car.gear) return false;
-    if ((car.pullOverT || 0) > 0) return false;
+    if ((car.pullOverT || 0) > 0) {
+      if (Math.abs(car.vx) > 36) return false;
+      car.pullOverT = 0;
+      car.pullMode = "";
+      car.steer = 0;
+      car.yaw = car.facing < 0 ? Math.PI : 0;
+    }
     const from = car.gear;
     if (from === "P" && !brakeHeld) {
       car.shiftHint = 1.15;
@@ -494,17 +510,18 @@ export function createGame() {
     }
     car.gear = to;
     car.shiftHint = 0;
-    if (to !== "P") {
+    const leavingCurb = Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.9;
+    if ((to === "D" || to === "R") && leavingCurb) {
       car.parked = false;
-      if (Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.9 && (car.pullOverT || 0) <= 0) {
-        car.pullFromLat = car.lat ?? parkLat(car.facing);
-        car.pullToLat = restLat(car.facing);
-        car.pullMode = "out";
-        car.pullOverT = PULL_OVER_T;
-      }
-    } else if (Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.7) {
+      car.pullFromLat = car.lat ?? parkLat(car.facing);
+      car.pullToLat = restLat(car.facing);
+      car.pullMode = "out";
+      car.pullOverT = PULL_OVER_T;
+    } else if (to === "P" && leavingCurb) {
       car.parked = true;
       car.lat = parkLat(car.facing);
+    } else if (to !== "P") {
+      car.parked = false;
     }
     return true;
   }
@@ -1702,8 +1719,9 @@ export function createGame() {
     if (inCrib) {
       if (input.gate || input.exit) useGate();
     } else if (inCar) {
-      const want = input.gearTap || input.shiftGear;
-      if (want) tryShift(want, !!input.brake);
+      car.shiftPreview = input.shiftGear || null;
+      if (input.gearTap) tryShift(input.gearTap, !!input.brake);
+      if (input.shiftCommit) tryShift(input.shiftCommit, !!input.brake);
       if (input.shiftStep) {
         const i = GEARS.indexOf(car.gear);
         const next = GEARS[i + input.shiftStep];
