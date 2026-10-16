@@ -15,8 +15,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=81";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=81";
+} from "./config.js?v=82";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=82";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -1742,13 +1742,13 @@ export function createGame() {
         const dest = car.pullToLat ?? (intoCurb ? parkLat(car.facing) : restLat(car.facing));
         car.lat = from + (dest - from) * s;
         const baseYaw = car.facing < 0 ? Math.PI : 0;
-        const nose = (intoCurb ? -1 : 1) * Math.sin(u * Math.PI) * 0.32;
+        const nose = (intoCurb ? -1 : 1) * Math.sin(u * Math.PI) * 0.62;
         car.yaw = baseYaw + nose;
-        car.steer = nose * 1.7;
+        car.steer = nose * 1.25;
         gas = false;
         brake = u > 0.72;
         const driveDir = car.gear === "R" ? -(car.facing || 1) : (car.facing || 1);
-        const pullCreep = 32 * Math.sin(Math.min(1, u) * Math.PI);
+        const pullCreep = 52 * Math.sin(Math.min(1, u) * Math.PI);
         const want = driveDir * pullCreep;
         car.vx += (want - car.vx) * Math.min(1, dt * 3);
         car.passT = 0;

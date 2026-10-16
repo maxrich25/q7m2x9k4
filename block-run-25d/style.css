@@ -136,7 +136,7 @@ html, body {
 }
 #hud-cash { color: #f0c430; flex: 0 0 auto; }
 #hud-inv { flex: 0 0 auto; }
-#hud-rep { color: var(--muted); white-space: nowrap; flex: 0 0 auto; }
+#hud-rep, #hud-build { color: var(--muted); white-space: nowrap; flex: 0 0 auto; }
 .g-grn { color: #3dff7a; }
 .g-wht { color: #f4f0e8; }
 #hud-top > span.hud-sr {
