@@ -1,9 +1,9 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=84";
-import { paintClassicHero } from "./paint.js?v=84";
-import { isUnlocked } from "./audio.js?v=84";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=85";
+import { paintClassicHero } from "./paint.js?v=85";
+import { isUnlocked } from "./audio.js?v=85";
 
 export function createHud(opts = {}) {
-  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v84";
+  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v85";
   const cashEl = document.getElementById("hud-cash");
   const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
@@ -355,7 +355,17 @@ export function createHud(opts = {}) {
     });
     if (driving) placeKnob(gear);
     if (state.car?.autoBrake) document.querySelector("#pad-car [data-role='brake']")?.classList.add("held");
-    shiftHint?.classList.toggle("hidden", !(driving && (state.car?.shiftHint || 0) > 0));
+    if (shiftHint) {
+      if (driving && state.car?.pendingPullOut) {
+        shiftHint.textContent = "RELEASE BRAKE";
+        shiftHint.classList.remove("hidden");
+      } else if (driving && (state.car?.shiftHint || 0) > 0) {
+        shiftHint.textContent = "HOLD BRAKE";
+        shiftHint.classList.remove("hidden");
+      } else {
+        shiftHint.classList.add("hidden");
+      }
+    }
     btnPhone?.classList.toggle("unread", !!state.unread);
 
     const playUi = state.mode === "play" && !state.ui;

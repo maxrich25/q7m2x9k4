@@ -4,8 +4,8 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=84";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=84";
+} from "./config.js?v=85";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=85";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -1620,6 +1620,31 @@ export function createWorld(canvas, sprites) {
   shoulder.rotation.x = -Math.PI / 2;
   shoulder.position.set(STREET_LEN / 2, 0.01, 14.05);
   city.add(shoulder);
+
+  // Near-camera framing: rooftop strip so the road edge does not fall into empty void.
+  const nearRoofs = new THREE.Mesh(
+    new THREE.PlaneGeometry(STREET_LEN + 4, 7.2),
+    new THREE.MeshLambertMaterial({ color: 0x1a1622 }),
+  );
+  nearRoofs.rotation.x = -Math.PI / 2;
+  nearRoofs.position.set(STREET_LEN / 2, -0.4, 18.6);
+  city.add(nearRoofs);
+  const roofColors = [0x2a2234, 0x241c2c, 0x302838, 0x1e1828, 0x282030];
+  for (let i = 0; i < 28; i++) {
+    const w = 6.5 + (i % 5) * 1.4;
+    const d = 3.2 + (i % 3) * 0.9;
+    const h = 0.55 + (i % 4) * 0.35;
+    const roof = new THREE.Mesh(
+      new THREE.BoxGeometry(w, h, d),
+      new THREE.MeshLambertMaterial({ color: roofColors[i % roofColors.length] }),
+    );
+    roof.position.set(
+      (i + 0.5) * (STREET_LEN / 28),
+      h * 0.5 - 0.35,
+      17.2 + (i % 2) * 1.6,
+    );
+    city.add(roof);
+  }
 
   const dashTex = canvasTex(48, 8, (g) => {
     g.clearRect(0, 0, 48, 8);

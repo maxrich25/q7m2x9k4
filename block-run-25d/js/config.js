@@ -21,7 +21,7 @@ export const CAR_LANE_NEAR = 4.9;
 export const CAR_LANE_FAR = 0.3;
 export const PARK_LAT_NEAR = 6.2;
 export const PARK_LAT_FAR = -1.0;
-/** Pull-over / pull-out clip length, seconds. Nose angles in, then straightens. */
+/** Pull-over / pull-out clip length, seconds. Soft nose arc + lat ease. */
 export const PULL_OVER_T = 2.05;
 /** Door-open + walk-turn-sit clip length, seconds. */
 export const BOARD_T = 1.12;

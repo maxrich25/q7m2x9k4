@@ -4,7 +4,7 @@ Night-street prototype at [`./block-run-25d/`](./). Gameplay modules here are sh
 
 Live: [https://maxrich25.github.io/q7m2x9k4/block-run-25d/](https://maxrich25.github.io/q7m2x9k4/block-run-25d/)
 
-The hero uses the painted views in `sprites/hero-*.png` (side, front, back, and both three-quarters), picked from where the camera is. Getting in opens the driver door, the left side, not the camera-side passenger door. Pull over only works while you are rolling in drive: the nose angles at the curb, the front wheels turn, and it creeps in, then drops into park. Drive again and it angles back into the lane. The two lanes are the same width, with a curb on each side. The corner of the screen says v84 when this build is the one running. Cache is v=84.
+The hero uses the painted views in `sprites/hero-*.png` (side, front, back, and both three-quarters), picked from where the camera is. Getting in opens the driver door, the left side, not the camera-side passenger door. Pull over only works while you are rolling in drive: the nose arcs toward the curb, the front wheels turn, and it creeps in, then drops into park. Hold brake to pick Drive, then release brake before it leaves the curb. The two lanes are the same width, with a curb on each side. The corner of the screen says v85 when this build is the one running. Cache is v=85.
 
 ## Cache bust
 
