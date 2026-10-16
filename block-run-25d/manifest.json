@@ -1,7 +1,7 @@
 {
   "name": "BLOCK RUN 2.5D",
   "short_name": "BLOCK RUN",
-  "start_url": "./index.html?v=83",
+  "start_url": "./index.html?v=84",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#07060c",

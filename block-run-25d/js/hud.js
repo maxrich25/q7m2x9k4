@@ -1,9 +1,9 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=83";
-import { paintClassicHero } from "./paint.js?v=83";
-import { isUnlocked } from "./audio.js?v=83";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=84";
+import { paintClassicHero } from "./paint.js?v=84";
+import { isUnlocked } from "./audio.js?v=84";
 
 export function createHud(opts = {}) {
-  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v83";
+  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v84";
   const cashEl = document.getElementById("hud-cash");
   const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
@@ -354,6 +354,7 @@ export function createHud(opts = {}) {
       el.classList.toggle("on", el.dataset.gear === gear);
     });
     if (driving) placeKnob(gear);
+    if (state.car?.autoBrake) document.querySelector("#pad-car [data-role='brake']")?.classList.add("held");
     shiftHint?.classList.toggle("hidden", !(driving && (state.car?.shiftHint || 0) > 0));
     btnPhone?.classList.toggle("unread", !!state.unread);
 
@@ -533,7 +534,7 @@ export function createHud(opts = {}) {
     bodyEl.classList.remove("tips", "intro-card");
     if (state.mode === "title") {
       titleEl.innerHTML = "BLOCK<br><span>RUN</span>";
-      subEl.textContent = subtitle;
+      subEl.textContent = document.body.dataset.cartLabel || subtitle;
       bodyEl.innerHTML = "";
       hiEl.textContent = "";
       promptEl.textContent = isUnlocked() ? "TAP TO START" : "TAP TO START";
@@ -546,7 +547,7 @@ export function createHud(opts = {}) {
       promptEl.textContent = "TAP";
     } else if (state.mode === "paused") {
       titleEl.textContent = "PAUSED";
-      subEl.textContent = "";
+      subEl.textContent = "2.5D";
       bodyEl.innerHTML = "";
       hiEl.textContent = "CASH $" + state.cash + "  STASH $" + (state.stash || 0);
       promptEl.textContent = "";

@@ -56,7 +56,7 @@ html, body {
   pointer-events: none;
 }
 
-#chrome a, #btn-mute {
+#chrome a, #btn-mute, #cart-name {
   pointer-events: auto;
   font-family: var(--font);
   font-size: 8px;

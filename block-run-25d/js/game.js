@@ -15,8 +15,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=83";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=83";
+} from "./config.js?v=84";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=84";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -485,18 +485,20 @@ export function createGame() {
 
   function tryShift(to, brakeHeld) {
     if (!to || !GEARS.includes(to) || to === car.gear) return false;
+    if (!brakeHeld) {
+      car.shiftHint = 1.15;
+      return false;
+    }
+    if ((car.shiftT || 0) > 0) return false;
     if ((car.pullOverT || 0) > 0) {
       if (Math.abs(car.vx) > 36) return false;
       car.pullOverT = 0;
       car.pullMode = "";
       car.steer = 0;
+      car.autoBrake = false;
       car.yaw = car.facing < 0 ? Math.PI : 0;
     }
     const from = car.gear;
-    if (from === "P" && !brakeHeld) {
-      car.shiftHint = 1.15;
-      return false;
-    }
     if (to === "P" && Math.abs(car.vx) > 18) {
       car.vx = 0;
       pop(car.x, 150, "CLUNK");
@@ -511,6 +513,11 @@ export function createGame() {
     car.gear = to;
     car.shiftHint = 0;
     const leavingCurb = Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.9;
+    if (to === "N") {
+      car.gear = "N";
+      car.shiftHint = 0;
+      return true;
+    }
     if ((to === "D" || to === "R") && leavingCurb) {
       car.parked = false;
       car.pullFromLat = car.lat ?? parkLat(car.facing);
@@ -1719,7 +1726,7 @@ export function createGame() {
     if (inCrib) {
       if (input.gate || input.exit) useGate();
     } else if (inCar) {
-      car.shiftPreview = input.shiftGear || null;
+      car.shiftPreview = input.brake && input.shiftGear ? input.shiftGear : null;
       if (input.gearTap) tryShift(input.gearTap, !!input.brake);
       if (input.shiftCommit) tryShift(input.shiftCommit, !!input.brake);
       if (input.shiftStep) {
@@ -1750,41 +1757,73 @@ export function createGame() {
       const creep = spec.creep || CAR_CREEP;
       let brake = !!input.brake;
       let gas = !!input.gas;
-      // Pull-over / pull-out: nose angled, wheels turned, creep to the curb or back out.
-      if ((car.pullOverT || 0) > 0) {
-        car.pullOverT = Math.max(0, car.pullOverT - dt);
-        const u = 1 - car.pullOverT / PULL_OVER_T;
-        const s = u * u * (3 - 2 * u);
-        const intoCurb = car.pullMode !== "out";
-        const from = car.pullFromLat ?? (car.lat ?? restLat(car.facing));
-        const dest = car.pullToLat ?? (intoCurb ? parkLat(car.facing) : restLat(car.facing));
-        car.lat = from + (dest - from) * s;
-        const baseYaw = car.facing < 0 ? Math.PI : 0;
-        const nose = (intoCurb ? -1 : 1) * Math.sin(u * Math.PI) * 0.62;
-        car.yaw = baseYaw + nose;
-        car.steer = nose * 1.25;
+      // Pull follows the nose. Sideways speed only happens while the wheels are cut and the car is moving.
+      if ((car.shiftT || 0) > 0) {
+        car.shiftT = Math.max(0, car.shiftT - dt);
+        car.autoBrake = true;
+        car.vx = 0;
+        car.steer = 0;
+        car.yaw = car.facing < 0 ? Math.PI : 0;
+        car.parked = true;
+        car.lat = parkLat(car.facing);
+        const seq = ["D", "N", "R", "P"];
+        const u = 1 - car.shiftT / 0.95;
+        car.shiftPreview = seq[Math.min(seq.length - 1, Math.floor(u * seq.length))];
         gas = false;
-        brake = u > 0.72;
-        const driveDir = car.gear === "R" ? -(car.facing || 1) : (car.facing || 1);
-        const pullCreep = 52 * Math.sin(Math.min(1, u) * Math.PI);
-        const want = driveDir * pullCreep;
-        car.vx += (want - car.vx) * Math.min(1, dt * 3);
+        brake = true;
+        if (car.shiftT <= 0) {
+          car.gear = "P";
+          car.shiftPreview = null;
+          car.autoBrake = false;
+          car.parkHold = 0.4;
+          pop(car.x, 150, "PARKED");
+        }
+      } else if ((car.pullOverT || 0) > 0) {
+        const intoCurb = car.pullMode !== "out";
+        const backing = !intoCurb && car.gear === "R";
+        const face = car.facing || 1;
+        const baseYaw = face < 0 ? Math.PI : 0;
+        const dest = intoCurb ? parkLat(face) : restLat(face);
+        const lock = intoCurb ? -1 : (backing ? -1 : 1);
+        const yawOff = lock * 0.5;
+        car.yaw = baseYaw + yawOff;
+        car.steer = yawOff * 1.15;
+        car.autoBrake = intoCurb;
+        let spd = Math.abs(car.vx);
+        if (intoCurb) spd = Math.max(Math.abs(dest - (car.lat ?? dest)) > 0.18 ? 12 : 0, spd - 95 * dt);
+        else spd = Math.min(78, Math.max(36, spd + 48 * dt));
+        const dir = backing ? -1 : 1;
+        car.vx = dir * face * spd * Math.max(0.55, Math.cos(yawOff));
+        const world = spd * dt * (STREET_LEN / WORLD);
+        const dlat = dir * face * -Math.sin(yawOff) * world;
+        const before = car.lat ?? dest;
+        const next = before + dlat;
+        const arrived = (dest - before) * (dest - next) <= 0 || Math.abs(dest - before) < 0.05;
+        car.lat = arrived ? dest : next;
+        gas = false;
+        brake = intoCurb;
         car.passT = 0;
-        if (car.pullOverT <= 0) {
+        if (arrived && intoCurb && spd < 14) {
+          car.lat = dest;
+          car.vx = 0;
+          car.steer = 0;
+          car.yaw = baseYaw;
+          car.pullOverT = 0;
+          car.pullMode = "";
+          car.shiftT = 0.95;
+          car.autoBrake = true;
+        } else if (arrived && !intoCurb) {
           car.lat = dest;
           car.steer = 0;
           car.yaw = baseYaw;
-          car.vx = 0;
-          if (intoCurb) {
-            car.gear = "P";
-            car.parked = true;
-            car.parkHold = 0.45;
-            pop(car.x, 150, "PARKED");
-          } else {
-            car.parked = false;
-          }
+          car.vx = dir * face * Math.max(36, spd);
+          car.pullOverT = 0;
           car.pullMode = "";
+          car.parked = false;
+          car.autoBrake = false;
         }
+      } else {
+        car.autoBrake = false;
       }
       const gasAmt = gas ? Math.max(0.12, Math.min(1, Number(input.gasAmt) || 1)) : 0;
       const brakeAmt = brake ? Math.max(0.18, Math.min(1, Number(input.brakeAmt) || 1)) : 1;
@@ -1794,14 +1833,6 @@ export function createGame() {
       const homeLat = restLat(face);
       const passLat = restLat(-face);
       const myLat = car.lat ?? homeLat;
-      if (gas && car.parked && (car.pullOverT || 0) <= 0 && (car.parkHold || 0) <= 0) {
-        car.parked = false;
-        if (car.gear === "P") car.gear = "D";
-        car.pullFromLat = car.lat ?? parkLat(car.facing);
-        car.pullToLat = restLat(car.facing);
-        car.pullMode = "out";
-        car.pullOverT = PULL_OVER_T;
-      }
 
       function stopLineX(index) {
         return stopLineGameX(index, face);
@@ -1848,7 +1879,7 @@ export function createGame() {
 
       let aheadCar = null;
       let aheadDist = Infinity;
-      const pullingOver = (car.pullOverT || 0) > 0;
+      const pullingOver = (car.pullOverT || 0) > 0 || (car.shiftT || 0) > 0;
       for (const t of traffic) {
         if (pullingOver) break;
         if (Math.sign(t.facing || 1) !== Math.sign(face)) continue;
@@ -1926,12 +1957,13 @@ export function createGame() {
         if ((car.passT || 0) > 0 && !passLaneClear()) car.passT = 0;
         car.passT = Math.max(0, (car.passT || 0) - dt);
         const curLat = car.lat ?? homeLat;
-        // Parked on the curb: stay put — never lerp back into the travel lane.
-        if (car.parked || (car.gear === "P" && Math.abs(curLat - parkLat(face)) < 0.9)) {
-          car.lat = parkLat(face);
-          car.parked = true;
+        if (car.parked || car.gear === "P" || car.gear === "N" || (car.shiftT || 0) > 0) {
+          if ((car.gear === "P" || car.parked) && Math.abs(curLat - parkLat(face)) < 0.9) {
+            car.lat = parkLat(face);
+            car.parked = true;
+          }
           car.passT = 0;
-        } else {
+        } else if ((car.passT || 0) > 0) {
           let wantLat = (car.passT || 0) > 0 ? passLat : homeLat;
           if (Math.abs(wantLat - curLat) > 0.12) {
             let blocked = false;
