@@ -15,8 +15,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=80";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=80";
+} from "./config.js?v=81";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=81";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -45,7 +45,7 @@ export function createGame() {
   const car = {
     x: CAR_X, px: CAR_X, vx: 0, facing: 1, hp: CAR_HP,
     gear: "P", yaw: 0, turnT: 0, turnFrom: 0, turnTo: 0, shiftHint: 0, lat: parkLat(1),
-    kind: "beater", parked: true, pullOverT: 0, pullFromLat: parkLat(1),
+    kind: "beater", parked: true, pullOverT: 0, pullFromLat: parkLat(1), pullToLat: parkLat(1), pullMode: "", steer: 0,
   };
   let inCar = false;
   let inCrib = false;
@@ -141,7 +141,7 @@ export function createGame() {
     const nearCribDoor = !!(inCrib && cribX < -1.55);
     const nearWardrobe = !!(inCrib && cribX > 2.15);
     const parked = !!(car.parked || (car.gear === "P" && Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.7));
-    const pullOverOk = !!(inCar && !car.parked && (car.pullOverT || 0) <= 0 && car.turnT <= 0);
+    const pullOverOk = !!(inCar && !car.parked && car.gear === "D" && Math.abs(car.vx) > 22 && (car.pullOverT || 0) <= 0 && car.turnT <= 0);
     const exitOk = (inCar && parked) || nearCribDoor;
     // Y: CAR only when on foot near the car. EXIT only when parked in the car.
     const carBtnOk = !!(!inCrib && (
@@ -376,7 +376,17 @@ export function createGame() {
 
   function startPullOver() {
     if (!inCar || car.parked || (car.pullOverT || 0) > 0 || car.turnT > 0) return false;
+    if (car.gear !== "D") {
+      pop(car.x, 150, "DRIVE");
+      return false;
+    }
+    if (Math.abs(car.vx) < 22) {
+      pop(car.x, 150, "MOVING");
+      return false;
+    }
     car.pullFromLat = car.lat ?? restLat(car.facing);
+    car.pullToLat = parkLat(car.facing);
+    car.pullMode = "in";
     car.pullOverT = PULL_OVER_T;
     car.passT = 0;
     car.turnT = 0;
@@ -486,9 +496,11 @@ export function createGame() {
     car.shiftHint = 0;
     if (to !== "P") {
       car.parked = false;
-      if (Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.9) {
-        // Ease off the curb into the travel lane when leaving park.
-        car.lat = restLat(car.facing);
+      if (Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.9 && (car.pullOverT || 0) <= 0) {
+        car.pullFromLat = car.lat ?? parkLat(car.facing);
+        car.pullToLat = restLat(car.facing);
+        car.pullMode = "out";
+        car.pullOverT = PULL_OVER_T;
       }
     } else if (Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.7) {
       car.parked = true;
@@ -1713,31 +1725,47 @@ export function createGame() {
 
     if (inCar) {
       car.shiftHint = Math.max(0, car.shiftHint - dt);
+      car.parkHold = Math.max(0, (car.parkHold || 0) - dt);
       const spec = CAR_KINDS[car.kind] || CAR_KINDS.beater;
       const accel = spec.accel || CAR_ACCEL;
       const vmax = spec.max || CAR_MAX;
       const creep = spec.creep || CAR_CREEP;
       let brake = !!input.brake;
       let gas = !!input.gas;
-      // Pull-over clip: steer to curb, brake out, land in P/parked.
+      // Pull-over / pull-out: nose angled, wheels turned, creep to the curb or back out.
       if ((car.pullOverT || 0) > 0) {
         car.pullOverT = Math.max(0, car.pullOverT - dt);
         const u = 1 - car.pullOverT / PULL_OVER_T;
         const s = u * u * (3 - 2 * u);
-        const dest = parkLat(car.facing);
+        const intoCurb = car.pullMode !== "out";
         const from = car.pullFromLat ?? (car.lat ?? restLat(car.facing));
+        const dest = car.pullToLat ?? (intoCurb ? parkLat(car.facing) : restLat(car.facing));
         car.lat = from + (dest - from) * s;
+        const baseYaw = car.facing < 0 ? Math.PI : 0;
+        const nose = (intoCurb ? -1 : 1) * Math.sin(u * Math.PI) * 0.32;
+        car.yaw = baseYaw + nose;
+        car.steer = nose * 1.7;
         gas = false;
-        brake = true;
-        car.vx *= Math.exp(-3.2 * dt);
-        if (Math.abs(car.vx) < 10) car.vx = 0;
+        brake = u > 0.72;
+        const driveDir = car.gear === "R" ? -(car.facing || 1) : (car.facing || 1);
+        const pullCreep = 32 * Math.sin(Math.min(1, u) * Math.PI);
+        const want = driveDir * pullCreep;
+        car.vx += (want - car.vx) * Math.min(1, dt * 3);
         car.passT = 0;
         if (car.pullOverT <= 0) {
           car.lat = dest;
+          car.steer = 0;
+          car.yaw = baseYaw;
           car.vx = 0;
-          car.gear = "P";
-          car.parked = true;
-          pop(car.x, 150, "PARKED");
+          if (intoCurb) {
+            car.gear = "P";
+            car.parked = true;
+            car.parkHold = 0.45;
+            pop(car.x, 150, "PARKED");
+          } else {
+            car.parked = false;
+          }
+          car.pullMode = "";
         }
       }
       const gasAmt = gas ? Math.max(0.12, Math.min(1, Number(input.gasAmt) || 1)) : 0;
@@ -1748,10 +1776,13 @@ export function createGame() {
       const homeLat = restLat(face);
       const passLat = restLat(-face);
       const myLat = car.lat ?? homeLat;
-      if (gas && car.parked) {
+      if (gas && car.parked && (car.pullOverT || 0) <= 0 && (car.parkHold || 0) <= 0) {
         car.parked = false;
         if (car.gear === "P") car.gear = "D";
-        car.lat = homeLat;
+        car.pullFromLat = car.lat ?? parkLat(car.facing);
+        car.pullToLat = restLat(car.facing);
+        car.pullMode = "out";
+        car.pullOverT = PULL_OVER_T;
       }
 
       function stopLineX(index) {
@@ -1850,8 +1881,6 @@ export function createGame() {
       holdLight = redHold;
       holdCar = carHold;
       if (pullingOver) {
-        // lat/vx already handled above; keep yaw aligned.
-        car.yaw = car.facing < 0 ? Math.PI : 0;
         car.x = wrap(car.x + car.vx * dt, WORLD);
         player.x = car.x;
         player.vx = car.vx;
@@ -1871,6 +1900,7 @@ export function createGame() {
         car.passT = 0;
       } else {
         car.yaw = car.facing < 0 ? Math.PI : 0;
+        car.steer = 0;
         if (aheadCar && (car.passT || 0) > 0) {
           const d = wrapDelta(car.x, aheadCar.x, WORLD);
           if (Math.sign(d) !== Math.sign(face) && Math.abs(d) > 10) car.passT = 0;

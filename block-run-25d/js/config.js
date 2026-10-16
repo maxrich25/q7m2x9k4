@@ -19,10 +19,10 @@ export const CAR_STOP = 8;
  *  face with their lane's traffic (+X → near shoulder, −X → far curb). */
 export const CAR_LANE_NEAR = 4.9;
 export const CAR_LANE_FAR = 0.3;
-export const PARK_LAT_NEAR = 6.4;
-export const PARK_LAT_FAR = -1.45;
-/** Pull-over steer + brake clip length, seconds. */
-export const PULL_OVER_T = 1.15;
+export const PARK_LAT_NEAR = 6.2;
+export const PARK_LAT_FAR = -1.0;
+/** Pull-over / pull-out clip length, seconds. Nose angles in, then straightens. */
+export const PULL_OVER_T = 1.7;
 /** Door-open + walk-turn-sit clip length, seconds. */
 export const BOARD_T = 1.12;
 /** Seconds after EXIT before the player can enter the car again. */

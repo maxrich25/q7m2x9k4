@@ -4,8 +4,8 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=80";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=80";
+} from "./config.js?v=81";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=81";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -792,7 +792,9 @@ function makeBeaterCar() {
   addCarDoors(g, paint, tint, 0.72);
   addHeadBeams(g, 2.08, 0.46, 0.54);
   for (const [x, z] of [[-1.22, 0.68], [-1.22, -0.68], [1.22, 0.68], [1.22, -0.68]]) {
-    g.add(chromeRim(x, z, 0.3, true));
+    const rim = chromeRim(x, z, 0.3, true);
+    if (x > 0) rim.name = z > 0 ? "wheelFR" : "wheelFL";
+    g.add(rim);
   }
   return g;
 }
@@ -1561,11 +1563,11 @@ export function createWorld(canvas, sprites) {
 
   const city = new THREE.Group();
   const asphalt = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 12.4),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 9.2),
     new THREE.MeshLambertMaterial({ map: asphaltTex() }),
   );
   asphalt.rotation.x = -Math.PI / 2;
-  asphalt.position.set(STREET_LEN / 2, 0, 9.3);
+  asphalt.position.set(STREET_LEN / 2, 0, 7.55);
   asphalt.material.map.repeat.set(48, 2);
   city.add(asphalt);
 
@@ -1605,6 +1607,19 @@ export function createWorld(canvas, sprites) {
   );
   curbShadow.position.set(STREET_LEN / 2, 0.02, 3.18);
   city.add(curbShadow);
+  const curbNear = curb.clone();
+  curbNear.position.z = 12.15;
+  city.add(curbNear);
+  const curbNearShadow = curbShadow.clone();
+  curbNearShadow.position.z = 11.92;
+  city.add(curbNearShadow);
+  const shoulder = new THREE.Mesh(
+    new THREE.PlaneGeometry(STREET_LEN + 4, 3.4),
+    new THREE.MeshLambertMaterial({ color: 0x241e2c }),
+  );
+  shoulder.rotation.x = -Math.PI / 2;
+  shoulder.position.set(STREET_LEN / 2, 0.01, 14.05);
+  city.add(shoulder);
 
   const dashTex = canvasTex(48, 8, (g) => {
     g.clearRect(0, 0, 48, 8);
@@ -2562,6 +2577,11 @@ export function createWorld(canvas, sprites) {
       playerCar.renderOrder = Math.round(playerCar.position.z * 40);
       const yaw = Number.isFinite(state.car.yaw) ? state.car.yaw : (state.car.facing < 0 ? Math.PI : 0);
       playerCar.rotation.y = yaw;
+      const steer = Number(state.car.steer) || 0;
+      const wheelL = playerCar.getObjectByName("wheelFL");
+      const wheelR = playerCar.getObjectByName("wheelFR");
+      if (wheelL) wheelL.rotation.y = steer;
+      if (wheelR) wheelR.rotation.y = steer;
       const body = playerCar.getObjectByName("body");
       if (body) {
         const live = body.userData.paintHex || 0xc45a28;
