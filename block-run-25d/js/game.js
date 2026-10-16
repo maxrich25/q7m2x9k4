@@ -15,8 +15,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=85";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=85";
+} from "./config.js?v=86";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=86";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -365,6 +365,8 @@ export function createGame() {
     car.pullFromLat = parkLat(1);
     car.pullMode = "";
     car.pendingPullOut = null;
+    car.shiftT = 0;
+    car.shiftPreview = null;
     inCar = false;
     inCrib = false;
     cribX = -3.0;
@@ -494,10 +496,11 @@ export function createGame() {
       car.shiftHint = 1.15;
       return false;
     }
+    if ((car.shiftT || 0) > 0) return false;
     // Mid pull-in: Park just finishes the clip — no hard cancel snap.
     if ((car.pullOverT || 0) > 0 && car.pullMode !== "out") {
       if (to === "P") {
-        car.pullOverT = Math.min(car.pullOverT, 0.4);
+        car.pullOverT = Math.min(car.pullOverT, 0.35);
         car.shiftHint = 0;
         return true;
       }
@@ -1774,8 +1777,30 @@ export function createGame() {
       let gas = !!input.gas;
       // Brake still held after shifting out of P: wait — then ease into the lane.
       if (car.pendingPullOut && !brake && (car.pullOverT || 0) <= 0) beginPendingPullOut();
-      // Smooth pull: nose arcs in, lat eases, slight creep (no frozen yaw / gear-climb snap).
-      if ((car.pullOverT || 0) > 0) {
+      // After the curb settle: brake on, scroll the stick D → N → R → P (real auto park).
+      if ((car.shiftT || 0) > 0) {
+        car.shiftT = Math.max(0, car.shiftT - dt);
+        car.autoBrake = true;
+        car.vx = 0;
+        car.steer = 0;
+        car.yaw = car.facing < 0 ? Math.PI : 0;
+        car.parked = true;
+        car.lat = parkLat(car.facing);
+        const seq = ["D", "N", "R", "P"];
+        const u = 1 - car.shiftT / 0.95;
+        car.gear = seq[Math.min(seq.length - 1, Math.floor(u * seq.length))];
+        car.shiftPreview = car.gear;
+        gas = false;
+        brake = true;
+        if (car.shiftT <= 0) {
+          car.gear = "P";
+          car.shiftPreview = null;
+          car.autoBrake = false;
+          car.parkHold = 0.4;
+          pop(car.x, 150, "PARKED");
+        }
+      } else if ((car.pullOverT || 0) > 0) {
+        // Smooth pull: nose arcs in, lat eases, slight creep — then transmission climb.
         car.pullOverT = Math.max(0, car.pullOverT - dt);
         const u = 1 - car.pullOverT / PULL_OVER_T;
         const s = u * u * (3 - 2 * u);
@@ -1788,7 +1813,7 @@ export function createGame() {
         car.yaw = baseYaw + nose;
         car.steer = nose * 1.7;
         gas = false;
-        brake = intoCurb ? u > 0.72 : false;
+        brake = intoCurb ? u > 0.55 : false;
         const driveDir = car.gear === "R" ? -(car.facing || 1) : (car.facing || 1);
         const pullCreep = 32 * Math.sin(Math.min(1, u) * Math.PI);
         const want = driveDir * pullCreep;
@@ -1798,20 +1823,22 @@ export function createGame() {
           car.lat = dest;
           car.steer = 0;
           car.yaw = baseYaw;
+          car.pullMode = "";
           if (intoCurb) {
             car.vx = 0;
-            car.gear = "P";
             car.parked = true;
-            car.parkHold = 0.45;
-            pop(car.x, 150, "PARKED");
+            car.shiftT = 0.95;
+            car.autoBrake = true;
+            car.gear = "D";
           } else {
             car.vx = driveDir * Math.max(28, Math.abs(car.vx));
             car.parked = false;
+            car.autoBrake = false;
           }
-          car.pullMode = "";
         }
+      } else {
+        car.autoBrake = false;
       }
-      car.autoBrake = false;
       const gasAmt = gas ? Math.max(0.12, Math.min(1, Number(input.gasAmt) || 1)) : 0;
       const brakeAmt = brake ? Math.max(0.18, Math.min(1, Number(input.brakeAmt) || 1)) : 1;
       holdLight = false;
@@ -1845,28 +1872,38 @@ export function createGame() {
       }
       const spd = Math.abs(car.vx);
       const decel = Math.max(40, accel * 1.75);
-      const stopNeed = (spd * spd) / (2 * decel) + 14;
-      const lightAhead = nearestLight(car.x, Math.max(56, stopNeed + 22), ["red", "yellow"]);
+      // Trigger red logic early enough to brake, but always aim the bumper at the painted line.
+      const stopNeed = (spd * spd) / (2 * decel) + 4;
+      const lightAhead = nearestLight(car.x, Math.max(64, stopNeed + 18), ["red", "yellow"]);
       let redHold = !!(lightAhead && (
         lightAhead.phase === "red"
-        || (lightAhead.phase === "yellow" && lightAhead.d < stopNeed + 12)
+        || (lightAhead.phase === "yellow" && lightAhead.d < stopNeed + 10)
       ));
       if (redHold && lightAhead) {
         const line = stopLineX(lightAhead.i);
         const toLine = wrapDelta(bumperX(), line, WORLD);
-        const going = Math.sign(car.vx || face) === Math.sign(face);
-        if (going && toLine * face <= 0.2) {
+        const dist = Math.abs(toLine);
+        const going = Math.sign(car.vx || face) === Math.sign(face) || Math.abs(car.vx) < 4;
+        if (going && toLine * face <= 0.12) {
           snapBumperTo(line);
-        } else if (going && Math.abs(toLine) < Math.abs(car.vx) * dt + 0.35) {
-          snapBumperTo(line);
-        } else if (lightAhead.d < 8) {
-          car.vx = 0;
+        } else if (going) {
+          // Never freeze short of the line — creep the last stretch onto the mark.
+          const maxV = Math.sqrt(Math.max(0, 2 * decel * Math.max(0.2, dist - 0.35)));
+          if (spd > maxV + 2) {
+            brake = true;
+            gas = false;
+          } else if (dist > 0.45 && spd < 16) {
+            car.vx = face * Math.min(18, Math.max(8, dist * 2.8));
+            brake = false;
+            gas = false;
+          }
+          if (dist < Math.abs(car.vx) * dt + 0.4) snapBumperTo(line);
         }
       }
 
       let aheadCar = null;
       let aheadDist = Infinity;
-      const pullingOver = (car.pullOverT || 0) > 0 || !!car.pendingPullOut;
+      const pullingOver = (car.pullOverT || 0) > 0 || (car.shiftT || 0) > 0 || !!car.pendingPullOut;
       for (const t of traffic) {
         if (pullingOver) break;
         if (Math.sign(t.facing || 1) !== Math.sign(face)) continue;
@@ -1986,14 +2023,16 @@ export function createGame() {
           car.vx -= car.vx * Math.min(1, CAR_FRICTION * 0.22 * dt);
         }
         if (Math.abs(car.vx) > vmax) car.vx = Math.sign(car.vx) * vmax;
-        if (redHold && lightAhead && Math.abs(car.vx) * dt >= lightAhead.d) {
-          snapBumperTo(stopLineX(lightAhead.i));
+        if (redHold && lightAhead) {
+          const line = stopLineX(lightAhead.i);
+          const toLine = wrapDelta(bumperX(), line, WORLD);
+          if (toLine * face <= 0.12 || Math.abs(toLine) < Math.abs(car.vx) * dt + 0.4) {
+            snapBumperTo(line);
+          } else {
+            car.x = wrap(car.x + car.vx * dt, WORLD);
+          }
         } else {
           car.x = wrap(car.x + car.vx * dt, WORLD);
-        }
-        if (redHold && lightAhead) {
-          const toLine = wrapDelta(bumperX(), stopLineX(lightAhead.i), WORLD);
-          if (toLine * face <= 0.2) snapBumperTo(stopLineX(lightAhead.i));
         }
       }
       if (gas && (car.gear === "P" || car.gear === "N")) {

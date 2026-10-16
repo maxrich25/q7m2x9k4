@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=85";
-import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=85";
-import { createInput } from "./input.js?v=85";
-import { createGame } from "./game.js?v=85";
-import { loadSprites } from "./sprites.js?v=85";
-import { createWorld } from "./world.js?v=85";
-import { createHud } from "./hud.js?v=85";
+import { TICK } from "./config.js?v=86";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=86";
+import { createInput } from "./input.js?v=86";
+import { createGame } from "./game.js?v=86";
+import { loadSprites } from "./sprites.js?v=86";
+import { createWorld } from "./world.js?v=86";
+import { createHud } from "./hud.js?v=86";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -118,6 +118,7 @@ window.__br = {
   getState: () => game.getState(),
   start: () => game.start(),
   finishIntro: () => game.finishIntro(),
+  toTitle: () => game.toTitle?.(),
   pause: () => game.pause(),
   resume: () => game.resume(),
   setHold: (on) => game.setHold?.(on),
