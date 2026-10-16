@@ -4,8 +4,8 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=79";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=79";
+} from "./config.js?v=80";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=80";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -2421,10 +2421,14 @@ export function createWorld(canvas, sprites) {
     const sprFace = turning && p.turnFrom != null && turnU < 0.55
       ? (p.turnFrom < 0 ? -1 : 1)
       : (p.facing < 0 ? -1 : 1);
-    setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate), sprFace);
     const carZ = 4.95 + (state.car?.lat || 0);
-    const doorStandZ = carZ + 0.55;
-    const seatZ = carZ + 0.16;
+    const carYaw = Number.isFinite(state.car?.yaw)
+      ? state.car.yaw
+      : ((state.car?.facing || 1) < 0 ? Math.PI : 0);
+    // Driver door is the car's left side (local -Z), not the side facing the camera.
+    const driverOut = Math.cos(carYaw) >= 0 ? -1 : 1;
+    const doorStandZ = carZ + driverOut * 1.05;
+    const seatZ = carZ + driverOut * 0.2;
     let boardZ = sidewalkZ;
     if (enter) {
       if (boardU < 0.30) boardZ = sidewalkZ;
@@ -2444,6 +2448,32 @@ export function createWorld(canvas, sprites) {
         const t = Math.min(1, (boardU - 0.55) / 0.45);
         boardZ = doorStandZ + (sidewalkZ - doorStandZ) * t;
       }
+    }
+    const views = sprites.heroViews;
+    const usePainted = !!(views && views.side) && hatId !== "none" && !(state.muzzle > 0) && !airborne;
+    if (usePainted) {
+      const viewX = inCrib ? (Number(state.cribX) || 0) : nearestWorldX(px, camX);
+      const viewZ = inCrib ? 1.45 : boardZ;
+      const dx = camera.position.x - viewX;
+      const dz = camera.position.z - viewZ;
+      const fx = sprFace < 0 ? -1 : 1;
+      const camForward = fx * dx;
+      const camRight = fx * dz;
+      const ang = Math.abs(Math.atan2(camRight, camForward));
+      let viewName = "side";
+      if (ang < 0.6) viewName = "front";
+      else if (ang < 1.2) viewName = "front34";
+      else if (ang < 1.95) viewName = "side";
+      else if (ang < 2.55) viewName = "back34";
+      else viewName = "back";
+      const flip = viewName === "front" || viewName === "back" ? 1 : (camRight >= 0 ? 1 : -1);
+      setBillboardFrame(playerSprite, views[viewName] || views.side, flip);
+      playerSprite.material.alphaTest = 0.04;
+      playerSprite.userData.footPad = 0.02;
+    } else {
+      setBillboardFrame(playerSprite, frameAt(animSet, p.anim, rate), sprFace);
+      playerSprite.material.alphaTest = 0.12;
+      playerSprite.userData.footPad = (playerSprite.userData.height || PLAYER_H) * FOOT_PAD_FRAC;
     }
     const footZ = inCrib ? 1.45 : boardZ;
     const footPad = playerSprite.userData.footPad
@@ -2479,22 +2509,21 @@ export function createWorld(canvas, sprites) {
       if (boardU < 0.30) playerSprite.position.x = carWx + face * (1.4 - 0.72 * toDoor);
       else if (boardU < 0.52) playerSprite.position.x = carWx + face * 0.68;
       else playerSprite.position.x = carWx + face * (0.68 - 0.58 * intoSeat);
-      playerSprite.position.y = groundY + intoSeat * 0.4;
+      playerSprite.position.y = groundY + intoSeat * 0.08;
     } else if (leave) {
       const rise = Math.min(1, Math.max(0, (boardU - 0.18) / 0.28));
       const out = Math.min(1, Math.max(0, (boardU - 0.22) / 0.55));
       nest = 1 - rise;
       playerSprite.position.x = carWx + face * (hingeX * 0.2 + 1.15 * out);
-      playerSprite.position.y = groundY + (1 - rise) * 0.4;
+      playerSprite.position.y = groundY + (1 - rise) * 0.08;
+    }
+    if (usePainted && walking) {
+      playerSprite.position.y += Math.sin((p.anim || 0) * 14) * 0.04;
     }
     const doorNear = playerCar.getObjectByName("doorNear");
     const doorFar = playerCar.getObjectByName("doorFar");
-    const yaw = playerCar.rotation.y || 0;
-    const towardCam = Math.cos(yaw) >= 0;
-    const streetDoor = towardCam ? doorNear : doorFar;
-    const otherDoor = streetDoor === doorNear ? doorFar : doorNear;
-    if (streetDoor) streetDoor.rotation.y = (towardCam ? -1 : 1) * doorAmt * 1.62;
-    if (otherDoor) otherDoor.rotation.y = 0;
+    if (doorFar) doorFar.rotation.y = -doorAmt * 1.15;
+    if (doorNear) doorNear.rotation.y = 0;
     orientBillboard(playerSprite, camera);
     const baseH = playerSprite.userData.height || 3.05;
     const zBlend = Math.max(0, Math.min(1, (boardZ - sidewalkZ) / Math.max(0.01, doorStandZ - sidewalkZ)));
@@ -2502,8 +2531,8 @@ export function createWorld(canvas, sprites) {
     const nestScale = zScale * (1 - nest * 0.22);
     playerSprite.scale.x = (playerSprite.userData.baseW || 1) * nestScale;
     playerSprite.scale.y = baseH * nestScale;
-    if (enter && boardU > 0.88) {
-      const fade = 1 - (boardU - 0.88) / 0.12;
+    if (enter && boardU > 0.7) {
+      const fade = 1 - (boardU - 0.7) / 0.22;
       playerSprite.material.opacity = (blink ? 0.4 : 1) * Math.max(0, fade);
     } else if (leave && boardU < 0.12) {
       playerSprite.material.opacity = (blink ? 0.4 : 1) * (boardU / 0.12);

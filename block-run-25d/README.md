@@ -4,6 +4,8 @@ Night-street prototype at [`./block-run-25d/`](./). Gameplay modules here are sh
 
 Live: [https://maxrich25.github.io/q7m2x9k4/block-run-25d/](https://maxrich25.github.io/q7m2x9k4/block-run-25d/)
 
+The hero uses the painted views in `sprites/hero-*.png` (side, front, back, and both three-quarters), picked from where the camera is. Getting in opens the driver door, the left side, not the camera-side passenger door. Cache is v=80.
+
 ## Cache bust
 
 GitHub Pages sends `Cache-Control: max-age=600`, so iPhone Safari can keep an old copy for ten minutes after a deploy.

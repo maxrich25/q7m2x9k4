@@ -3,7 +3,7 @@ import {
   pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, WALK_CYCLE_POSES, RUN_CYCLE_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
   paintClassicHeroSet, classicWithoutHat,
-} from "./paint.js?v=79";
+} from "./paint.js?v=80";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -27,6 +27,46 @@ function loadImage(url) {
     };
     img.src = url;
   });
+}
+
+function texturizeSoft(source) {
+  const tex = source instanceof HTMLCanvasElement
+    ? new THREE.CanvasTexture(source)
+    : new THREE.Texture(source);
+  if (!(source instanceof HTMLCanvasElement)) tex.needsUpdate = true;
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearFilter;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.generateMipmaps = false;
+  const w = source.width || source.naturalWidth || 64;
+  const h = source.height || source.naturalHeight || 64;
+  const flipped = pixelCanvas(w, h, (g) => {
+    g.imageSmoothingEnabled = true;
+    g.translate(w, 0);
+    g.scale(-1, 1);
+    g.drawImage(source, 0, 0);
+  });
+  const flipTex = new THREE.CanvasTexture(flipped);
+  flipTex.magFilter = THREE.LinearFilter;
+  flipTex.minFilter = THREE.LinearFilter;
+  flipTex.colorSpace = THREE.SRGBColorSpace;
+  flipTex.generateMipmaps = false;
+  flipTex.needsUpdate = true;
+  tex.userData.flipped = flipTex;
+  return tex;
+}
+
+const HERO_VIEW_NAMES = ["side", "front34", "front", "back34", "back"];
+
+async function loadHeroViews() {
+  const base = new URL("../sprites/", import.meta.url);
+  const out = {};
+  await Promise.all(HERO_VIEW_NAMES.map(async (name) => {
+    const img = await loadImage(new URL(`hero-${name}.png`, base).href);
+    if (img) out[name] = texturizeSoft(img);
+  }));
+  if (!out.side || !out.front || !out.back) return null;
+  return out;
 }
 
 function texturize(source, withFlip = false) {
@@ -221,12 +261,13 @@ export async function loadSprites() {
     walk: bossFrames.length ? bossFrames : [texturize(fallbackFrame("boss", 0), true)],
   };
 
-  const [shot, boom, pack, cash, dumpster] = await Promise.all([
+  const [shot, boom, pack, cash, dumpster, heroViews] = await Promise.all([
     loadSheet("shot", 4),
     loadSheet("boom", 4),
     loadOne("pack.png", "pack"),
     loadOne("cash.png", "cash"),
     loadOne("dumpster.png", "dumpster"),
+    loadHeroViews(),
   ]);
 
   return {
@@ -246,6 +287,7 @@ export async function loadSprites() {
     peds: buyers,
     plug,
     shot, boom, pack, cash, dumpster,
+    heroViews,
   };
 }
 
