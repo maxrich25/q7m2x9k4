@@ -1,9 +1,9 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=85";
-import { paintClassicHero } from "./paint.js?v=85";
-import { isUnlocked } from "./audio.js?v=85";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=86";
+import { paintClassicHero } from "./paint.js?v=86";
+import { isUnlocked } from "./audio.js?v=86";
 
 export function createHud(opts = {}) {
-  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v85";
+  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v86";
   const cashEl = document.getElementById("hud-cash");
   const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
@@ -408,11 +408,22 @@ export function createHud(opts = {}) {
       btnAction.classList.toggle("off", !actionOn);
       btnAction.classList.remove("go", "arm", "pulse", "serve");
     }
-    if (bLabelEl) bLabelEl.textContent = "RUN";
-    if (btnB) {
-      btnB.dataset.role = "run";
-      btnB.classList.toggle("off", false);
-      btnB.classList.remove("go", "arm", "pulse", "serve");
+    // On foot: RUN. In the whip: U-turn (no run while driving).
+    if (driving) {
+      const uturnOn = !!state.uturnBtnOk;
+      if (bLabelEl) bLabelEl.textContent = "U-TN";
+      if (btnB) {
+        btnB.dataset.role = "uturn";
+        btnB.classList.toggle("off", !uturnOn);
+        btnB.classList.remove("go", "arm", "pulse", "serve");
+      }
+    } else {
+      if (bLabelEl) bLabelEl.textContent = "RUN";
+      if (btnB) {
+        btnB.dataset.role = "run";
+        btnB.classList.toggle("off", false);
+        btnB.classList.remove("go", "arm", "pulse", "serve");
+      }
     }
 
     const quickPhone = document.getElementById("quick-phone");
@@ -538,7 +549,8 @@ export function createHud(opts = {}) {
     overlay.classList.toggle("hidden", !show);
     overlay.classList.toggle("pause-mode", state.mode === "paused");
     overlay.classList.toggle("title-mode", state.mode === "title");
-    cartPicks?.classList.toggle("hidden", state.mode !== "title");
+    // Nested cart picker removed — title is drone + TAP TO START only.
+    cartPicks?.classList.add("hidden");
     pauseActions?.classList.toggle("hidden", state.mode !== "paused");
     titleEl.classList.remove("wasted", "clear");
     bodyEl.classList.remove("tips", "intro-card");
