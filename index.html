@@ -21,6 +21,7 @@
       --cyan: #3de0ff;
       --gold: #f0c430;
       --cream: #f4f0e8;
+      --mint: #5ad89a;
     }
     * { box-sizing: border-box; }
     html, body {
@@ -71,7 +72,7 @@
     .picks {
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
     }
     a.pick, button.pick {
       display: block;
@@ -80,8 +81,8 @@
       color: var(--cream);
       border: 3px solid #3a3644;
       background: #121018;
-      padding: 22px 14px 18px;
-      min-height: 92px;
+      padding: 18px 14px 16px;
+      min-height: 84px;
       font-family: inherit;
       cursor: pointer;
     }
@@ -90,15 +91,26 @@
       box-shadow: 0 0 18px rgba(61, 224, 255, 0.28);
       outline: none;
     }
-    a.pick.classic:hover, a.pick.classic:focus-visible {
+    a.pick.shoot:hover, a.pick.shoot:focus-visible,
+    button.pick.shoot:hover, button.pick.shoot:focus-visible {
       border-color: var(--pink);
       box-shadow: 0 0 18px rgba(226, 27, 122, 0.3);
     }
+    a.pick.prev:hover, a.pick.prev:focus-visible,
+    button.pick.prev:hover, button.pick.prev:focus-visible {
+      border-color: var(--gold);
+      box-shadow: 0 0 18px rgba(240, 196, 48, 0.28);
+    }
+    a.pick.back:hover, a.pick.back:focus-visible,
+    button.pick.back:hover, button.pick.back:focus-visible {
+      border-color: #6a6674;
+      box-shadow: none;
+    }
     a.pick strong, button.pick strong {
       display: block;
-      font-size: 16px;
+      font-size: 14px;
       line-height: 1.45;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       letter-spacing: 1px;
     }
     a.pick em, button.pick em {
@@ -108,14 +120,12 @@
       color: #8a8696;
       line-height: 1.5;
     }
-    a.pick.plus strong, button.pick.start strong { color: var(--cyan); }
-    a.pick.classic strong { color: var(--pink); }
-    button.pick.more { min-height: 72px; padding: 16px 14px; }
-    button.pick.more strong { font-size: 8px; color: var(--gold); margin-bottom: 0; }
-    #more-panel { display: none; flex-direction: column; gap: 12px; }
-    #more-panel.open { display: flex; }
-    #more-panel a.pick { min-height: 72px; padding: 16px 14px; }
-    #more-panel a.pick strong { font-size: 8px; }
+    a.pick.latest strong, button.pick.latest strong,
+    button.pick.line strong { color: var(--cyan); }
+    a.pick.shoot strong, button.pick.shoot strong { color: var(--pink); }
+    a.pick.safe strong, button.pick.safe strong { color: var(--mint); }
+    a.pick.prev strong, button.pick.prev strong { color: var(--gold); }
+    a.pick.back strong, button.pick.back strong { color: #a8a4b4; font-size: 14px; margin-bottom: 8px; }
     footer {
       margin-top: 26px;
       font-size: 7px;
@@ -130,56 +140,93 @@
     <h1>BLOCK<br><span>RUN</span></h1>
     <p class="cali">CALI</p>
     <div class="picks" id="menu-line">
-      <button type="button" class="pick plus start" data-line="2d">
+      <button type="button" class="pick line" data-go="2d-mode">
         <strong>2D</strong>
         <em>ON-FOOT BLOCK</em>
       </button>
-      <button type="button" class="pick plus" data-line="25d">
+      <button type="button" class="pick line" data-go="25d-ver">
         <strong>2.5D</strong>
         <em>NIGHT STREET</em>
       </button>
     </div>
-    <div class="picks" id="menu-step" style="display:none">
-      <a class="pick plus start" id="menu-latest" href="./block-run-2d/?v=18&fresh=clear">
-        <strong>LATEST</strong>
-        <em>CURRENT BUILD</em>
-      </a>
-      <a class="pick plus" id="menu-prev" href="./versions/">
-        <strong>PREVIOUS</strong>
-        <em>OLDER BUILDS</em>
-      </a>
-      <button type="button" class="pick more" id="menu-back">
+    <div class="picks" id="menu-2d-mode" style="display:none">
+      <button type="button" class="pick shoot" data-go="2d-shoot-ver">
+        <strong>SHOOTING</strong>
+        <em>CLASSIC PACKS + GUNS</em>
+      </button>
+      <button type="button" class="pick safe" data-go="2d-safe-ver">
+        <strong>NON-SHOOTING</strong>
+        <em>DRIVE DEALS ON THE BLOCK</em>
+      </button>
+      <button type="button" class="pick back" data-go="line">
         <strong>BACK</strong>
+        <em>MAIN MENU</em>
       </button>
     </div>
-    <footer>PICK A CART</footer>
+    <div class="picks" id="menu-2d-shoot-ver" style="display:none">
+      <a class="pick latest shoot" href="./block-run/?v=58&fresh=clear">
+        <strong>LATEST</strong>
+        <em>CLASSIC SHOOTER</em>
+      </a>
+      <a class="pick prev" href="./block-run/legacy/">
+        <strong>PREVIOUS</strong>
+        <em>OLDER CLASSIC BUILD</em>
+      </a>
+      <button type="button" class="pick back" data-go="2d-mode">
+        <strong>BACK</strong>
+        <em>2D MODE</em>
+      </button>
+    </div>
+    <div class="picks" id="menu-2d-safe-ver" style="display:none">
+      <a class="pick latest" href="./block-run-2d/?v=19&fresh=clear">
+        <strong>LATEST</strong>
+        <em>CURRENT 2D DEALS</em>
+      </a>
+      <button type="button" class="pick back" data-go="2d-mode">
+        <strong>BACK</strong>
+        <em>2D MODE</em>
+      </button>
+    </div>
+    <div class="picks" id="menu-25d-ver" style="display:none">
+      <a class="pick latest" href="./block-run-25d/?v=85&fresh=clear">
+        <strong>LATEST</strong>
+        <em>CURRENT NIGHT STREET</em>
+      </a>
+      <a class="pick prev" href="./versions/">
+        <strong>PREVIOUS</strong>
+        <em>OLDER 2.5D BATCHES</em>
+      </a>
+      <button type="button" class="pick back" data-go="line">
+        <strong>BACK</strong>
+        <em>MAIN MENU</em>
+      </button>
+    </div>
+    <footer id="menu-foot">PICK A CART</footer>
   </main>
   <script>
-    const lines = {
-      "2d": { latest: "./block-run-2d/?v=19&fresh=clear", prev: null },
-      "25d": { latest: "./block-run-25d/?v=84&fresh=clear", prev: "./versions/" },
+    const panels = {
+      line: document.getElementById("menu-line"),
+      "2d-mode": document.getElementById("menu-2d-mode"),
+      "2d-shoot-ver": document.getElementById("menu-2d-shoot-ver"),
+      "2d-safe-ver": document.getElementById("menu-2d-safe-ver"),
+      "25d-ver": document.getElementById("menu-25d-ver"),
     };
-    const lineEl = document.getElementById("menu-line");
-    const stepEl = document.getElementById("menu-step");
-    const latestEl = document.getElementById("menu-latest");
-    const prevEl = document.getElementById("menu-prev");
-    document.querySelectorAll("#menu-line [data-line]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const pick = lines[btn.dataset.line];
-        latestEl.href = pick.latest;
-        if (pick.prev) {
-          prevEl.href = pick.prev;
-          prevEl.style.display = "";
-        } else {
-          prevEl.style.display = "none";
-        }
-        lineEl.style.display = "none";
-        stepEl.style.display = "";
+    const foot = document.getElementById("menu-foot");
+    const feet = {
+      line: "PICK A CART",
+      "2d-mode": "SHOOTING OR DEALS",
+      "2d-shoot-ver": "CLASSIC VERSIONS",
+      "2d-safe-ver": "2D DEALS VERSIONS",
+      "25d-ver": "2.5D VERSIONS",
+    };
+    function show(id) {
+      Object.entries(panels).forEach(([key, el]) => {
+        el.style.display = key === id ? "" : "none";
       });
-    });
-    document.getElementById("menu-back").addEventListener("click", () => {
-      stepEl.style.display = "none";
-      lineEl.style.display = "";
+      foot.textContent = feet[id] || "PICK A CART";
+    }
+    document.querySelectorAll("[data-go]").forEach((btn) => {
+      btn.addEventListener("click", () => show(btn.dataset.go));
     });
   </script>
 </body>
