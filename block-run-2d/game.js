@@ -1,5 +1,5 @@
 /* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
-const ASSET_V = "17";
+const ASSET_V = "18";
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v3";
 const HERO_SRC_W = 40;
@@ -24,6 +24,9 @@ const HERO_WALK_FPS = 12.5;
 const STRIDE_NATIVE = 2.08;
 /** Frames live in sprites/walk14.js (data URIs, loaded before this script). */
 const HERO_WALK_FRAMES = window.WALK14_FRAMES || [];
+/** Chain overlay layer (sprites/chain24.js): drawn over each walk14 frame. Variants: pendant | plain. */
+const HERO_CHAIN_VARIANT = "pendant";
+const HERO_CHAIN_FRAMES = (window.WALK_CHAIN_FRAMES || {})[HERO_CHAIN_VARIANT] || [];
 const WALK_Z = 52;
 const REACH = 28;
 const HALF_G = 14;
@@ -315,6 +318,19 @@ async function loadFrameList(paths) {
     paths.map((src) => loadImage(src.startsWith("data:") ? src : `${src}?v=${ASSET_V}`)),
   )).filter(Boolean);
   return frames.length ? frames : null;
+}
+async function loadLayeredFrames(base, over) {
+  const [b, o] = await Promise.all([loadFrameList(base), over.length ? loadFrameList(over) : null]);
+  if (!b || !o) return b;
+  return b.map((img, i) => {
+    const c = document.createElement("canvas");
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    const g = c.getContext("2d");
+    g.drawImage(img, 0, 0);
+    if (o[i % o.length]) g.drawImage(o[i % o.length], 0, 0);
+    return c;
+  });
 }
 async function loadSheet(name, base = `../block-run/sprites/`) {
   return loadFrameList([1, 2, 3, 4].map((i) => `${base}${name}-${i}.png`));
@@ -1167,7 +1183,11 @@ function drawActors() {
     if (car.street === streetId) {
       actors.push({
         z: 0.85,
-        draw: () => drawSprite(ride, car.x, car.z, carW, carH, car.facing, 0, carGroundY()),
+        draw: () => {
+          drawSprite(ride, car.x, car.z, carW, carH, car.facing, 0, carGroundY());
+          // Instant blink-in: seated driver overlay (95x29, aligned at 0,0 over car.png).
+          if (inCar && art.driver) drawSprite(art.driver, car.x, car.z, carW, carH, car.facing, 0, carGroundY());
+        },
       });
     }
     if (!inCar) {
@@ -1614,7 +1634,7 @@ window.__br = {
 Promise.all([
   loadSheet("idle"),
   loadSheet("walk"),
-  loadFrameList(HERO_WALK_FRAMES),
+  loadLayeredFrames(HERO_WALK_FRAMES, HERO_CHAIN_FRAMES),
   loadSheet("thug"),
   loadSheet("runner"),
   loadDirSheet("walk-front"),
@@ -1622,7 +1642,8 @@ Promise.all([
   loadImage(`../block-run/sprites/pack.png?v=${ASSET_V}`),
   loadImage(`sprites/car.png?v=${ASSET_V}`),
   loadImage(`map/street.png?v=${ASSET_V}`),
-]).then(([idle, walk, walkNew, thug, runner, walkFront, walkBack, pack, carImg, streetImg]) => {
+  window.DRIVER_OVERLAY ? loadImage(window.DRIVER_OVERLAY) : null,
+]).then(([idle, walk, walkNew, thug, runner, walkFront, walkBack, pack, carImg, streetImg, driverImg]) => {
   if (!idle || !thug || !runner || !pack || !carImg || !streetImg) return;
   bakeStreets(streetImg);
   streetId = "sunset";
@@ -1635,6 +1656,7 @@ Promise.all([
     car: carImg,
     sedan: carImg,
     street: streetImg,
+    driver: driverImg,
   };
   window.__br.ready = true;
 });
