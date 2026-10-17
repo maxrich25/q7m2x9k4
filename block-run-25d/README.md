@@ -4,11 +4,11 @@ Night-street prototype at [`./block-run-25d/`](./). Gameplay modules here are sh
 
 Live: [https://maxrich25.github.io/q7m2x9k4/block-run-25d/](https://maxrich25.github.io/q7m2x9k4/block-run-25d/)
 
-Home-screen / standalone opens go to the **root menu** (not this drone title). Menu → Latest adds `play=1` so the cart stays here. Cold opens without that flag bounce to `../`.
+Home-screen / standalone opens go to the **root menu** (not this drone title). Menu → Play adds `play=1` so the cart stays here. Cold opens without that flag bounce to `../`.
 
-Sidewalk densify keeps about five walkers near the camera, so the curb does not look empty on a long strip.
+Sidewalk stays sparse (no densify / ghost mob). Refs and mockups dump in [`../media/`](../media/).
 
-The hero uses the painted views in `sprites/hero-*.png` (side, front, back, and both three-quarters), picked from where the camera is. Getting in opens the driver door, the left side, not the camera-side passenger door. Pull over only works while you are rolling in drive: the nose arcs toward the curb, then the stick scrolls D→N→R→P under brake. Hold brake to pick Drive, then release brake before it leaves the curb. Red lights stop the bumper on the line. In the car, B is U-turn (not Run). The two lanes are the same width, with a curb on each side. The corner of the screen says v90 when this build is the one running. Cache is v=90.
+The hero uses the painted views in `sprites/hero-*.png` (side, front, back, and both three-quarters), picked from where the camera is. Getting in opens the driver door, the left side, not the camera-side passenger door. Pull over only works while you are rolling in drive: the nose arcs toward the curb, then the stick scrolls D→N→R→P under brake. Hold brake to pick Drive, then release brake before it leaves the curb. Red lights stop the bumper on the line. In the car, B is U-turn (not Run). The two lanes are the same width, with a curb on each side. The corner of the screen says v91 when this build is the one running. Cache is v=91.
 
 ## Cache bust
 

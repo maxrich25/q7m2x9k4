@@ -5,7 +5,7 @@ import {
   MOVE_SPEED, TELEGRAPH, BOSS_CASH_BASE, BOSS_CASH_PER_WAVE, HI_KEY,
   SHOP_X, DUMPSTER_X, CAR_X, ORDER_SPOTS, WEAPONS, wrap, wrapDelta, hitWrap,
   formatDeal, dealFeet, COMBAT, START_CASH, PACK_COST, PACK_PAY,
-  PLUG_X, HOME_X, PED_COUNT, PED_MIN, PED_NEAR_WANT, PED_NEAR_HALF, PED_SPACE,
+  PLUG_X, HOME_X, PED_COUNT, PED_SPACE,
   TRAFFIC_MAX, LIGHT_COUNT, lightGameX, lightPhaseAt, stopLineGameX,
   PRODUCTS, HALF_OZ, SALE_AMOUNTS, FLAKE_LIMIT, CONTACT_NAMES, MORE_NAMES,
   INTRO_TEXT, SALE_POP_T, SERVE_SLOW, fmtGrams, streetGrams,
@@ -16,8 +16,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=90";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=90";
+} from "./config.js?v=91";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=91";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -655,77 +655,13 @@ export function createGame() {
   let trafficLock = false;
   function syncCrowd() {
     const busy = streetBusy(timeHours);
-    const nPed = Math.max(PED_MIN, Math.round(PED_COUNT * busy));
+    const nPed = Math.max(0, Math.round(PED_COUNT * busy));
     const nCar = Math.max(0, Math.round(TRAFFIC_MAX * busy));
     while (peds.length < nPed) peds.push(makePed(peds.length));
     if (peds.length > nPed) peds.length = nPed;
     if (trafficLock) return;
     while (traffic.length < nCar) traffic.push(makeTrafficCar(traffic.length));
     if (traffic.length > nCar) traffic.length = nCar;
-  }
-
-  /** Slot far walkers into the live camera frustum so the curb shows a crowd. */
-  function densifyNearCamera(view) {
-    const cam = view?.camGameX ?? player.x;
-    if (!Number.isFinite(cam) || !peds.length) return;
-    const viewHalf = Number.isFinite(view?.halfWidth) && view.halfWidth > 8
-      ? view.halfWidth
-      : PED_NEAR_HALF;
-    // Pack into the live frustum so ≥5 are actually on screen (not a block away).
-    const half = Math.max(22, viewHalf * 0.98);
-    const want = Math.min(PED_NEAR_WANT, peds.length);
-    const near = [];
-    const far = [];
-    for (const ped of peds) {
-      if (Math.abs(wrapDelta(ped.x, cam, WORLD)) < half) near.push(ped);
-      else far.push(ped);
-    }
-    if (near.length >= want) return;
-
-    const gap = Math.max(9, Math.min(PED_SPACE * 0.72, (half * 2) / (want + 0.2)));
-    const slotX = (slot) => {
-      const t = want <= 1 ? 0.5 : slot / (want - 1);
-      return wrap(cam + (t - 0.5) * 2 * half * 0.88, WORLD);
-    };
-
-    // Prefer empty slots; if the crib/player blocks one, still force a pocket in-band.
-    for (let slot = 0; slot < want && near.length < want && far.length; slot++) {
-      let x = slotX(slot);
-      let best = null;
-      let bestScore = Infinity;
-      for (let k = 0; k <= 10; k++) {
-        for (const side of k === 0 ? [0] : [1, -1]) {
-          const tryX = wrap(x + side * k * (gap * 0.5), WORLD);
-          const fromCam = Math.abs(wrapDelta(tryX, cam, WORLD));
-          if (fromCam >= half) continue;
-          // Soft avoid crib door / player; never skip the whole band for them.
-          const doorPen = Math.max(0, 28 - Math.abs(wrapDelta(tryX, HOME_X, WORLD))) * 4;
-          const playPen = Math.max(0, 10 - Math.abs(wrapDelta(tryX, player.x, WORLD))) * 3;
-          let pedPen = 0;
-          for (const p of near) {
-            const d = Math.abs(wrapDelta(p.x, tryX, WORLD));
-            if (d < gap) pedPen += (gap - d) * 6;
-          }
-          const score = doorPen + playPen + pedPen + fromCam * 0.02;
-          if (score < bestScore) {
-            bestScore = score;
-            best = tryX;
-          }
-        }
-      }
-      if (best == null) best = x;
-      const ped = far.pop();
-      ped.x = best;
-      ped.facing = Math.random() < 0.5 ? 1 : -1;
-      ped.vx = 0;
-      ped.wait = 0.08 + Math.random() * 0.45;
-      ped.cross = 0;
-      ped.crossT = 0;
-      ped.lane = ((near.length % 5) * 0.2) - 0.16;
-      ped.side = ((near.length % 3) - 1) * 0.18;
-      ped.pushed = 0;
-      near.push(ped);
-    }
   }
 
   function spawnPeds() {
@@ -2302,7 +2238,6 @@ export function createGame() {
         }
       }
     }
-    densifyNearCamera(view || lastView);
     separatePeds(peds);
     if (inbox.length > 40) inbox.length = 40;
     if (pops.length > 16) pops.splice(0, pops.length - 16);
