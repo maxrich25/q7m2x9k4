@@ -1,6 +1,6 @@
 # q7m2x9k4
 
-Small browser game experiments. The root page is the arcade launcher (2D / 2.5D picker on cold open).
+Small browser game experiments. Root `?menu=1` is the arcade picker; cold open / home-screen jump straight into the active playtest cart (currently 2D title).
 
 - [Launcher](./)
 - [Block Run](./block-run-2d/)

@@ -15,10 +15,19 @@
   <link rel="icon" type="image/svg+xml" href="./block-run/favicon.svg?v=9" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <!-- Cold open + home-screen land on this 2D / 2.5D picker (no bounce into 2.5D). -->
+  <!--
+    Active playtest cart (flip with 25d boot + root manifest start_url):
+      "2d"  → block-run-2d title (PRESS START)
+      "25d" → 2.5D drone title
+    ?menu= keeps this picker. Home-screen uses start_url → same cart.
+  -->
   <script>
     (function () {
-      var BUILD = "111";
+      var BUILD = "112";
+      var WORK = "2d";
+      var WORK_URL = WORK === "25d"
+        ? "./block-run-25d/?v=110&fresh=nuke&play=1&stay=1"
+        : "./block-run-2d/?v=20&fresh=clear";
       try {
         var prev = localStorage.getItem("br_build");
         if (prev !== BUILD) {
@@ -33,6 +42,9 @@
           }
         }
       } catch (e) {}
+      var params = new URLSearchParams(location.search);
+      if (params.has("menu")) return;
+      location.replace(WORK_URL);
     })();
   </script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
@@ -114,13 +126,13 @@
         <strong>2D</strong>
         <em>ON-FOOT BLOCK</em>
       </button>
-      <a class="pick line" href="./block-run-25d/?v=110&fresh=nuke&play=1">
+      <a class="pick line" href="./block-run-25d/?v=110&fresh=nuke&play=1&stay=1">
         <strong>2.5D</strong>
         <em>NIGHT STREET TITLE</em>
       </a>
     </div>
     <div class="picks" id="menu-2d" style="display:none">
-      <a class="pick start" href="./block-run-2d/?v=19&fresh=clear">
+      <a class="pick start" href="./block-run-2d/?v=20&fresh=clear">
         <strong>START</strong>
         <em>LATEST 2D NON-SHOOTING</em>
       </a>
