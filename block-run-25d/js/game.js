@@ -16,8 +16,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=104";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=104";
+} from "./config.js?v=105";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=105";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -187,7 +187,7 @@ export function createGame() {
       else if (nearCribDoor) { actionLabel = "EXIT"; actionOk = true; actionKind = "crib"; }
       else if (!inCar && !inCrib && nearHome) { actionLabel = "CRIB"; actionOk = true; actionKind = "crib"; }
       else if (inCar && pullOverOk) { actionLabel = "PULL"; actionOk = true; actionKind = "pull"; }
-      else if (inCar && parked) { actionLabel = "EXIT"; actionOk = true; actionKind = "exit"; }
+      // Parked EXIT lives only on the CAR square — don't duplicate it on ACTION.
       else if (canServe) { actionLabel = "SERVE"; actionOk = true; actionKind = "serve"; }
       else if (canSell) { actionLabel = "SELL"; actionOk = true; actionKind = "sell"; }
       else if (canBuy) { actionLabel = "BUY"; actionOk = true; actionKind = "buy"; }

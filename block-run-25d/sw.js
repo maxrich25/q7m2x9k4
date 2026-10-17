@@ -1,5 +1,5 @@
 /* BLOCK RUN — network-first so home-screen / GH Pages don't stick on an old shell. */
-const BUILD = "104";
+const BUILD = "105";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();

@@ -3,24 +3,24 @@
   "short_name": "BLOCK RUN",
   "id": "./",
   "scope": "./",
-  "start_url": "./block-run-25d/?v=104&fresh=clear&play=1",
+  "start_url": "./block-run-25d/?v=105&fresh=clear&play=1",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#07060c",
   "theme_color": "#07060c",
   "icons": [
     {
-      "src": "./block-run-25d/apple-touch-icon-v104.png",
+      "src": "./block-run-25d/apple-touch-icon-v105.png",
       "sizes": "180x180",
       "type": "image/png"
     },
     {
-      "src": "./block-run-25d/icon-192-v104.png",
+      "src": "./block-run-25d/icon-192-v105.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "./block-run-25d/icon-512-v104.png",
+      "src": "./block-run-25d/icon-512-v105.png",
       "sizes": "512x512",
       "type": "image/png"
     }
