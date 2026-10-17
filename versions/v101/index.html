@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>BLOCK RUN 2.5D</title>
+  <meta name="theme-color" content="#07060c" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BLOCK RUN" />
+  <meta name="description" content="2.5D night-street prototype of BLOCK RUN. Hit the plug, serve from the curb, stash at home." />
+  <link rel="manifest" href="manifest.json?v=101" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg" />
+  <!--
+    Home-screen / GH Pages stickiness: never trust this HTML's BUILD alone.
+    Always ask build.json (no-store). Cached shells that still say v98 were
+    rewriting ?v= back to 98 after Safari had already moved localStorage ahead.
+  -->
+  <script>
+    (function () {
+      var BUILD = "101";
+      function go(v) {
+        var u = new URL(location.href);
+        u.searchParams.set("v", v);
+        u.searchParams.set("fresh", "nuke");
+        u.searchParams.set("play", "1");
+        location.replace(u.href);
+      }
+      function bootSw() {
+        if (!navigator.serviceWorker) return;
+        navigator.serviceWorker.register("./sw.js?v=" + BUILD).catch(function () {});
+      }
+      try {
+        localStorage.setItem("br_build", BUILD);
+        var urlV = new URL(location.href).searchParams.get("v");
+        var key = "br_reloaded_" + BUILD;
+        fetch("./build.json?t=" + Date.now(), { cache: "no-store" })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            var live = String((j && j.v) || BUILD);
+            localStorage.setItem("br_build", live);
+            if (live !== BUILD || (urlV && urlV !== live)) {
+              if (!sessionStorage.getItem(key)) {
+                sessionStorage.setItem(key, "1");
+                go(live);
+                return;
+              }
+            }
+            bootSw();
+          })
+          .catch(function () {
+            if (urlV && urlV !== BUILD && !sessionStorage.getItem(key)) {
+              sessionStorage.setItem(key, "1");
+              go(BUILD);
+              return;
+            }
+            bootSw();
+          });
+      } catch (e) {
+        bootSw();
+      }
+    })();
+  </script>
+  <!-- Cold open stays on this drone title. Root ?menu=1 is only for picking 2D. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
+  <!-- Cache bust: GitHub Pages max-age=600. Bump ?v= here, on js/main.js, and every relative import in js/*.js (see README). -->
+  <link rel="stylesheet" href="style.css?v=101" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+<a id="back-versions" href="../" style="position:fixed;top:calc(8px + env(safe-area-inset-top));right:calc(8px + env(safe-area-inset-right));z-index:99;font:7px/1 'Press Start 2P',monospace;color:#3de0ff;text-decoration:none;background:rgba(7,6,12,.72);padding:8px 10px;border:2px solid #3a3644;pointer-events:auto">◀ VERSIONS</a>
+
+  <div id="app">
+    <!-- HUD lives outside #view so a canvas/DPR scale never softens DOM text in iOS standalone. -->
+    <div id="hud" aria-live="polite">
+      <div id="hud-top">
+        <canvas id="hud-top-canvas" width="750" height="64" aria-hidden="true"></canvas>
+        <div id="hud-top-row" aria-hidden="false">
+          <span id="hud-cash">$0130</span>
+          <span id="hud-inv"><span class="g-grn">GRN 0</span> <span class="g-wht">WHT 0</span></span>
+          <span id="hud-rep">REP 1</span>
+          <span id="hud-build">v101</span>
+        </div>
+        <span id="hud-heat" class="hidden" title="heat"></span>
+        <span id="hud-time" class="hud-sr">9:00 PM</span>
+      </div>
+    </div>
+    <div id="view">
+      <canvas id="scene" aria-label="BLOCK RUN 2.5D street"></canvas>
+      <div id="hud-sheets" aria-live="polite">
+        <div id="phone" class="hidden">
+          <div id="phone-from">TXT</div>
+          <div id="phone-msg">yo need $40 green, by the liquor store</div>
+          <div id="phone-timer">0:28</div>
+          <div id="phone-actions" class="hidden">
+            <button type="button" data-role="accept">ACCEPT</button>
+            <button type="button" data-role="stall">STALL</button>
+          </div>
+        </div>
+        <div id="order-strip" class="hidden">
+          <span id="order-who">DEZ</span>
+          <span id="order-amt">$40</span>
+          <span id="order-left">0:45</span>
+        </div>
+        <div id="deal-nav" class="hidden">
+          <div id="deal-dist">DEAL 620 ft >></div>
+          <div id="deal-map">
+            <i id="deal-me"></i>
+            <i id="deal-home"></i>
+            <i id="deal-pin"></i>
+          </div>
+        </div>
+        <div id="prompt" class="hidden">ENTER</div>
+        <div id="quick-phone" class="hidden" aria-label="phone">
+          <div class="quick-phone-card">
+            <div class="quick-phone-head">
+              <span>PHONE</span>
+              <button type="button" data-role="quick-phone-close">X</button>
+            </div>
+            <div id="quick-phone-clock" class="quick-phone-clock">9:00 PM</div>
+            <div id="quick-phone-cash" class="quick-phone-line">CASH $0130</div>
+            <div id="quick-phone-stash" class="quick-phone-line">STASH $0</div>
+            <div id="quick-phone-inv" class="quick-phone-line">GRN 0  WHT 0</div>
+            <button type="button" class="quick-phone-close" data-role="quick-phone-close">CLOSE</button>
+          </div>
+        </div>
+        <div id="sale-pop" class="hidden">
+          <div id="sale-what">SOLD GREEN</div>
+          <div id="sale-amt">$40</div>
+          <div id="sale-cash">CASH +$40</div>
+        </div>
+        <div id="pops"></div>
+        <div id="edge-left" class="edge-arrow hidden" aria-hidden="true">◀</div>
+        <div id="edge-right" class="edge-arrow hidden" aria-hidden="true">▶</div>
+        <div id="dest-left" class="dest-arrow hidden" aria-hidden="true">◀ DEAL</div>
+        <div id="dest-right" class="dest-arrow hidden" aria-hidden="true">DEAL ▶</div>
+        <div id="car-left" class="dest-arrow car-arrow hidden" aria-hidden="true">◀ CAR</div>
+        <div id="car-right" class="dest-arrow car-arrow hidden" aria-hidden="true">CAR ▶</div>
+        <div id="ctx" class="hidden" hidden></div>
+        <div id="sheet-phone" class="sheet hidden">
+          <div class="sheet-card">
+            <div class="sheet-head">
+              <h2>PHONE</h2>
+              <button type="button" data-role="phone-close">X</button>
+            </div>
+            <div class="phone-tabs">
+              <button type="button" id="tab-texts" data-role="tab-texts">TEXTS</button>
+              <button type="button" id="tab-contacts" data-role="tab-contacts">CONTACTS</button>
+            </div>
+            <div id="phone-inv" class="sheet-inv"></div>
+            <div id="phone-deal" class="hidden">
+              <button type="button" class="sheet-buy" data-role="accept">ACCEPT</button>
+              <button type="button" class="sheet-buy white" data-role="stall">STALL</button>
+            </div>
+            <div id="phone-texts"></div>
+            <div id="phone-home-row" class="contact plug-row">
+              <span>HOME STASH</span>
+              <span id="phone-home-dist">—</span>
+            </div>
+            <div id="phone-list"></div>
+            <button type="button" class="sheet-buy white" data-role="phone-close">CLOSE</button>
+          </div>
+        </div>
+        <div id="sheet-buy" class="sheet hidden">
+          <div class="sheet-card">
+            <div class="sheet-head">
+              <h2>PLUG</h2>
+              <button type="button" data-role="buy-close">X</button>
+            </div>
+            <p class="sheet-note">STREET WEIGHTS</p>
+            <div id="buy-cash" class="sheet-inv"></div>
+            <div id="buy-green-list"></div>
+            <div id="buy-white-list"></div>
+            <button type="button" class="sheet-buy white" data-role="buy-close">CLOSE</button>
+          </div>
+        </div>
+        <div id="sheet-inv" class="sheet hidden">
+          <div class="sheet-card">
+            <div class="sheet-head">
+              <h2>INVENTORY</h2>
+              <button type="button" data-role="inv-close">X</button>
+            </div>
+            <p class="sheet-note">ON YOU / HOME STASH</p>
+            <div id="inv-rows"></div>
+            <button type="button" class="sheet-buy white" data-role="inv-close">CLOSE</button>
+          </div>
+        </div>
+        <div id="sheet-stash" class="sheet hidden">
+          <div class="sheet-card">
+            <div class="sheet-head">
+              <h2>STASH</h2>
+              <button type="button" data-role="stash-close">X</button>
+            </div>
+            <p class="sheet-note">HOME SAFE</p>
+            <div id="stash-rows"></div>
+            <button type="button" class="sheet-buy white" data-role="stash-close">CLOSE</button>
+          </div>
+        </div>
+        <div id="sheet-crib" class="sheet hidden">
+          <div class="sheet-card">
+            <div class="sheet-head">
+              <h2>CRIB</h2>
+              <button type="button" data-role="crib-close">X</button>
+            </div>
+            <p class="sheet-note">HOME</p>
+            <div id="crib-clock" class="sheet-inv crib-meta">
+              <span id="crib-time">9 PM</span>
+              <span id="crib-rep">REP 1</span>
+            </div>
+            <button type="button" class="sheet-buy white" data-role="crib-close">CLOSE</button>
+          </div>
+        </div>
+        <div id="sheet-outfit" class="sheet hidden">
+          <div class="sheet-card outfit-card">
+            <div class="sheet-head">
+              <h2>CLOTHES</h2>
+              <button type="button" data-role="outfit-close">X</button>
+            </div>
+            <canvas id="outfit-hero" width="160" height="160" aria-label="character" data-role="outfit-hat"></canvas>
+            <div class="outfit-slots">
+              <button type="button" class="outfit-slot" id="outfit-hat" data-role="outfit-hat">HAT</button>
+              <button type="button" class="outfit-slot soon" disabled>TOP</button>
+              <button type="button" class="outfit-slot soon" disabled>BOTTOM</button>
+              <button type="button" class="outfit-slot soon" disabled>SHOES</button>
+            </div>
+            <button type="button" class="sheet-buy white" data-role="outfit-close">BACK</button>
+          </div>
+        </div>
+        <div id="sheet-pick" class="sheet hidden">
+          <div class="sheet-card">
+            <div class="sheet-head">
+              <h2>DO</h2>
+              <button type="button" data-role="pick-close">X</button>
+            </div>
+            <div id="pick-list"></div>
+            <button type="button" class="sheet-buy white" data-role="pick-close">CLOSE</button>
+          </div>
+        </div>
+        <div id="overlay">
+          <div id="overlay-card">
+            <h1 id="overlay-title">BLOCK<br><span>RUN</span></h1>
+            <p id="overlay-sub">2.5D NIGHT BLOCK  v101</p>
+            <div id="overlay-body"></div>
+            <p id="overlay-hi"></p>
+            <p id="overlay-prompt" class="blink hidden">TAP TO START</p>
+            <div id="pause-actions" class="hidden">
+              <button type="button" id="btn-resume">RESUME</button>
+              <button type="button" id="btn-sound" data-role="mute">SOUND ON</button>
+              <!-- Title = 2.5D menu (drone). One button — no separate root MENU. -->
+              <button type="button" id="btn-title">TITLE</button>
+            </div>
+          </div>
+          <!-- Quiet strip on the overlay (not the top card) so the drone stays open. -->
+          <div id="cart-picks" class="title-picks">
+            <button type="button" id="cart-latest" class="cart-pick on">PLAY</button>
+            <a class="cart-pick" href="../versions/?from=title">MORE</a>
+            <a class="cart-pick" href="../?menu=1">BACK</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="pad" class="gb sa">
+      <div id="gb-grill" aria-hidden="true"></div>
+      <div id="gb-face">
+        <div id="pad-foot">
+          <div id="gb-dpad">
+            <button type="button" class="pad-btn gb-dir" data-role="left" aria-label="left">◀</button>
+            <button type="button" class="pad-btn gb-dir" data-role="right" aria-label="right">▶</button>
+          </div>
+        </div>
+        <div id="pad-car" class="hidden">
+          <button type="button" class="pad-btn pad-pedal pad-brake" data-role="brake">BRAKE</button>
+          <button type="button" class="pad-btn pad-pedal pad-gas" data-role="gas">GAS</button>
+          <div id="shifter" data-role="shifter">
+            <div id="shift-track">
+              <div id="shift-gears">
+                <button type="button" class="gear" data-role="gear" data-gear="P">P</button>
+                <button type="button" class="gear" data-role="gear" data-gear="R">R</button>
+                <button type="button" class="gear" data-role="gear" data-gear="N">N</button>
+                <button type="button" class="gear" data-role="gear" data-gear="D">D</button>
+              </div>
+              <div id="shift-rail" aria-hidden="true"><i id="shift-knob"></i></div>
+            </div>
+            <div id="shift-hint" class="hidden">HOLD BRAKE</div>
+          </div>
+        </div>
+        <div id="gb-btns">
+          <!-- Explicit grid areas: RUN is always bottom-left. -->
+          <div id="gb-face-grid" class="face-grid">
+            <button type="button" id="btn-car" class="face-btn off face-tl" data-role="car">
+              <span id="btn-car-label"></span>
+            </button>
+            <button type="button" id="btn-x" class="face-btn face-tr" data-role="quick-phone">
+              <span id="btn-x-label">PHONE</span>
+            </button>
+            <button type="button" id="btn-b" class="face-btn face-bl" data-role="run">
+              <span id="btn-b-label">RUN</span>
+            </button>
+            <button type="button" id="btn-action" class="face-btn off face-br" data-role="action">
+              <span id="btn-action-label"></span>
+            </button>
+          </div>
+          <div id="gb-sys" class="gb-sys-stack">
+            <button type="button" id="btn-pause" class="gb-sys stack-letters" data-role="pause" aria-label="start">
+              <i>S</i><i>T</i><i>A</i><i>R</i><i>T</i>
+            </button>
+            <button type="button" id="btn-phone" class="gb-sys stack-letters" data-role="phone" aria-label="select">
+              <i>S</i><i>E</i><i>L</i><i>E</i><i>C</i><i>T</i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p id="status" class="sr-only">title</p>
+  <script>
+    document.body.dataset.cartLabel = "2.5D NIGHT BLOCK  v101";
+    document.getElementById("btn-title")?.addEventListener("click", () => {
+      window.__br?.toTitle?.();
+    });
+  </script>
+  <script type="module" src="js/main.js?v=101"></script>
+</body>
+</html>
