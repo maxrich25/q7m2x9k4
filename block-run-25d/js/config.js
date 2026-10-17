@@ -23,14 +23,14 @@ export const PARK_LAT_NEAR = 6.2;
 export const PARK_LAT_FAR = -1.0;
 /** Pull-over / pull-out clip length, seconds. Soft nose arc + lat ease. */
 export const PULL_OVER_T = 2.05;
-/** Door-open + walk-turn-sit clip length, seconds. */
-export const BOARD_T = 1.45;
+/** Blink in/out of the whip — short fade, no ghost float. */
+export const BOARD_T = 0.28;
 /** Seconds after EXIT before the player can enter the car again. */
-export const ENTER_LOCK = 1.05;
+export const ENTER_LOCK = 0.55;
 /** Continuous camera zoom: close / mid / far multipliers on the base camZ. */
-export const CAM_ZOOM_MIN = 0.76;
+export const CAM_ZOOM_MIN = 0.72;
 export const CAM_ZOOM_MED = 1;
-export const CAM_ZOOM_MAX = 1.34;
+export const CAM_ZOOM_MAX = 1.48;
 export const CAM_ZOOM_MUL = [CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX];
 export const ZOOM_KEY = "block-run-25d-zoom";
 /** One-shot: force saved zooms onto medium. */

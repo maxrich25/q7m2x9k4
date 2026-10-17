@@ -16,8 +16,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=108";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=108";
+} from "./config.js?v=109";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=109";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -47,6 +47,7 @@ export function createGame() {
     x: CAR_X, px: CAR_X, vx: 0, facing: 1, hp: CAR_HP,
     gear: "P", yaw: 0, turnT: 0, turnFrom: 0, turnTo: 0, shiftHint: 0, lat: parkLat(1),
     kind: "beater", parked: true, pullOverT: 0, pullFromLat: parkLat(1), pullToLat: parkLat(1), pullMode: "", steer: 0,
+    passT: 0, redParkLight: null, redParkGoT: 0, autoBrake: false,
   };
   let inCar = false;
   let inCrib = false;
@@ -461,7 +462,10 @@ export function createGame() {
     car.pullOverT = 0;
     car.pendingPullOut = null;
     car.passT = 0;
+    car.redParkLight = null;
+    car.redParkGoT = 0;
     player.x = car.x;
+    player.px = car.x;
     player.y = GROUND_Y;
     player.vy = 0;
     player.vx = 0;
@@ -484,15 +488,16 @@ export function createGame() {
     car.gear = "P";
     car.vx = 0;
     car.lat = parkLat(car.facing);
+    car.passT = 0;
+    car.redParkLight = null;
+    car.redParkGoT = 0;
     inCar = false;
     boardT = BOARD_T;
     enterLock = ENTER_LOCK;
-    car.gear = "P";
-    car.vx = 0;
-    car.parked = true;
-    car.lat = parkLat(car.facing);
-    player.x = car.x;
-    player.px = car.x;
+    // Blink onto the curb — no mid-lane ghost float.
+    const side = car.facing < 0 ? 1 : -1;
+    player.x = wrap(car.x + side * 14, WORLD);
+    player.px = player.x;
     player.vx = 0;
     player.y = GROUND_Y;
     player.vy = 0;
@@ -1755,13 +1760,15 @@ export function createGame() {
     if (inCrib) {
       if (input.gate || input.exit) useGate();
     } else if (inCar) {
-      car.shiftPreview = input.brake && input.shiftGear ? input.shiftGear : null;
-      if (input.gearTap) tryShift(input.gearTap, !!input.brake);
-      if (input.shiftCommit) tryShift(input.shiftCommit, !!input.brake);
+      // Auto brake at lights counts as brake-held for the shifter (park-at-red).
+      const brakeForShift = !!(input.brake || car.autoBrake || holdLight);
+      car.shiftPreview = brakeForShift && input.shiftGear ? input.shiftGear : null;
+      if (input.gearTap) tryShift(input.gearTap, brakeForShift);
+      if (input.shiftCommit) tryShift(input.shiftCommit, brakeForShift);
       if (input.shiftStep) {
         const i = GEARS.indexOf(car.gear);
         const next = GEARS[i + input.shiftStep];
-        if (next) tryShift(next, !!input.brake);
+        if (next) tryShift(next, brakeForShift);
       }
       if (input.uturn) doUTurn();
       if (input.pullover) startPullOver();
@@ -1971,15 +1978,60 @@ export function createGame() {
       const canPass = !pullingOver && !!(aheadCar && car.gear === "D" && car.turnT <= 0
         && spd >= PASS_MIN_SPEED && gas && !redHold && !junctionAhead(72)
         && passLaneClear(210));
-      if (canPass) car.passT = Math.max(car.passT || 0, 1.05);
+      if (canPass) car.passT = Math.max(car.passT || 0, 1.35);
       if (redHold || (car.passT > 0 && !passLaneClear(140))) car.passT = 0;
 
+      // Park-at-red: hold P in the lane; on green, auto brake → D → take off.
+      const atCurbNow = Math.abs(myLat - parkLat(face)) < 0.9;
+      if (car.gear === "P" && !atCurbNow) {
+        let parkLight = lightAhead || nearestLight(car.x, 80, ["red", "yellow"]);
+        // Already on/past the painted line — still bind the junction light for green-go.
+        if (!parkLight) {
+          for (let i = 0; i < LIGHT_COUNT; i++) {
+            const ph = lightPhaseAt(clock, i);
+            if (ph !== "red" && ph !== "yellow") continue;
+            const d = Math.abs(wrapDelta(car.x, lightGameX(i), WORLD));
+            if (d < 100 && (!parkLight || d < parkLight.d)) parkLight = { i, phase: ph, d };
+          }
+        }
+        if (parkLight) car.redParkLight = parkLight.i;
+      }
+      if (car.redParkLight != null && (car.gear !== "P" || atCurbNow)) {
+        car.redParkLight = null;
+      }
+      if (car.redParkLight != null && car.gear === "P") {
+        const ph = lightPhaseAt(clock, car.redParkLight);
+        if (ph === "green") {
+          car.redParkGoT = 0.62;
+          car.redParkLight = null;
+        }
+      }
+      if ((car.redParkGoT || 0) > 0) {
+        car.redParkGoT = Math.max(0, car.redParkGoT - dt);
+        if (car.redParkGoT > 0.38) {
+          brake = true;
+          gas = false;
+          car.autoBrake = true;
+        } else if (car.gear === "P") {
+          brake = true;
+          gas = false;
+          car.autoBrake = true;
+          tryShift("D", true);
+        } else {
+          brake = false;
+          gas = true;
+          car.autoBrake = false;
+          // Nudge off the line so takeoff isn't a dead creep stall.
+          if (Math.abs(car.vx) < 12) car.vx = (car.facing || 1) * 22;
+        }
+      }
+
       let carHold = carClose && !canPass && !((car.passT || 0) > 0);
-      if ((redHold || carHold) && car.gear !== "P" && !pullingOver) {
+      if ((redHold || carHold) && car.gear !== "P" && !pullingOver && !(car.redParkGoT > 0)) {
         brake = true;
         gas = false;
       }
-      if ((redHold || carHold) && !pullingOver) gas = false;
+      if ((redHold || carHold) && !pullingOver && !(car.redParkGoT > 0)) gas = false;
       // Light the brake pedal the whole approach — not only after you've already stopped.
       if ((redHold || carHold) && !pullingOver && brake) {
         car.autoBrake = true;
@@ -2009,7 +2061,8 @@ export function createGame() {
         car.steer = 0;
         if (aheadCar && (car.passT || 0) > 0) {
           const d = wrapDelta(car.x, aheadCar.x, WORLD);
-          if (Math.sign(d) !== Math.sign(face) && Math.abs(d) > 10) car.passT = 0;
+          // Cleared the slower car — drop pass and merge home.
+          if (Math.sign(d) !== Math.sign(face) && Math.abs(d) > 8) car.passT = 0;
         }
         if ((car.passT || 0) > 0 && !passLaneClear()) car.passT = 0;
         car.passT = Math.max(0, (car.passT || 0) - dt);
@@ -2020,18 +2073,24 @@ export function createGame() {
             car.parked = true;
           }
           car.passT = 0;
-        } else if ((car.passT || 0) > 0) {
+        } else {
+          // Pass lane or home — always ease back to homeLat when passT expires.
           let wantLat = (car.passT || 0) > 0 ? passLat : homeLat;
-          if (Math.abs(wantLat - curLat) > 0.12) {
+          if (Math.abs(wantLat - curLat) > 0.1) {
             let blocked = false;
             for (const t of traffic) {
               const tLat = t.lat ?? restLat(t.facing);
-              if (Math.abs(tLat - wantLat) > 1.6) continue;
-              if (Math.abs(wrapDelta(car.x, t.x, WORLD)) < CAR_NOSE_GAME * 2.4) blocked = true;
+              if (Math.abs(tLat - wantLat) > 1.55) continue;
+              if (Math.abs(wrapDelta(car.x, t.x, WORLD)) < CAR_NOSE_GAME * 2.8) blocked = true;
             }
-            if (blocked) wantLat = curLat;
+            if (blocked && wantLat !== curLat) {
+              // Stay put if merge/home is packed; don't melt through.
+              wantLat = curLat;
+              if ((car.passT || 0) <= 0) car.passT = 0.25;
+            }
           }
-          car.lat = curLat + (wantLat - curLat) * Math.min(1, dt * 3.2);
+          car.lat = curLat + (wantLat - curLat) * Math.min(1, dt * ((car.passT || 0) > 0 ? 3.4 : 2.6));
+          if ((car.passT || 0) <= 0 && Math.abs(car.lat - homeLat) < 0.12) car.lat = homeLat;
         }
         if (car.gear === "P") {
           car.vx = 0;
@@ -2066,6 +2125,28 @@ export function createGame() {
           }
         } else {
           car.x = wrap(car.x + car.vx * dt, WORLD);
+        }
+        // Hard nose separation — no melting through same-lane traffic.
+        const myLatNow = car.lat ?? homeLat;
+        const noseGap = CAR_NOSE_GAME * 2.15;
+        for (const t of traffic) {
+          if (Math.abs((t.lat ?? restLat(t.facing)) - myLatNow) > 1.55) continue;
+          const d = wrapDelta(car.x, t.x, WORLD);
+          if (Math.abs(d) >= noseGap) continue;
+          if (Math.sign(d || 1) === Math.sign(face)) {
+            // Traffic ahead — sit on their bumper.
+            car.x = wrap(t.x - face * noseGap, WORLD);
+            if (Math.sign(car.vx || face) === Math.sign(face)) {
+              car.vx = Math.min(Math.abs(car.vx), Math.max(0, Math.abs(t.vx || 0) * 0.92)) * face;
+            }
+          } else {
+            // Traffic behind overlapping — shove them back via their x next tick;
+            // keep our nose clear by nudging forward slightly only if reversing into them.
+            if (Math.sign(car.vx || 0) !== Math.sign(face) && Math.abs(car.vx) > 4) {
+              car.x = wrap(t.x + face * noseGap, WORLD);
+              car.vx = 0;
+            }
+          }
         }
       }
       if (gas && (car.gear === "P" || car.gear === "N")) {
@@ -2188,13 +2269,7 @@ export function createGame() {
     invuln = Math.max(0, invuln - dt);
     player.flash = Math.max(0, player.flash - dt);
     clock += dt;
-    const boardingNow = boardT > 0;
     boardT = Math.max(0, boardT - dt);
-    if (boardingNow && boardT === 0 && !inCar) {
-      const side = car.facing < 0 ? 1 : -1;
-      player.x = wrap(car.x + side * 10, WORLD);
-      player.px = player.x;
-    }
     enterLock = Math.max(0, enterLock - dt);
     atHome = !inCar && Math.abs(wrapDelta(player.x, HOME_X, WORLD)) < 28;
     heat = Math.max(0, heat - dt * (atHome ? 0.2 : 0.04));
@@ -2444,7 +2519,7 @@ export function createGame() {
       t.x = wrap(t.x + t.vx * dt, WORLD);
     }
     // Wider lane gaps — two cars were stacking / melting through each other.
-    const minGap = Math.max(carGap * 1.15, CAR_NOSE_GAME * 3.8);
+    const minGap = Math.max(carGap * 1.25, CAR_NOSE_GAME * 4.2);
     const laneKey = (lat) => Math.round((lat ?? 0) * 4);
     const groups = new Map();
     for (const t of traffic) {

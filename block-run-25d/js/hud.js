@@ -1,8 +1,8 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=108";
-import { paintClassicHero } from "./paint.js?v=108";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=109";
+import { paintClassicHero } from "./paint.js?v=109";
 
 export function createHud(opts = {}) {
-  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v108";
+  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v109";
   const cashEl = document.getElementById("hud-cash");
   const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
@@ -260,7 +260,7 @@ export function createHud(opts = {}) {
     const wht = "WHT " + fmtGrams(g.WHITE);
     const rep = "REP " + Math.round(state.rep || 0);
     const buildEl = document.getElementById("hud-build");
-    const build = (buildEl?.textContent || "v108").trim();
+    const build = (buildEl?.textContent || "v109").trim();
     if (cashEl) cashEl.textContent = cash;
     if (invEl) invEl.innerHTML = invHtml(state);
     if (repEl) repEl.textContent = rep;
@@ -367,8 +367,12 @@ export function createHud(opts = {}) {
     if (driving) placeKnob(gear);
     const brakeBtn = document.querySelector("#pad-car [data-role='brake']");
     const gasBtn = document.querySelector("#pad-car [data-role='gas']");
-    // autoBrake covers light holds + pull freezes; also mirror player brakeAmt depth.
-    brakeBtn?.classList.toggle("held", !!(driving && (state.car?.autoBrake || state.holdLight)));
+    // autoBrake covers light holds + pull freezes; keep the BRAKE label always painted.
+    if (brakeBtn) brakeBtn.textContent = "BRAKE";
+    brakeBtn?.classList.toggle(
+      "held",
+      !!(driving && (state.car?.autoBrake || state.holdLight || state.holdCar)),
+    );
     gasBtn?.classList.toggle("held", false);
     if (shiftHint) {
       if (driving && state.car?.pendingPullOut) {

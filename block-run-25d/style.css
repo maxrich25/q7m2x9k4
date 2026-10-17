@@ -871,9 +871,11 @@ body.title-open #pad { display: none !important; }
   box-shadow: none;
 }
 #pad-car .pad-brake.held {
-  color: #07060c;
-  background: var(--pink);
+  /* Cream label stays readable on the lit pedal (dark-on-pink washed out on phones). */
+  color: var(--cream);
+  background: #9a1458;
   border-color: var(--cream);
+  text-shadow: 0 1px 0 #07060c;
 }
 .pad-jump { min-height: 82px; }
 .pad-fire {

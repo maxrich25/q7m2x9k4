@@ -4,9 +4,9 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=108";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=108";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=108";
+} from "./config.js?v=109";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=109";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=109";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -118,18 +118,21 @@ function blissHillTex(tone) {
     const base = tone || "#2a5a28";
     const dark = "#1a3a1c";
     const lit = "#3a6a34";
+    // Soft side falloff — hard left/right plane edges were reading as green buttes.
+    const ridgeY = (u) => {
+      const edge = Math.pow(Math.sin(Math.max(0, Math.min(1, u)) * Math.PI), 0.65);
+      // Rolling peaks (not flat mesa tops).
+      const wave = 0.48
+        + 0.22 * Math.sin(u * Math.PI * 3.4 + 0.3)
+        + 0.12 * Math.sin(u * Math.PI * 7.2 + 1.6)
+        + 0.07 * Math.sin(u * Math.PI * 13.1 + 0.7);
+      // Drop the silhouette into the ground at both ends so the plane edge vanishes.
+      return h * (1 - (1 - Math.min(0.92, wave)) * (0.08 + 0.92 * edge));
+    };
     g.fillStyle = base;
     g.beginPath();
     g.moveTo(0, h);
-    g.lineTo(0, h * 0.62);
-    for (let x = 0; x <= w; x += 8) {
-      const u = x / w;
-      const y = h * (0.55
-        + 0.18 * Math.sin(u * Math.PI * 2.2)
-        + 0.10 * Math.sin(u * Math.PI * 5.1 + 1.2)
-        + 0.06 * Math.sin(u * Math.PI * 9.3));
-      g.lineTo(x, y);
-    }
+    for (let x = 0; x <= w; x += 6) g.lineTo(x, ridgeY(x / w));
     g.lineTo(w, h);
     g.closePath();
     g.fill();
@@ -137,10 +140,10 @@ function blissHillTex(tone) {
     g.globalAlpha = 0.22;
     g.beginPath();
     g.moveTo(0, h);
-    g.lineTo(0, h * 0.72);
-    for (let x = 0; x <= w; x += 10) {
+    for (let x = 0; x <= w; x += 8) {
       const u = x / w;
-      g.lineTo(x, h * (0.68 + 0.12 * Math.sin(u * Math.PI * 3.1 + 0.4)));
+      const edge = Math.sin(Math.max(0, Math.min(1, u)) * Math.PI);
+      g.lineTo(x, h * (1 - (1 - (0.68 + 0.12 * Math.sin(u * Math.PI * 3.1 + 0.4))) * (0.3 + 0.7 * edge)));
     }
     g.lineTo(w, h);
     g.closePath();
@@ -150,6 +153,16 @@ function blissHillTex(tone) {
     g.globalAlpha = 0.28;
     g.fillRect(0, h * 0.82, w, h * 0.18);
     g.globalAlpha = 1;
+    // Feather left/right fully transparent so the plane edge never reads as a butte.
+    const fade = g.createLinearGradient(0, 0, w, 0);
+    fade.addColorStop(0, "rgba(0,0,0,1)");
+    fade.addColorStop(0.12, "rgba(0,0,0,0)");
+    fade.addColorStop(0.88, "rgba(0,0,0,0)");
+    fade.addColorStop(1, "rgba(0,0,0,1)");
+    g.globalCompositeOperation = "destination-out";
+    g.fillStyle = fade;
+    g.fillRect(0, 0, w, h);
+    g.globalCompositeOperation = "source-over";
   });
 }
 
@@ -1752,35 +1765,37 @@ export async function createWorld(canvas, sprites) {
   const hillTones = ["#2a6a30", "#3a7a38", "#245828"];
   const hillMaps = hillTones.map((c) => {
     const t = blissHillTex(c);
-    t.wrapS = THREE.RepeatWrapping;
+    // Clamp + no repeat — RepeatWrapping was tiling soft edges into hard green walls.
+    t.wrapS = THREE.ClampToEdgeWrapping;
     t.wrapT = THREE.ClampToEdgeWrapping;
-    t.repeat.set(2.2, 1);
+    t.repeat.set(1, 1);
+    t.magFilter = THREE.LinearFilter;
+    t.minFilter = THREE.LinearFilter;
     return t;
   });
   const hills = [];
+  // Extra-wide single strips that stay wider than the camera frustum.
   const hillLayers = [
-    { z: -16.5, y: 3.6, h: 9.5, w: 220, map: 2, dxSpread: 0 },
-    { z: -19.5, y: 5.2, h: 11.5, w: 240, map: 1, dxSpread: 18 },
-    { z: -23.0, y: 6.8, h: 13.5, w: 260, map: 0, dxSpread: 28 },
+    { z: -16.5, y: 3.4, h: 8.8, w: 420, map: 2, dx: 0 },
+    { z: -20.0, y: 5.0, h: 11.2, w: 460, map: 1, dx: 8 },
+    { z: -24.0, y: 6.6, h: 13.5, w: 500, map: 0, dx: -10 },
   ];
   for (let li = 0; li < hillLayers.length; li++) {
     const L = hillLayers[li];
-    for (let i = 0; i < 2; i++) {
-      const mat = new THREE.MeshBasicMaterial({
-        map: hillMaps[L.map],
-        transparent: true,
-        depthWrite: true,
-        depthTest: true,
-        fog: true,
-      });
-      const hill = new THREE.Mesh(new THREE.PlaneGeometry(L.w, L.h), mat);
-      const dx = (i - 0.5) * L.dxSpread;
-      hill.position.set(dx, L.y, L.z - i * 0.35);
-      hill.userData.dx = dx;
-      hill.renderOrder = -18 + li;
-      scene.add(hill);
-      hills.push(hill);
-    }
+    const mat = new THREE.MeshBasicMaterial({
+      map: hillMaps[L.map],
+      transparent: true,
+      alphaTest: 0.08,
+      depthWrite: false,
+      depthTest: true,
+      fog: true,
+    });
+    const hill = new THREE.Mesh(new THREE.PlaneGeometry(L.w, L.h), mat);
+    hill.position.set(L.dx, L.y, L.z);
+    hill.userData.dx = L.dx;
+    hill.renderOrder = -18 + li;
+    scene.add(hill);
+    hills.push(hill);
   }
   // Push downtown skyline farther so it doesn't fight the close ridge.
   skyline.position.z = -58;
@@ -2612,11 +2627,11 @@ export async function createWorld(canvas, sprites) {
     const carCamWant = state.inCar
       ? (boardU * boardU * (3 - 2 * boardU))
       : ((1 - boardU) * (1 - boardU) * (3 - 2 * (1 - boardU)));
-    // Slow board ease — no snappy whip-in / whip-out.
+    // Blink board: snap cam mode quickly so enter/exit doesn't float.
     if (stepDt > 0) {
-      carCamNow += (carCamWant - carCamNow) * (1 - Math.exp(-stepDt / 0.95));
+      carCamNow += (carCamWant - carCamNow) * (1 - Math.exp(-stepDt / 0.18));
     } else {
-      carCamNow += (carCamWant - carCamNow) * 0.08;
+      carCamNow += (carCamWant - carCamNow) * 0.35;
     }
     const carCam = carCamNow;
     const wantZoom = Math.max(CAM_ZOOM_MIN, Math.min(CAM_ZOOM_MAX, Number(state.camZoom) || CAM_ZOOM_MED));
@@ -2626,27 +2641,30 @@ export async function createWorld(canvas, sprites) {
     const inCrib = !!state.inCrib;
     strip.visible = !inCrib;
     cribRoom.visible = inCrib;
-    if (scene.fog) scene.fog.density = inCrib ? 0.001 : 0.016;
-    amb.intensity = inCrib ? 1.25 : 0.48;
-    amb.color.setHex(inCrib ? 0xffe6c8 : 0x1a1028);
-    hemi.intensity = inCrib ? 0.9 : 0.38;
-    // Stay 2.5D: dolly on the subject, don't rake into full-3D chase angles.
-    const zoomSafe = state.inCar ? Math.max(0.95, zoomMul) : zoomMul;
-    // Zoom in → closer side dolly on the whip, not the far sidewalk.
-    const zoomInT = state.inCar
-      ? (CAM_ZOOM_MAX - zoomSafe) / Math.max(0.001, CAM_ZOOM_MAX - CAM_ZOOM_MIN)
+    if (scene.fog) scene.fog.density = inCrib ? 0.001 : 0.014;
+    amb.intensity = inCrib ? 1.25 : 0.56;
+    amb.color.setHex(inCrib ? 0xffe6c8 : 0x241830);
+    hemi.intensity = inCrib ? 0.9 : 0.46;
+    // Stay 2.5D: elevated side dolly on the whip — pad must not bury the car.
+    const zoomSafe = state.inCar ? Math.max(CAM_ZOOM_MIN, zoomMul) : zoomMul;
+    // 0 = close, 1 = pulled way back (max zoom-out).
+    const zoomOutT = state.inCar
+      ? (zoomSafe - CAM_ZOOM_MIN) / Math.max(0.001, CAM_ZOOM_MAX - CAM_ZOOM_MIN)
       : 0;
-    // Zoom = closer side dolly only — never swing behind the car into full 3D chase.
     const camZ = state.inCar
       ? THREE.MathUtils.lerp(
-        (portrait ? 13.6 : 12.8) + carCam * 0.25,
-        (portrait ? 10.6 : 10.0),
-        zoomInT * 0.9,
+        portrait ? 15.6 : 14.8,
+        portrait ? 24.5 : 22.8,
+        zoomOutT,
       )
-      : ((portrait ? 15.8 : 14.2) + carCam * 0.55) * zoomMul;
+      : ((portrait ? 15.8 : 14.2) + carCam * 0.35) * zoomMul;
     const camY = state.inCar
-      ? ((portrait ? 2.75 : 2.9) + carCam * 0.1) * (0.97 + zoomSafe * 0.02)
-      : ((portrait ? 2.55 : 2.78) + carCam * 0.28) * (0.92 + zoomMul * 0.08);
+      ? THREE.MathUtils.lerp(
+        portrait ? 4.15 : 4.35,
+        portrait ? 7.8 : 7.2,
+        zoomOutT,
+      )
+      : ((portrait ? 2.55 : 2.78) + carCam * 0.18) * (0.92 + zoomMul * 0.08);
     // Hold camera lead on old facing through the whole turnaround — flip after.
     const turningNow = !state.inCar && (p.turnT || 0) > 0 && p.turnFrom != null;
     const wantFace = turningNow
@@ -2676,7 +2694,8 @@ export async function createWorld(canvas, sprites) {
       const halfWorld = dist * Math.tan(hFov / 2);
       // In-car: always park the whip on the left third of the frame (camera sits
       // to +X of the car). Look-ahead still follows facing so the road opens out.
-      const trail = state.inCar ? (portrait ? 0.28 : 0.30) : (portrait ? 0.42 : 0.44);
+      // Park the whip mid-frame and high enough that the pad never buries the wheels.
+      const trail = state.inCar ? (portrait ? 0.42 : 0.44) : (portrait ? 0.42 : 0.44);
       const leadWorld = Math.min(halfWorld * 0.75, (0.5 - trail) * 2 * halfWorld);
       // Continuous lookFace (−1…1) swings the lead smoothly instead of flipping at 0.
       const faceLead = lookFace;
@@ -2699,7 +2718,7 @@ export async function createWorld(canvas, sprites) {
         camV += accX * dampDt;
         camX = wrap(camX + camV * dampDt, STREET_LEN);
       }
-      const lookLeadWant = (state.inCar ? (portrait ? 0.95 : 1.45) : 0.35) * Math.max(0.15, Math.abs(faceLead));
+      const lookLeadWant = (state.inCar ? (portrait ? 0.55 : 0.85) : 0.35) * Math.max(0.15, Math.abs(faceLead));
       if (dampDt > 0) {
         const o2 = 2 * Math.PI * 1.1;
         const lErr = lookLeadWant - lookAim;
@@ -2709,17 +2728,16 @@ export async function createWorld(canvas, sprites) {
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.12, camZ);
       const lookFaceSign = faceLead === 0 ? wantFace : Math.sign(faceLead);
       if (state.inCar && state.car) {
-        // Keep a side-scroll look: pull toward the whip's lane, stay 2.5D.
+        // Always look at the whip's lane — never the far curb (that felt like 3D street zoom).
         const carZ = 4.95 + (Number(state.car.lat) || 0);
-        const lookZ = THREE.MathUtils.lerp(2.7 + carCam * 0.35, carZ * 0.5 + 1.6, zoomInT * 0.75);
-        tmp.set(focusX + lookFaceSign * lookAim * 0.4, 1.1, lookZ);
+        const lookZ = THREE.MathUtils.lerp(carZ * 0.72 + 0.9, carZ * 0.88 + 0.35, zoomOutT);
+        // Look slightly above the asphalt so the whip sits in the upper half over the pad.
+        tmp.set(focusX + lookFaceSign * lookAim * 0.22, 1.35 + zoomOutT * 0.25, lookZ);
       } else if ((state.boardT || 0) > 0 && state.car) {
         const carZ = 4.95 + (Number(state.car.lat) || 0);
-        const u = 1 - Math.max(0, Math.min(1, (state.boardT || 0) / Math.max(0.01, BOARD_T)));
-        const lookZ = THREE.MathUtils.lerp(2.15, carZ * 0.45 + 1.4, u);
-        tmp.set(focusX + lookFaceSign * lookAim * 0.35, 1.0, lookZ);
+        tmp.set(focusX + lookFaceSign * lookAim * 0.2, 0.95, carZ * 0.75 + 0.8);
       } else {
-        tmp.set(camX + lookFaceSign * lookAim, 0.92 + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 1.65);
+        tmp.set(camX + lookFaceSign * lookAim, 0.92 + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 1.1);
       }
       camera.lookAt(tmp);
       camera.rotation.z += camTilt * 0.08;
@@ -2884,16 +2902,10 @@ export async function createWorld(canvas, sprites) {
     // Hold walk cycle during turn — flipping mid-stride after a turnaround stutters.
     const walking = spd > 3 && !boarding && !state.inCar && !turning;
     const running = walking && !!(state.runHeld);
+    // Blink board — no walk-to-door ghost float; just a short fade.
     let boardPose = null;
-    if (enter) {
-      if (boardU < 0.30) boardPose = "walk";
-      else if (boardU < 0.52) boardPose = "turn";
-      else boardPose = "sit";
-    } else if (leave) {
-      if (boardU < 0.22) boardPose = "sit";
-      else if (boardU < 0.50) boardPose = "turn";
-      else boardPose = "walk";
-    }
+    if (enter) boardPose = boardU < 0.55 ? "walk" : "sit";
+    else if (leave) boardPose = boardU < 0.45 ? "sit" : "walk";
     const animSet = state.muzzle > 0 ? fit.shoot
       : airborne ? fit.jump
       : boardPose === "sit" && fit.sit ? fit.sit
@@ -2921,34 +2933,12 @@ export async function createWorld(canvas, sprites) {
     const carYaw = Number.isFinite(state.car?.yaw)
       ? state.car.yaw
       : ((state.car?.facing || 1) < 0 ? Math.PI : 0);
-    // Driver door is the car's left side (local -Z), not the side facing the camera.
+    // Driver seat Z (car's left side) — blink snaps here, no curb float.
     const driverOut = Math.cos(carYaw) >= 0 ? -1 : 1;
-    const doorStandZ = carZ + driverOut * 1.05;
     const seatZ = carZ + driverOut * 0.2;
-    const ease = (t) => {
-      const u = Math.max(0, Math.min(1, t));
-      return u * u * (3 - 2 * u);
-    };
     let boardZ = sidewalkZ;
-    if (enter) {
-      if (boardU < 0.30) boardZ = sidewalkZ;
-      else if (boardU < 0.58) {
-        const t = ease((boardU - 0.30) / 0.28);
-        boardZ = sidewalkZ + (doorStandZ - sidewalkZ) * t;
-      } else {
-        const t = ease(Math.min(1, (boardU - 0.58) / 0.22));
-        boardZ = doorStandZ + (seatZ - doorStandZ) * t;
-      }
-    } else if (leave) {
-      if (boardU < 0.20) boardZ = seatZ;
-      else if (boardU < 0.55) {
-        const t = ease((boardU - 0.20) / 0.35);
-        boardZ = seatZ + (doorStandZ - seatZ) * t;
-      } else {
-        const t = ease(Math.min(1, (boardU - 0.55) / 0.45));
-        boardZ = doorStandZ + (sidewalkZ - doorStandZ) * t;
-      }
-    }
+    if (enter) boardZ = boardU < 0.5 ? sidewalkZ : seatZ;
+    else if (leave) boardZ = boardU < 0.5 ? seatZ : sidewalkZ;
     const views = sprites.heroViews;
     // Painted hero only when views load — turning/muzzle/jump must not flicker to NES sheets.
     const loco = !!(walking || running || boardPose === "walk");
@@ -3002,51 +2992,37 @@ export async function createWorld(canvas, sprites) {
     const groundY = 0.03 - footPad;
     playerSprite.position.y = groundY;
     // Keep contact shadow glued under the billboard even if depth fights the walk mesh.
-    const doorAmt = !boarding ? 0
-      : enter
-        ? (boardU < 0.26 ? 0
-          : boardU < 0.40 ? (boardU - 0.26) / 0.14
-          : boardU < 0.80 ? 1
-          : Math.max(0, (1 - boardU) / 0.20))
-        : (boardU < 0.12 ? boardU / 0.12
-          : boardU < 0.70 ? 1
-          : Math.max(0, (1 - boardU) / 0.30));
+    const doorAmt = boarding ? Math.sin(Math.min(1, boardU) * Math.PI) * 0.85 : 0;
     const carWx = state.car ? nearestWorldX(state.car.x, camX) : playerSprite.position.x;
     const face = state.car?.facing || 1;
-    const hingeX = 0.62;
-    let nest = 0;
     if (enter) {
-      const toDoor = Math.min(1, boardU / 0.30);
-      const intoSeat = Math.max(0, Math.min(1, (boardU - 0.52) / 0.30));
-      nest = intoSeat;
-      if (boardU < 0.30) playerSprite.position.x = carWx + face * (1.4 - 0.72 * toDoor);
-      else if (boardU < 0.52) playerSprite.position.x = carWx + face * 0.68;
-      else playerSprite.position.x = carWx + face * (0.68 - 0.58 * intoSeat);
-      playerSprite.position.y = groundY + intoSeat * 0.08;
+      const side = face < 0 ? 1 : -1;
+      playerSprite.position.x = boardU < 0.5
+        ? carWx + side * 1.35
+        : carWx + face * 0.15;
+      playerSprite.position.y = groundY;
     } else if (leave) {
-      const rise = Math.min(1, Math.max(0, (boardU - 0.18) / 0.28));
-      const out = Math.min(1, Math.max(0, (boardU - 0.22) / 0.55));
-      nest = 1 - rise;
-      playerSprite.position.x = carWx + face * (hingeX * 0.2 + 1.15 * out);
-      playerSprite.position.y = groundY + (1 - rise) * 0.08;
+      const side = face < 0 ? 1 : -1;
+      playerSprite.position.x = boardU < 0.5
+        ? carWx + face * 0.15
+        : carWx + side * 1.35;
+      playerSprite.position.y = groundY;
     }
-    // No vertical bob — that read as a floating ghost over the curb.
     const doorNear = playerCar.getObjectByName("doorNear");
     const doorFar = playerCar.getObjectByName("doorFar");
-    if (doorFar) doorFar.rotation.y = -doorAmt * 1.15;
+    if (doorFar) doorFar.rotation.y = -doorAmt * 1.05;
     if (doorNear) doorNear.rotation.y = 0;
     orientBillboard(playerSprite, camera);
     const baseH = playerSprite.userData.height || 3.05;
-    const zBlend = Math.max(0, Math.min(1, (boardZ - sidewalkZ) / Math.max(0.01, doorStandZ - sidewalkZ)));
-    const zScale = 1 - zBlend * 0.5;
-    const nestScale = zScale * (1 - nest * 0.22);
-    playerSprite.scale.x = (playerSprite.userData.baseW || 1) * nestScale;
-    playerSprite.scale.y = baseH * nestScale;
-    if (enter && boardU > 0.7) {
-      const fade = 1 - (boardU - 0.7) / 0.22;
-      playerSprite.material.opacity = (blink ? 0.4 : 1) * Math.max(0, fade);
-    } else if (leave && boardU < 0.12) {
-      playerSprite.material.opacity = (blink ? 0.4 : 1) * (boardU / 0.12);
+    playerSprite.scale.x = playerSprite.userData.baseW || 1;
+    playerSprite.scale.y = baseH;
+    // Quick opacity blink in/out of the seat.
+    if (enter) {
+      const fade = boardU < 0.45 ? 1 - boardU / 0.45 : Math.max(0, 1 - (boardU - 0.45) / 0.55);
+      playerSprite.material.opacity = (blink ? 0.4 : 1) * fade;
+    } else if (leave) {
+      const fade = boardU < 0.4 ? boardU / 0.4 : 1;
+      playerSprite.material.opacity = (blink ? 0.4 : 1) * fade;
     }
     playerSprite.material.color.set(p.flash > 0 ? 0xffffff : 0xffffff);
     if (p.flash > 0) playerSprite.material.color.setHex(0xffc8e8);
