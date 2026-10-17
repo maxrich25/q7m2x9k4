@@ -1,6 +1,13 @@
 {
   "versions": [
     {
+      "pr": 78,
+      "date": "2026-10-17",
+      "note": "v104: standalone freeze guard, drive pad, pull-out brake",
+      "path": "v104/",
+      "sha": "26a5066"
+    },
+    {
       "pr": 77,
       "date": "2026-10-17",
       "note": "v103: crib setback, pad arrows, dark-green grass, icon refresh",

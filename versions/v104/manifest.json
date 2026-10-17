@@ -1,0 +1,31 @@
+{
+  "name": "BLOCK RUN",
+  "short_name": "BLOCK RUN",
+  "id": "../",
+  "scope": "../",
+  "start_url": "./?v=104&fresh=clear&play=1",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07060c",
+  "theme_color": "#07060c",
+  "icons": [
+    {
+      "src": "apple-touch-icon-v104.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192-v104.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512-v104.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

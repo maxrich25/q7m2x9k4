@@ -4,9 +4,9 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=104";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=104";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=104";
+} from "./config.js?v=105";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=105";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=105";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -1692,14 +1692,24 @@ export function createWorld(canvas, sprites) {
   hazeBand.renderOrder = -7;
   hazeBand.visible = true;
   scene.add(hazeBand);
+  // No floating space palms — hills + back block close the void instead.
   const farPalms = [];
-  for (let i = 0; i < 12; i++) {
-    const palm = makePalm();
-    palm.visible = false;
-    // Distant palms stay smaller than curb/foreground palms (~1.3–1.45).
-    palm.scale.setScalar(0.48 + (i % 3) * 0.08);
-    scene.add(palm);
-    farPalms.push({ mesh: palm, dx: (i - 5.5) * 11.2 + (i % 2) * 2.4, z: -18.5 - (i % 3) * 1.4 });
+  // Soft ridge hills behind the far facades (wall the world in).
+  const hillMat = new THREE.MeshLambertMaterial({ color: 0x1a2a20 });
+  const hillDark = new THREE.MeshLambertMaterial({ color: 0x121c18 });
+  const hills = [];
+  for (let i = 0; i < 7; i++) {
+    const hill = new THREE.Mesh(
+      new THREE.SphereGeometry(14 + (i % 3) * 3.5, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.48),
+      i % 2 ? hillDark : hillMat,
+    );
+    hill.scale.set(1.35 + (i % 2) * 0.25, 0.42 + (i % 3) * 0.06, 0.7);
+    const dx = (i - 3) * 28;
+    hill.position.set(dx, -1.2, -38 - (i % 2) * 4);
+    hill.rotation.y = i * 0.2;
+    hill.userData.dx = dx;
+    scene.add(hill);
+    hills.push(hill);
   }
 
   const city = new THREE.Group();
@@ -1824,29 +1834,51 @@ export function createWorld(canvas, sprites) {
     city.add(nearPalm);
   }
 
-  // Void fill behind the camera.
-  const nearRoofs = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 6.4),
-    new THREE.MeshLambertMaterial({ color: 0x1a1622 }),
+  // Parallel back street behind the near curb — those aren't floating sheds.
+  const backAsphalt = new THREE.Mesh(
+    new THREE.PlaneGeometry(STREET_LEN + 4, 5.2),
+    new THREE.MeshLambertMaterial({ map: asphaltMap.clone() }),
   );
-  nearRoofs.rotation.x = -Math.PI / 2;
-  nearRoofs.position.set(STREET_LEN / 2, -0.4, 19.8);
-  city.add(nearRoofs);
-  const roofColors = [0x2a2234, 0x241c2c, 0x302838, 0x1e1828, 0x282030];
-  for (let i = 0; i < 28; i++) {
-    const w = 6.5 + (i % 5) * 1.4;
-    const d = 3.2 + (i % 3) * 0.9;
-    const h = 0.55 + (i % 4) * 0.35;
-    const roof = new THREE.Mesh(
+  backAsphalt.material.map.repeat.set(40, 1.5);
+  backAsphalt.material.map.needsUpdate = true;
+  backAsphalt.rotation.x = -Math.PI / 2;
+  backAsphalt.position.set(STREET_LEN / 2, 0.02, 17.6);
+  city.add(backAsphalt);
+  const backWalk = new THREE.Mesh(
+    new THREE.PlaneGeometry(STREET_LEN + 4, 2.4),
+    new THREE.MeshLambertMaterial({ map: sidewalkTex() }),
+  );
+  backWalk.material.map.repeat.set(120, 1);
+  backWalk.rotation.x = -Math.PI / 2;
+  backWalk.position.set(STREET_LEN / 2, 0.04, 20.4);
+  city.add(backWalk);
+  const backFaceCols = ["#6a4a48", "#7a5a50", "#5a4a40", "#8a6a58", "#4a5a48", "#6a5a68"];
+  const backMats = backFaceCols.map((hex, i) => new THREE.MeshLambertMaterial({
+    map: i % 3 === 0 ? stuccoTex(hex) : brickTex(hex, "#2a2030"),
+  }));
+  const backWinMatA = new THREE.MeshBasicMaterial({ color: 0xf0c430 });
+  const backWinMatB = new THREE.MeshBasicMaterial({ color: 0x7ad8ff });
+  for (let i = 0; i < 22; i++) {
+    const w = 5.2 + (i % 4) * 1.1;
+    const d = 2.4 + (i % 3) * 0.5;
+    const h = 3.6 + (i % 5) * 1.15;
+    const bldg = new THREE.Mesh(
       new THREE.BoxGeometry(w, h, d),
-      new THREE.MeshLambertMaterial({ color: roofColors[i % roofColors.length] }),
+      backMats[i % backMats.length],
     );
-    roof.position.set(
-      (i + 0.5) * (STREET_LEN / 28),
-      h * 0.5 - 0.35,
-      19.4 + (i % 2) * 1.6,
+    bldg.position.set(
+      (i + 0.45) * (STREET_LEN / 22),
+      h * 0.5,
+      21.8 + (i % 2) * 0.8,
     );
-    city.add(roof);
+    city.add(bldg);
+    // Warm windows facing the camera (toward -Z).
+    const win = new THREE.Mesh(
+      new THREE.PlaneGeometry(w * 0.72, Math.min(h * 0.42, 3.2)),
+      i % 2 ? backWinMatA : backWinMatB,
+    );
+    win.position.set(bldg.position.x, h * 0.55, bldg.position.z - d / 2 - 0.04);
+    city.add(win);
   }
 
   const dashTex = canvasTex(48, 8, (g) => {
@@ -1890,13 +1922,14 @@ export function createWorld(canvas, sprites) {
     return brick(col);
   }
 
+  // Keep near-black facades rare — warm brick / stucco reads better at night.
   const THEMES = [
-    { id: "liquor", neon: ["LIQUOR", "#e21b7a"], cols: ["#7a5a58", "#6a4a48", "#5a3e40"] },
-    { id: "motel", neon: ["MOTEL", "#3de0ff"], cols: ["#6a5a70", "#5a6a68", "#7a4050"] },
-    { id: "studio", neon: ["STUDIO", "#f0c430"], cols: ["#9a8a68", "#6a4a48", "#5a4a58"], graf: true },
-    { id: "taco", neon: ["TACOS", "#f0c430"], cols: ["#8a4a30", "#6a3a28", "#4a5a40"] },
-    { id: "gas", neon: ["GAS", "#e21b7a"], cols: ["#4a5868", "#5a4e58", "#6a5a58"] },
-    { id: "park", neon: ["PARK", "#3de0ff"], cols: ["#3a5a48", "#4a4a38", "#3a4850"], park: true },
+    { id: "liquor", neon: ["LIQUOR", "#e21b7a"], cols: ["#8a5a58", "#7a4a48", "#6a4a40"] },
+    { id: "motel", neon: ["MOTEL", "#3de0ff"], cols: ["#7a6a78", "#6a7a78", "#8a5060"] },
+    { id: "studio", neon: ["STUDIO", "#f0c430"], cols: ["#a09068", "#7a5a48", "#6a5a58"], graf: true },
+    { id: "taco", neon: ["TACOS", "#f0c430"], cols: ["#9a5a38", "#7a4a30", "#5a6a48"] },
+    { id: "gas", neon: ["GAS", "#e21b7a"], cols: ["#5a6878", "#6a5e68", "#7a6a60"] },
+    { id: "park", neon: ["PARK", "#3de0ff"], cols: ["#4a6a58", "#5a5a48", "#4a5860"], park: true },
   ];
   const facadeLayout = [
     { x: 4, w: 4.2, h: 5.2, d: 2.4 },
@@ -2634,9 +2667,11 @@ export function createWorld(canvas, sprites) {
       if (o.userData?.palm) swayPalm(o, 1);
     });
     for (const fp of farPalms) {
-      fp.mesh.visible = !inCrib;
-      fp.mesh.position.set(camX + fp.dx, 0, fp.z);
-      swayPalm(fp.mesh, 0.85);
+      fp.mesh.visible = false;
+    }
+    for (const hill of hills) {
+      hill.visible = !inCrib;
+      hill.position.x = camX + (hill.userData.dx || 0);
     }
     const skyInfo = state.sky;
     if (skyInfo && DAY_NIGHT_ENABLED) {
