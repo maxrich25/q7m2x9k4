@@ -1,6 +1,13 @@
 {
   "versions": [
     {
+      "pr": 80,
+      "date": "2026-10-17",
+      "note": "v106: unfreeze Safari/home-screen after v105 hill/texture hang",
+      "path": "v106/",
+      "sha": "283addf"
+    },
+    {
       "pr": 79,
       "date": "2026-10-17",
       "note": "v105: pad footprints, hills, back street (froze Safari \u2014 see v106)",

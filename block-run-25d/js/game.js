@@ -16,8 +16,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=106";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=106";
+} from "./config.js?v=107";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=107";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -1814,18 +1814,18 @@ export function createGame() {
       } else if ((car.pullOverT || 0) > 0) {
         // Smooth pull: nose arcs in, lat eases, slight creep — then transmission climb.
         const intoCurb = car.pullMode !== "out";
-        // Mid pull-OUT: holding brake freezes the maneuver; release continues.
-        if (!intoCurb && brake) {
+        // Mid pull-IN or pull-OUT: holding brake freezes the maneuver; release continues.
+        if (brake) {
           car.autoBrake = true;
           car.vx = 0;
           gas = false;
           const uHold = 1 - car.pullOverT / PULL_OVER_T;
           const from = car.pullFromLat ?? (car.lat ?? restLat(car.facing));
-          const dest = car.pullToLat ?? restLat(car.facing);
+          const dest = car.pullToLat ?? (intoCurb ? parkLat(car.facing) : restLat(car.facing));
           const s = uHold * uHold * (3 - 2 * uHold);
           car.lat = from + (dest - from) * s;
           const baseYaw = car.facing < 0 ? Math.PI : 0;
-          const nose = Math.sin(uHold * Math.PI) * 0.32;
+          const nose = (intoCurb ? -1 : 1) * Math.sin(uHold * Math.PI) * 0.32;
           car.yaw = baseYaw + nose;
           car.steer = nose * 1.7;
         } else {
@@ -1980,8 +1980,8 @@ export function createGame() {
         gas = false;
       }
       if ((redHold || carHold) && !pullingOver) gas = false;
-      // Light the brake pedal at a held red / bumper-to-bumper stop.
-      if ((redHold || carHold) && !pullingOver && Math.abs(car.vx) < 6) {
+      // Light the brake pedal the whole approach — not only after you've already stopped.
+      if ((redHold || carHold) && !pullingOver && brake) {
         car.autoBrake = true;
       }
       holdLight = redHold;

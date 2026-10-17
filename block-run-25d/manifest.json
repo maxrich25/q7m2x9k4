@@ -3,26 +3,26 @@
   "short_name": "BLOCK RUN",
   "id": "../",
   "scope": "../",
-  "start_url": "./?v=106&fresh=clear&play=1",
+  "start_url": "./?v=107&fresh=clear&play=1",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#07060c",
   "theme_color": "#07060c",
   "icons": [
     {
-      "src": "apple-touch-icon-v106.png",
+      "src": "apple-touch-icon-v107.png",
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-192-v106.png",
+      "src": "icon-192-v107.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-512-v106.png",
+      "src": "icon-512-v107.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"

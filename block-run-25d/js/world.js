@@ -4,9 +4,9 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=106";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=106";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=106";
+} from "./config.js?v=107";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=107";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=107";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -26,10 +26,11 @@ function canvasTex(w, h, paint) {
   return tex;
 }
 
-function brickTex(color, accent) {
+function brickTex(color, accent = "#7a5a58") {
   return canvasTex(64, 64, (g, w, h) => {
     g.fillStyle = color;
     g.fillRect(0, 0, w, h);
+    // Warm mortar — dark charcoal joints read as "black brick" at night.
     g.fillStyle = accent;
     for (let y = 0; y < h; y += 8) {
       const off = (y / 8) % 2 ? 8 : 0;
@@ -37,11 +38,11 @@ function brickTex(color, accent) {
         g.fillRect(x + off, y, 14, 6);
       }
     }
-    g.fillStyle = "rgba(0,0,0,0.16)";
-    for (let i = 0; i < 40; i++) g.fillRect((i * 17) % w, (i * 13) % h, 2, 1);
-    g.fillStyle = "rgba(255,255,255,0.08)";
+    g.fillStyle = "rgba(0,0,0,0.10)";
+    for (let i = 0; i < 28; i++) g.fillRect((i * 17) % w, (i * 13) % h, 2, 1);
+    g.fillStyle = "rgba(255,255,255,0.10)";
     for (let i = 0; i < 28; i++) g.fillRect((i * 11) % w, (i * 19) % h, 1, 1);
-    g.strokeStyle = "rgba(0,0,0,0.22)";
+    g.strokeStyle = "rgba(60,40,36,0.28)";
     g.lineWidth = 1;
     for (let y = 0; y < h; y += 8) {
       g.beginPath();
@@ -451,7 +452,8 @@ function makeBuilding(w, h, d, facade, { door = true } = {}) {
   const wallH = Math.max(1.2, h - roofH);
   const body = new THREE.Mesh(
     new THREE.BoxGeometry(w, wallH, d),
-    new THREE.MeshLambertMaterial({ map: facade, color: 0xffffff }),
+    // Warm tint so night Lambert doesn't crush mid bricks into charcoal.
+    new THREE.MeshLambertMaterial({ map: facade, color: 0xfff0e8 }),
   );
   body.position.y = wallH / 2;
   g.add(body);
@@ -748,10 +750,12 @@ function makeBeaterCar() {
   });
   const tint = new THREE.MeshPhongMaterial({
     color: 0x152028, specular: 0xc8e8ff, shininess: 110, transparent: true, opacity: 0.58,
+    // depthWrite keeps glass from poking through near palm billboards.
+    depthWrite: true,
   });
   const chrome = new THREE.MeshPhongMaterial({ color: 0xd0d6de, specular: 0xffffff, shininess: 130 });
   const blackTrim = new THREE.MeshPhongMaterial({ color: 0x16141a, specular: 0x4a4850, shininess: 28 });
-  const glassShine = new THREE.MeshBasicMaterial({ color: 0xd8eefc, transparent: true, opacity: 0.22 });
+  const glassShine = new THREE.MeshBasicMaterial({ color: 0xd8eefc, transparent: true, opacity: 0.22, depthWrite: true });
 
   const rocker = new THREE.Mesh(new THREE.BoxGeometry(4.05, 0.16, 1.48), paintLo);
   rocker.position.y = 0.26;
@@ -1102,14 +1106,14 @@ function makeCopCar() {
 function makePin() {
   const g = new THREE.Group();
   const cone = new THREE.Mesh(
-    new THREE.ConeGeometry(0.22, 0.7, 4),
+    new THREE.ConeGeometry(0.14, 0.42, 4),
     new THREE.MeshBasicMaterial({ color: 0xf0c430 }),
   );
   cone.position.y = 2.55;
   cone.rotation.z = Math.PI;
   g.add(cone);
-  const glow = glowSprite("#f0c430", 1.6);
-  glow.position.y = 2.35;
+  const glow = glowSprite("#f0c430", 0.9);
+  glow.position.y = 2.4;
   g.add(glow);
   return g;
 }
@@ -1697,17 +1701,20 @@ export async function createWorld(canvas, sprites) {
   hazeBand.renderOrder = -7;
   hazeBand.visible = true;
   scene.add(hazeBand);
-  // No floating space palms — cheap ridge planes wall the far void (v105
-  // SphereGeometry hills + Lambert froze Safari/home-screen on open).
+  // Soft hills without the v105 freeze: few shared low-seg half-spheres,
+  // MeshBasic only (no Lambert lighting cost).
   const farPalms = [];
-  const hillMat = new THREE.MeshBasicMaterial({ color: 0x1a2a20 });
-  const hillDark = new THREE.MeshBasicMaterial({ color: 0x121c18 });
-  const hillGeo = new THREE.PlaneGeometry(42, 12);
+  const hillMat = new THREE.MeshBasicMaterial({ color: 0x243828 });
+  const hillDark = new THREE.MeshBasicMaterial({ color: 0x1a2820 });
+  const hillGeoA = new THREE.SphereGeometry(11, 6, 4, 0, Math.PI * 2, 0, Math.PI * 0.5);
+  const hillGeoB = new THREE.SphereGeometry(14, 6, 4, 0, Math.PI * 2, 0, Math.PI * 0.5);
   const hills = [];
-  for (let i = 0; i < 5; i++) {
-    const hill = new THREE.Mesh(hillGeo, i % 2 ? hillDark : hillMat);
-    const dx = (i - 2) * 36;
-    hill.position.set(dx, 3.2 + (i % 2) * 0.6, -38 - (i % 2) * 3);
+  for (let i = 0; i < 4; i++) {
+    const hill = new THREE.Mesh(i % 2 ? hillGeoB : hillGeoA, i % 2 ? hillDark : hillMat);
+    // Taller than the flat v106 strip — still cheap half-domes, just more ridge.
+    hill.scale.set(1.45 + (i % 2) * 0.18, 0.92 + (i % 3) * 0.12, 0.9);
+    const dx = (i - 1.5) * 38;
+    hill.position.set(dx, -1.6, -34 - (i % 2) * 2.5);
     hill.userData.dx = dx;
     scene.add(hill);
     hills.push(hill);
@@ -1823,61 +1830,70 @@ export async function createWorld(canvas, sprites) {
     bush.position.set(
       (i + 0.35) * (STREET_LEN / 40) + (i % 2) * 0.35,
       bh * 0.5,
-      14.35 + (i % 3) * 0.35,
+      15.05 + (i % 3) * 0.25,
     );
     city.add(bush);
   }
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 10; i++) {
     const nearPalm = makePalm();
     nearPalm.position.set(
-      (i + 0.5) * (STREET_LEN / 12) + (i % 2) * 1.1,
+      (i + 0.5) * (STREET_LEN / 10) + (i % 2) * 1.1,
       0,
-      // On the grass strip past the near sidewalk — not planted in the walk.
-      15.15 + (i % 2) * 0.25,
+      // Between near grass and back street — keep out of the drive lane frustum.
+      15.55 + (i % 2) * 0.2,
     );
-    nearPalm.scale.setScalar(1.05 + (i % 3) * 0.1);
+    nearPalm.scale.setScalar(0.95 + (i % 3) * 0.08);
+    nearPalm.renderOrder = -2;
     city.add(nearPalm);
   }
 
-  // Parallel back street — solid colors only. v105 canvas brick/stucco maps
-  // here (plus asphalt.clone) spiked iPhone createWorld into a hard freeze.
+  // Parallel back street — solid colors (no canvas spam). Pulled closer + taller
+  // so it actually peeks under the camera instead of living past the near void.
   const backAsphalt = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 5.2),
-    new THREE.MeshLambertMaterial({ color: 0x2a2832 }),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 4.4),
+    new THREE.MeshLambertMaterial({ color: 0x32303a }),
   );
   backAsphalt.rotation.x = -Math.PI / 2;
-  backAsphalt.position.set(STREET_LEN / 2, 0.02, 17.6);
+  backAsphalt.position.set(STREET_LEN / 2, 0.02, 16.35);
   city.add(backAsphalt);
+  const backDash = new THREE.Mesh(
+    new THREE.PlaneGeometry(STREET_LEN + 4, 0.16),
+    new THREE.MeshBasicMaterial({ color: 0xc4a020 }),
+  );
+  backDash.rotation.x = -Math.PI / 2;
+  backDash.position.set(STREET_LEN / 2, 0.04, 16.35);
+  city.add(backDash);
   const backWalk = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 2.4),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 1.8),
     new THREE.MeshLambertMaterial({ color: 0x8a8694 }),
   );
   backWalk.rotation.x = -Math.PI / 2;
-  backWalk.position.set(STREET_LEN / 2, 0.04, 20.4);
+  backWalk.position.set(STREET_LEN / 2, 0.04, 18.55);
   city.add(backWalk);
-  const backFaceCols = [0x6a4a48, 0x7a5a50, 0x5a4a40, 0x8a6a58, 0x4a5a48, 0x6a5a68];
+  const backFaceCols = [0x8a6a60, 0x7a6a70, 0x6a5a50, 0x9a7a68, 0x5a6a58, 0x7a6a78];
   const backMats = backFaceCols.map((hex) => new THREE.MeshLambertMaterial({ color: hex }));
   const backWinMatA = new THREE.MeshBasicMaterial({ color: 0xf0c430 });
   const backWinMatB = new THREE.MeshBasicMaterial({ color: 0x7ad8ff });
   const backBoxGeos = new Map();
   const backWinGeos = new Map();
-  for (let i = 0; i < 14; i++) {
-    const w = 5.2 + (i % 4) * 1.1;
-    const d = 2.4 + (i % 3) * 0.5;
-    const h = 3.6 + (i % 5) * 1.15;
+  for (let i = 0; i < 16; i++) {
+    const w = 5.0 + (i % 4) * 1.0;
+    const d = 2.2 + (i % 3) * 0.4;
+    const h = 4.4 + (i % 5) * 1.25;
     const key = `${w}|${h}|${d}`;
     if (!backBoxGeos.has(key)) backBoxGeos.set(key, new THREE.BoxGeometry(w, h, d));
     const bldg = new THREE.Mesh(backBoxGeos.get(key), backMats[i % backMats.length]);
     bldg.position.set(
-      (i + 0.45) * (STREET_LEN / 14),
+      (i + 0.4) * (STREET_LEN / 16),
       h * 0.5,
-      21.8 + (i % 2) * 0.8,
+      19.6 + (i % 2) * 0.55,
     );
     city.add(bldg);
-    const ww = w * 0.72;
-    const wh = Math.min(h * 0.42, 3.2);
+    const ww = w * 0.7;
+    const wh = Math.min(h * 0.4, 3.0);
     const wKey = `${ww}|${wh}`;
     if (!backWinGeos.has(wKey)) backWinGeos.set(wKey, new THREE.PlaneGeometry(ww, wh));
+    // Windows face the main street (−Z) so they read under the camera.
     const win = new THREE.Mesh(backWinGeos.get(wKey), i % 2 ? backWinMatA : backWinMatB);
     win.position.set(bldg.position.x, h * 0.55, bldg.position.z - d / 2 - 0.04);
     city.add(win);
@@ -1910,7 +1926,7 @@ export async function createWorld(canvas, sprites) {
   const brickCache = new Map();
   const stuccoCache = new Map();
   function brick(col) {
-    if (!brickCache.has(col)) brickCache.set(col, brickTex(col, "#2a2030"));
+    if (!brickCache.has(col)) brickCache.set(col, brickTex(col, "#8a6a62"));
     return brickCache.get(col);
   }
   function stucco(col) {
@@ -1924,14 +1940,14 @@ export async function createWorld(canvas, sprites) {
     return brick(col);
   }
 
-  // Keep near-black facades rare — warm brick / stucco reads better at night.
+  // Warm mid-tones only — charcoal façade hexes still read as black brick at night.
   const THEMES = [
-    { id: "liquor", neon: ["LIQUOR", "#e21b7a"], cols: ["#8a5a58", "#7a4a48", "#6a4a40"] },
-    { id: "motel", neon: ["MOTEL", "#3de0ff"], cols: ["#7a6a78", "#6a7a78", "#8a5060"] },
-    { id: "studio", neon: ["STUDIO", "#f0c430"], cols: ["#a09068", "#7a5a48", "#6a5a58"], graf: true },
-    { id: "taco", neon: ["TACOS", "#f0c430"], cols: ["#9a5a38", "#7a4a30", "#5a6a48"] },
-    { id: "gas", neon: ["GAS", "#e21b7a"], cols: ["#5a6878", "#6a5e68", "#7a6a60"] },
-    { id: "park", neon: ["PARK", "#3de0ff"], cols: ["#4a6a58", "#5a5a48", "#4a5860"], park: true },
+    { id: "liquor", neon: ["LIQUOR", "#e21b7a"], cols: ["#b07068", "#a06058", "#8a6450"] },
+    { id: "motel", neon: ["MOTEL", "#3de0ff"], cols: ["#9a8a98", "#8a9a98", "#a06070"] },
+    { id: "studio", neon: ["STUDIO", "#f0c430"], cols: ["#b8a878", "#9a7a58", "#8a7a68"], graf: true },
+    { id: "taco", neon: ["TACOS", "#f0c430"], cols: ["#b07048", "#9a5a38", "#6a7a58"] },
+    { id: "gas", neon: ["GAS", "#e21b7a"], cols: ["#6a7888", "#7a6e78", "#8a7a68"] },
+    { id: "park", neon: ["PARK", "#3de0ff"], cols: ["#5a7a68", "#6a6a58", "#5a6870"], park: true },
   ];
   const facadeLayout = [
     { x: 4, w: 4.2, h: 5.2, d: 2.4 },
@@ -1962,6 +1978,7 @@ export async function createWorld(canvas, sprites) {
     const glow = glowSprite(color, Math.max(w * 1.05, h * 3.2));
     glow.position.set(x, y, z + 0.05);
     city.add(glow);
+    return { sign, glow };
   }
 
   const boxGeo = new Map();
@@ -2138,10 +2155,6 @@ export async function createWorld(canvas, sprites) {
   interMap.repeat.set(4, 3);
   const interMat = new THREE.MeshLambertMaterial({ map: interMap });
   const stopMat = new THREE.MeshBasicMaterial({ color: 0xf4f0e8 });
-  const crossMap = asphaltMap.clone();
-  crossMap.needsUpdate = true;
-  crossMap.repeat.set(2, 4);
-  const crossMat = new THREE.MeshLambertMaterial({ map: crossMap });
   for (let i = 0; i < blockCount; i++) {
     const x = i * BLOCK_LEN;
     const box = new THREE.Mesh(
@@ -2150,13 +2163,6 @@ export async function createWorld(canvas, sprites) {
     );
     box.position.set(x, 0.07, INTER_Z);
     city.add(box);
-    // Visual cross-street stub (four-way read; freemove turns still later).
-    const cross = new THREE.Mesh(
-      new THREE.BoxGeometry(INTER_METERS * 0.72, 0.045, 11.2),
-      crossMat,
-    );
-    cross.position.set(x, 0.055, INTER_Z);
-    city.add(cross);
     const stopL = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.05, INTER_DEPTH - 0.3), stopMat);
     stopL.position.set(x - INTER_METERS / 2, 0.1, INTER_Z);
     city.add(stopL);
@@ -2169,13 +2175,18 @@ export async function createWorld(canvas, sprites) {
     const edgeNear = edgeFar.clone();
     edgeNear.position.z = INTER_Z + INTER_DEPTH / 2;
     city.add(edgeNear);
-    // Crosswalk bars on the near approach (keep light — iPhone cost).
-    for (let k = 0; k < 4; k++) {
+    // Ped crosswalk: stripes across the lanes (long in X, stepped in Z) — not
+    // a strip running the same way the car drives.
+    for (let k = 0; k < 5; k++) {
       const bar = new THREE.Mesh(
-        new THREE.BoxGeometry(0.55, 0.055, 2.2),
+        new THREE.BoxGeometry(2.6, 0.055, 0.38),
         stopMat,
       );
-      bar.position.set(x - 1.1 + k * 0.75, 0.11, INTER_Z + INTER_DEPTH * 0.28);
+      bar.position.set(
+        x - INTER_METERS * 0.18,
+        0.11,
+        INTER_Z - 1.15 + k * 0.58,
+      );
       city.add(bar);
     }
   }
@@ -2219,15 +2230,15 @@ export async function createWorld(canvas, sprites) {
     knob.position.set(0.42, doorH * 0.5, 1.64);
     g.add(knob);
     const pane = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.2, 1.05),
-      new THREE.MeshBasicMaterial({ color: 0xf0c430, side: THREE.DoubleSide }),
+      new THREE.PlaneGeometry(0.85, 0.72),
+      new THREE.MeshBasicMaterial({ color: 0xe8b840 }),
     );
     pane.name = "homePane";
-    pane.position.set(1.55, 6.4, 1.52);
+    pane.position.set(1.45, 6.5, 1.52);
     g.add(pane);
     const pane2 = pane.clone();
     pane2.name = "homePane2";
-    pane2.position.set(-1.55, 6.4, 1.52);
+    pane2.position.set(-1.45, 6.5, 1.52);
     g.add(pane2);
     const stoop = new THREE.Mesh(
       new THREE.BoxGeometry(2.1, 0.16, 0.85),
@@ -2243,7 +2254,10 @@ export async function createWorld(canvas, sprites) {
   city.add(homeHouse);
   // Small roof sign — not a floating cyan flood in front of the door.
   addNeon("HOME", "#f0c430", gameToWorldX(HOME_X), 9.85, -1.05, true, { w: 2.8, h: 0.55 });
-  addNeon("PLUG", "#e21b7a", gameToWorldX(PLUG_X), 2.55, 0.15, true);
+  // PLUG neon only after you text him — empty corner shouldn't advertise a ghost.
+  const plugNeon = addNeon("PLUG", "#e21b7a", gameToWorldX(PLUG_X), 2.55, 0.15, true);
+  plugNeon.sign.visible = false;
+  plugNeon.glow.visible = false;
   const caliX = gameToWorldX(HOME_X + 340);
   const caliPole = new THREE.Mesh(
     new THREE.CylinderGeometry(0.07, 0.09, 5.4, 6),
@@ -2305,19 +2319,19 @@ export async function createWorld(canvas, sprites) {
   const playerCar = makeBeaterCar();
   const carMarker = new THREE.Group();
   const markStem = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.05, 0.05, 0.55, 6),
+    new THREE.CylinderGeometry(0.04, 0.04, 0.36, 6),
     new THREE.MeshBasicMaterial({ color: 0x3de0ff }),
   );
-  markStem.position.y = 0.34;
+  markStem.position.y = 0.22;
   carMarker.add(markStem);
   const markHead = new THREE.Mesh(
-    new THREE.ConeGeometry(0.38, 0.62, 4),
+    new THREE.ConeGeometry(0.2, 0.34, 4),
     new THREE.MeshBasicMaterial({ color: 0x3de0ff }),
   );
   markHead.rotation.x = Math.PI;
-  markHead.position.y = -0.12;
+  markHead.position.y = -0.06;
   carMarker.add(markHead);
-  carMarker.scale.setScalar(1.55);
+  carMarker.scale.setScalar(0.95);
   scene.add(carMarker);
   scene.add(playerCar);
   const lightMeshes = [];
@@ -2350,11 +2364,11 @@ export async function createWorld(canvas, sprites) {
     scene.add(streak);
     speedStreaks.push(streak);
   }
-  const buyerGlow = glowSprite("#f0c430", 3.2);
+  const buyerGlow = glowSprite("#f0c430", 2.2);
   buyerGlow.visible = false;
   scene.add(buyerGlow);
   const buyerArrow = new THREE.Mesh(
-    new THREE.ConeGeometry(0.42, 0.95, 4),
+    new THREE.ConeGeometry(0.22, 0.48, 4),
     new THREE.MeshBasicMaterial({ color: 0xf0c430 }),
   );
   buyerArrow.rotation.z = Math.PI;
@@ -2536,9 +2550,15 @@ export async function createWorld(canvas, sprites) {
     amb.intensity = inCrib ? 1.25 : 0.48;
     amb.color.setHex(inCrib ? 0xffe6c8 : 0x1a1028);
     hemi.intensity = inCrib ? 0.9 : 0.38;
-    const camZ = ((portrait ? 15.8 : 14.2) + carCam * 0.55) * zoomMul;
+    // In the whip: a bit closer, but stay clear of near-curb bushes / hood clipping.
+    const zoomSafe = state.inCar ? Math.max(0.95, zoomMul) : zoomMul;
+    const camZ = state.inCar
+      ? ((portrait ? 14.0 : 13.2) + carCam * 0.35) * zoomSafe
+      : ((portrait ? 15.8 : 14.2) + carCam * 0.55) * zoomMul;
     // Keep on-foot cam lower so billboard soles don't read as floating above the curb.
-    const camY = ((portrait ? 2.55 : 2.78) + carCam * 0.28) * (0.92 + zoomMul * 0.08);
+    const camY = state.inCar
+      ? ((portrait ? 3.05 : 3.2) + carCam * 0.18) * (0.94 + zoomSafe * 0.05)
+      : ((portrait ? 2.55 : 2.78) + carCam * 0.28) * (0.92 + zoomMul * 0.08);
     // Hold camera lead on old facing through the whole turnaround — flip after.
     const turningNow = !state.inCar && (p.turnT || 0) > 0 && p.turnFrom != null;
     const wantFace = turningNow
@@ -2566,12 +2586,17 @@ export async function createWorld(canvas, sprites) {
       const hFov = 2 * Math.atan(Math.tan(vFov / 2) * Math.max(0.01, camera.aspect));
       const dist = Math.max(0.8, camZ - 2.15);
       const halfWorld = dist * Math.tan(hFov / 2);
-      const trail = state.inCar ? (portrait ? 0.34 : 0.38) : (portrait ? 0.42 : 0.44);
-      const leadWorld = Math.min(halfWorld * 0.72, (0.5 - trail) * 2 * halfWorld);
+      // In-car: always park the whip on the left third of the frame (camera sits
+      // to +X of the car). Look-ahead still follows facing so the road opens out.
+      const trail = state.inCar ? (portrait ? 0.28 : 0.30) : (portrait ? 0.42 : 0.44);
+      const leadWorld = Math.min(halfWorld * 0.75, (0.5 - trail) * 2 * halfWorld);
       // Continuous lookFace (−1…1) swings the lead smoothly instead of flipping at 0.
       const faceLead = lookFace;
-      const carW = nearestWorldX(px, camX);
-      let targetCam = wrap(carW + faceLead * leadWorld, STREET_LEN);
+      const focusX = state.inCar && state.car
+        ? nearestWorldX(state.car.x, camX)
+        : nearestWorldX(px, camX);
+      const frameLead = state.inCar ? 1 : faceLead;
+      let targetCam = wrap(focusX + frameLead * leadWorld, STREET_LEN);
       const err = wrapDelta(camX, targetCam, STREET_LEN);
       // Only hard-teleport on huge wraps (respawn); never on a normal turnaround (~2× lead).
       if (Math.abs(err) > halfWorld * 3.6) {
@@ -2580,13 +2605,13 @@ export async function createWorld(canvas, sprites) {
       } else if (dampDt > 0) {
         // Softer spring while face is still easing (~0.6–0.9s settle).
         const faceEase = Math.abs(wantFace - lookFace);
-        const freq = (state.inCar ? 1.15 : 1.55) * (faceEase > 0.08 ? 0.72 : 1);
+        const freq = (state.inCar ? 1.35 : 1.55) * (faceEase > 0.08 ? 0.72 : 1);
         const omega = 2 * Math.PI * freq;
         const accX = omega * omega * err - 2 * omega * camV;
         camV += accX * dampDt;
         camX = wrap(camX + camV * dampDt, STREET_LEN);
       }
-      const lookLeadWant = (state.inCar ? (portrait ? 0.85 : 1.45) : 0.35) * Math.max(0.15, Math.abs(faceLead));
+      const lookLeadWant = (state.inCar ? (portrait ? 1.35 : 2.1) : 0.35) * Math.max(0.15, Math.abs(faceLead));
       if (dampDt > 0) {
         const o2 = 2 * Math.PI * 1.6;
         const lErr = lookLeadWant - lookAim;
@@ -2594,9 +2619,16 @@ export async function createWorld(canvas, sprites) {
         lookAim += lookAimV * dampDt;
       }
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.12, camZ);
-      const lookY = state.inCar ? 1.22 : 0.92;
       const lookFaceSign = faceLead === 0 ? wantFace : Math.sign(faceLead);
-      tmp.set(camX + lookFaceSign * lookAim, lookY + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 1.65);
+      if (state.inCar && state.car) {
+        // Bias the look toward the whip's lane, but keep aiming into the street
+        // (looking straight at carZ clips the hood / near curb into the lens).
+        const carZ = 4.95 + (Number(state.car.lat) || 0);
+        const lookZ = 2.2 + (carZ - 2.2) * 0.38 + carCam * 0.85;
+        tmp.set(focusX + lookFaceSign * lookAim * 0.65, 1.2, lookZ);
+      } else {
+        tmp.set(camX + lookFaceSign * lookAim, 0.92 + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 1.65);
+      }
       camera.lookAt(tmp);
       camera.rotation.z += camTilt * 0.25;
     } else {
@@ -3038,7 +3070,9 @@ export async function createWorld(canvas, sprites) {
     }
     hideFrom(trafficPool, ti);
 
-    if (state.plugMeet && !state.order) {
+    // World pins stay off while driving — they were filling the windshield.
+    const showWorldPins = !state.inCar && !inCrib;
+    if (showWorldPins && state.plugMeet && !state.order) {
       destPin.visible = true;
       place(destPin, state.plugMeet.x, GROUND_Y, camX, 1.2);
       destPin.position.y = 2.85 + Math.sin(performance.now() * 0.01) * 0.18;
@@ -3046,9 +3080,11 @@ export async function createWorld(canvas, sprites) {
       destPin.visible = false;
     }
     if (state.order && (state.order.phase === "active" || state.order.phase === "nudge")) {
-      destPin.visible = true;
-      place(destPin, state.order.x, GROUND_Y, camX, 1.2);
-      destPin.position.y = 2.85 + Math.sin(performance.now() * 0.01) * 0.18;
+      if (showWorldPins) {
+        destPin.visible = true;
+        place(destPin, state.order.x, GROUND_Y, camX, 1.2);
+        destPin.position.y = 2.85 + Math.sin(performance.now() * 0.01) * 0.18;
+      }
       buyerSprite.visible = true;
       const look = Math.max(0, state.order.look | 0) % sprites.buyers.length;
       const buyerSet = sprites.buyers[look];
@@ -3061,12 +3097,12 @@ export async function createWorld(canvas, sprites) {
       orientBillboard(buyerSprite, camera);
       const pulse = 0.55 + Math.sin(performance.now() * 0.012) * 0.45;
       buyerSprite.material.color.setHex(pulse > 0.7 ? 0xfff2a8 : 0xffffff);
-      buyerGlow.visible = true;
+      buyerGlow.visible = showWorldPins;
       buyerGlow.position.set(buyerSprite.position.x, 1.4, 1.2);
-      buyerGlow.scale.setScalar(2.6 + pulse * 1.4);
-      buyerGlow.material.opacity = 0.45 + pulse * 0.4;
-      buyerArrow.visible = true;
-      buyerArrow.position.set(buyerSprite.position.x, 3.15 + Math.sin(performance.now() * 0.014) * 0.22, 1.2);
+      buyerGlow.scale.setScalar(2.0 + pulse * 1.0);
+      buyerGlow.material.opacity = 0.4 + pulse * 0.35;
+      buyerArrow.visible = showWorldPins;
+      buyerArrow.position.set(buyerSprite.position.x, 3.05 + Math.sin(performance.now() * 0.014) * 0.16, 1.2);
     } else {
       if (!state.plugMeet) destPin.visible = false;
       buyerSprite.visible = false;
@@ -3087,7 +3123,10 @@ export async function createWorld(canvas, sprites) {
     // Keep the STASH chip on the set-back crib facade, not mid-sidewalk.
     place(stashLabel, HOME_X, 154, camX, -1.05);
     stashLabel.position.y = 8.6;
-    if (state.plugMeet) {
+    const plugHere = !!state.plugMeet && !inCrib;
+    plugNeon.sign.visible = plugHere;
+    plugNeon.glow.visible = plugHere;
+    if (plugHere) {
       plugSprite.visible = true;
       const pset = sprites.plug || sprites.buyers[0];
       const pface = wrapDelta(plugX, px, WORLD) >= 0 ? 1 : -1;
@@ -3102,8 +3141,10 @@ export async function createWorld(canvas, sprites) {
       plugSprite.visible = false;
       plugGlow.visible = false;
     }
-    plugLabel.visible = !inCrib;
-    stashLabel.visible = !inCrib;
+    // Floating chips only in play — title flyover was eating a giant gold STASH slab.
+    const playWorld = state.mode === "play" || state.mode === "paused";
+    plugLabel.visible = playWorld && plugHere && !state.inCar;
+    stashLabel.visible = playWorld && !inCrib && !state.inCar;
     if (inCrib) {
       destPin.visible = false;
       buyerSprite.visible = false;
