@@ -1,6 +1,6 @@
 # q7m2x9k4
 
-Small browser game experiments. The root page is the arcade launcher.
+Small browser game experiments. The root page is the arcade launcher (2D / 2.5D picker on cold open).
 
 - [Launcher](./)
 - [Block Run](./block-run-2d/)

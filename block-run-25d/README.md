@@ -4,7 +4,7 @@ Night-street prototype at [`./block-run-25d/`](./). Gameplay modules here are sh
 
 Live: [https://maxrich25.github.io/q7m2x9k4/block-run-25d/?v=110&fresh=nuke&play=1](https://maxrich25.github.io/q7m2x9k4/block-run-25d/?v=110&fresh=nuke&play=1)
 
-Cold open (root + home-screen) lands on this **drone title**. Quiet **Play / More / Back** sit low so the flyover stays visible. Back → root `?menu=1` (2D / 2.5D). Versions Back returns here. Pause only has **TITLE**.
+Cold open (root + home-screen) lands on the **root 2D / 2.5D picker**. Opening **2.5D** hits this **drone title**. Quiet **Play / More / Back** sit low so the flyover stays visible. Back → root picker. Versions Back returns here. Pause only has **TITLE**.
 
 Home-screen freshness: `build.json` + network-first `sw.js`. Gold **v110**. Force-close home-screen once after merge. iOS still needs a tap for audio; page bg matches the night clear color to cut the black flash.
 
