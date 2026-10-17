@@ -15,8 +15,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=86";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=86";
+} from "./config.js?v=87";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=87";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -1787,7 +1787,8 @@ export function createGame() {
         car.parked = true;
         car.lat = parkLat(car.facing);
         const seq = ["D", "N", "R", "P"];
-        const u = 1 - car.shiftT / 0.95;
+        const climbT = 0.48; // ~half of the old 0.95s — still readable, not sluggish
+        const u = 1 - car.shiftT / climbT;
         car.gear = seq[Math.min(seq.length - 1, Math.floor(u * seq.length))];
         car.shiftPreview = car.gear;
         gas = false;
@@ -1796,7 +1797,7 @@ export function createGame() {
           car.gear = "P";
           car.shiftPreview = null;
           car.autoBrake = false;
-          car.parkHold = 0.4;
+          car.parkHold = 0.35;
           pop(car.x, 150, "PARKED");
         }
       } else if ((car.pullOverT || 0) > 0) {
@@ -1827,7 +1828,7 @@ export function createGame() {
           if (intoCurb) {
             car.vx = 0;
             car.parked = true;
-            car.shiftT = 0.95;
+            car.shiftT = 0.48;
             car.autoBrake = true;
             car.gear = "D";
           } else {

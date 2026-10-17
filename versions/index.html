@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>BLOCK RUN — Versions</title>
+  <title>BLOCK RUN 2.5D — Versions</title>
   <meta name="theme-color" content="#07060c" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <style>
@@ -14,7 +14,6 @@
       --gold: #f0c430;
       --cream: #f4f0e8;
       --muted: #8a8696;
-      --mint: #5ad89a;
     }
     * { box-sizing: border-box; }
     html, body {
@@ -46,7 +45,6 @@
       border: 2px solid #3a3644; background: #121018; padding: 10px 12px;
     }
     .nav a:hover { border-color: var(--cyan); color: var(--cyan); }
-    .nav a.on { border-color: var(--gold); color: var(--gold); }
     #list { display: flex; flex-direction: column; gap: 10px; }
     a.ver {
       display: block; text-decoration: none; color: var(--cream);
@@ -57,14 +55,10 @@
       box-shadow: 0 0 16px rgba(240, 196, 48, 0.22);
       outline: none;
     }
-    a.ver.shoot { border-color: #5a3040; }
-    a.ver.deal { border-color: #2a4a3a; }
     a.ver .meta {
       display: flex; justify-content: space-between; gap: 10px;
       font-size: 8px; color: var(--cyan); margin-bottom: 8px;
     }
-    a.ver.shoot .meta { color: var(--pink); }
-    a.ver.deal .meta { color: var(--mint); }
     a.ver .note { font-size: 8px; line-height: 1.55; color: var(--cream); }
     .empty { color: var(--muted); font-size: 8px; }
   </style>
@@ -72,97 +66,27 @@
 <body>
   <main>
     <p class="tag">TIME CAPSULE</p>
-    <h1>BLOCK RUN<br><span>VERSIONS</span></h1>
-    <p class="sub" id="blurb">Play past builds. Shoot = fire/dumpster era. Deal = combat off.</p>
+    <h1>BLOCK RUN<br><span>2.5D</span></h1>
+    <p class="sub">Older 2.5D night-street batches only. 2D carts live under the root menu.</p>
     <div class="nav">
       <a href="../">◀ MENU</a>
-      <a id="nav-all" href="./">ALL</a>
-      <a id="nav-shoot" href="./?mode=shoot">SHOOT</a>
-      <a id="nav-deal" href="./?mode=deal">DEAL</a>
-      <a id="nav-25d" href="./?mode=25d">2.5D</a>
-      <a href="../block-run-25d/?v=86&fresh=clear">LATEST 2.5D</a>
+      <a href="../block-run-25d/?v=87&fresh=clear">LATEST 2.5D</a>
     </div>
     <div id="list"><p class="empty">Loading…</p></div>
   </main>
   <script type="module">
-    const params = new URLSearchParams(location.search);
-    const mode = (params.get("mode") || "all").toLowerCase();
     const list = document.getElementById("list");
-    const blurb = document.getElementById("blurb");
-    const nav = { all: "nav-all", shoot: "nav-shoot", deal: "nav-deal", "25d": "nav-25d" };
-    Object.entries(nav).forEach(([key, id]) => {
-      document.getElementById(id)?.classList.toggle("on", key === mode);
-    });
-
-    // Early snapshots (pr ≤ 17) shipped fire/dumpster gameplay.
-    // pr ≥ 18 set COMBAT = false for the dealing loop.
-    function bucket(pr) {
-      return pr <= 17 ? "shoot" : "deal";
-    }
-
-    const extras = {
-      shoot: [
-        {
-          href: "../block-run/legacy/",
-          metaL: "CLASSIC",
-          metaR: "LEGACY",
-          note: "Original 2D shooter (packs, dumpster, guns)",
-          cls: "shoot",
-        },
-      ],
-      deal: [
-        {
-          href: "../block-run-2d/?v=19&fresh=clear",
-          metaL: "2D DEALS",
-          metaR: "LATEST",
-          note: "Current non-shooting 2D cart (jump back to latest)",
-          cls: "deal",
-        },
-      ],
-    };
-
-    const blurbs = {
-      all: "Every frozen 2.5D batch, plus classic entries when filtered.",
-      shoot: "Classic shooter + early fire/dumpster night-street snapshots (pr-8…17).",
-      deal: "Combat-off dealing builds (pr-18+) and the current 2D deals cart.",
-      "25d": "All archived 2.5D batches (shoot and deal eras).",
-    };
-    blurb.textContent = blurbs[mode] || blurbs.all;
-
     try {
       const res = await fetch("./manifest.json", { cache: "no-store" });
       const data = await res.json();
       const versions = data.versions || [];
-      const rows = [];
-
-      if (mode === "shoot" || mode === "all") {
-        for (const ex of extras.shoot || []) rows.push(ex);
-      }
-      if (mode === "deal") {
-        for (const ex of extras.deal || []) rows.push(ex);
-      }
-
-      for (const v of versions) {
-        const b = bucket(v.pr);
-        if (mode === "shoot" && b !== "shoot") continue;
-        if (mode === "deal" && b !== "deal") continue;
-        // mode all / 25d: include every archive
-        rows.push({
-          href: `./${v.path}`,
-          metaL: `PR #${v.pr}`,
-          metaR: v.date,
-          note: `${b === "shoot" ? "[SHOOT] " : "[DEAL] "}${v.note}`,
-          cls: b,
-        });
-      }
-
-      if (!rows.length) {
-        list.innerHTML = '<p class="empty">No snapshots in this filter.</p>';
+      if (!versions.length) {
+        list.innerHTML = '<p class="empty">No snapshots yet.</p>';
       } else {
-        list.innerHTML = rows.map((r) => `
-          <a class="ver ${r.cls || ""}" href="${r.href}">
-            <div class="meta"><span>${r.metaL}</span><span>${r.metaR}</span></div>
-            <div class="note">${r.note}</div>
+        list.innerHTML = versions.map((v) => `
+          <a class="ver" href="./${v.path}">
+            <div class="meta"><span>PR #${v.pr}</span><span>${v.date}</span></div>
+            <div class="note">${v.note}</div>
           </a>
         `).join("");
       }
