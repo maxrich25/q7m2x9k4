@@ -15,10 +15,10 @@
   <link rel="icon" type="image/svg+xml" href="./block-run/favicon.svg?v=9" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <!-- Cold open → 2.5D drone title. ?menu=1 keeps this 2D / 2.5D picker. -->
+  <!-- Cold open + home-screen land on this 2D / 2.5D picker (no bounce into 2.5D). -->
   <script>
     (function () {
-      var BUILD = "110";
+      var BUILD = "111";
       try {
         var prev = localStorage.getItem("br_build");
         if (prev !== BUILD) {
@@ -33,9 +33,6 @@
           }
         }
       } catch (e) {}
-      var params = new URLSearchParams(location.search);
-      if (params.has("menu")) return;
-      location.replace("./block-run-25d/?v=110&fresh=nuke&play=1");
     })();
   </script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
@@ -89,8 +86,16 @@
     .pick.line strong { color: var(--cyan); }
     .pick.shoot strong { color: var(--pink); }
     .pick.safe strong { color: var(--mint); }
+    .pick.start strong { color: var(--gold); }
     .pick.back strong { color: #8a8696; }
+    .pick.empty {
+      cursor: default;
+      opacity: 0.72;
+      border-style: dashed;
+    }
+    .pick.empty strong { color: #8a8696; }
     .pick:hover, .pick:focus-visible { border-color: var(--gold); outline: none; }
+    .pick.empty:hover, .pick.empty:focus-visible { border-color: #3a3644; }
     footer {
       margin-top: 26px;
       font-size: 7px;
@@ -105,7 +110,7 @@
     <h1>BLOCK<br><span>RUN</span></h1>
     <p class="cali">CALI</p>
     <div class="picks" id="menu-line">
-      <button type="button" class="pick line" data-go="2d-mode">
+      <button type="button" class="pick line" data-go="2d">
         <strong>2D</strong>
         <em>ON-FOOT BLOCK</em>
       </button>
@@ -114,42 +119,56 @@
         <em>NIGHT STREET TITLE</em>
       </a>
     </div>
-    <div class="picks" id="menu-2d-mode" style="display:none">
-      <button type="button" class="pick shoot" data-go="2d-shoot-ver">
-        <strong>2D SHOOTING</strong>
-        <em>CLASSIC PACKS + GUNS</em>
-      </button>
-      <button type="button" class="pick safe" data-go="2d-safe-ver">
-        <strong>2D NON-SHOOTING</strong>
-        <em>DRIVE DEALS ON THE BLOCK</em>
+    <div class="picks" id="menu-2d" style="display:none">
+      <a class="pick start" href="./block-run-2d/?v=19&fresh=clear">
+        <strong>START</strong>
+        <em>LATEST 2D NON-SHOOTING</em>
+      </a>
+      <button type="button" class="pick more" data-go="2d-more">
+        <strong>MORE</strong>
+        <em>SHOOTING / NON-SHOOTING</em>
       </button>
       <button type="button" class="pick back" data-go="line">
         <strong>BACK</strong>
         <em>MAIN MENU</em>
       </button>
     </div>
+    <div class="picks" id="menu-2d-more" style="display:none">
+      <button type="button" class="pick shoot" data-go="2d-shoot-ver">
+        <strong>2D SHOOTING</strong>
+        <em>CLASSIC PACKS + GUNS</em>
+      </button>
+      <button type="button" class="pick safe" data-go="2d-safe-ver">
+        <strong>2D NON-SHOOTING</strong>
+        <em>ARCHIVE — EMPTY FOR NOW</em>
+      </button>
+      <button type="button" class="pick back" data-go="2d">
+        <strong>BACK</strong>
+        <em>2D</em>
+      </button>
+    </div>
     <div class="picks" id="menu-2d-shoot-ver" style="display:none">
       <a class="pick latest shoot" href="./block-run/?v=58&fresh=clear">
-        <strong>PLAY 2D SHOOTING</strong>
-        <em>CLASSIC SHOOTER</em>
+        <strong>PLAY</strong>
+        <em>LATEST 2D SHOOTING</em>
       </a>
       <a class="pick more" href="./block-run/legacy/">
         <strong>MORE</strong>
-        <em>OLDER CLASSIC 2D BUILD</em>
+        <em>OLDER CLASSIC 2D BUILDS</em>
       </a>
-      <button type="button" class="pick back" data-go="2d-mode">
+      <button type="button" class="pick back" data-go="2d-more">
         <strong>BACK</strong>
-        <em>2D MODE</em>
+        <em>2D MORE</em>
       </button>
     </div>
     <div class="picks" id="menu-2d-safe-ver" style="display:none">
-      <a class="pick latest" href="./block-run-2d/?v=19&fresh=clear">
-        <strong>PLAY 2D NON-SHOOTING</strong>
-        <em>CURRENT 2D DEALS</em>
-      </a>
-      <button type="button" class="pick back" data-go="2d-mode">
+      <div class="pick empty" aria-disabled="true">
+        <strong>EMPTY</strong>
+        <em>NO OLDER NON-SHOOTING BUILDS YET — USE START</em>
+      </div>
+      <button type="button" class="pick back" data-go="2d-more">
         <strong>BACK</strong>
-        <em>2D MODE</em>
+        <em>2D MORE</em>
       </button>
     </div>
     <footer id="menu-foot">PICK A CART</footer>
@@ -157,27 +176,34 @@
   <script>
     const panels = {
       line: document.getElementById("menu-line"),
-      "2d-mode": document.getElementById("menu-2d-mode"),
+      "2d": document.getElementById("menu-2d"),
+      "2d-more": document.getElementById("menu-2d-more"),
       "2d-shoot-ver": document.getElementById("menu-2d-shoot-ver"),
       "2d-safe-ver": document.getElementById("menu-2d-safe-ver"),
     };
     const foot = document.getElementById("menu-foot");
     const feet = {
       line: "PICK A CART",
-      "2d-mode": "2D SHOOTING OR NON-SHOOTING",
+      "2d": "START = LATEST NON-SHOOTING",
+      "2d-more": "2D SHOOTING OR NON-SHOOTING",
       "2d-shoot-ver": "2D SHOOTING",
-      "2d-safe-ver": "2D NON-SHOOTING",
+      "2d-safe-ver": "2D NON-SHOOTING ARCHIVE",
     };
     function show(id) {
       Object.entries(panels).forEach(([key, el]) => {
         el.style.display = key === id ? "" : "none";
       });
       foot.textContent = feet[id] || "PICK A CART";
+      try {
+        history.replaceState(null, "", id === "line" ? "./" : "./?menu=" + encodeURIComponent(id));
+      } catch (e) {}
     }
     document.querySelectorAll("[data-go]").forEach((btn) => {
       btn.addEventListener("click", () => show(btn.dataset.go));
     });
-    show("line");
+    const params = new URLSearchParams(location.search);
+    const deep = params.get("menu");
+    show(deep && panels[deep] ? deep : "line");
   </script>
 </body>
 </html>
