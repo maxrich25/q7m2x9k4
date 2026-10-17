@@ -1,8 +1,8 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=98";
-import { paintClassicHero } from "./paint.js?v=98";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=99";
+import { paintClassicHero } from "./paint.js?v=99";
 
 export function createHud(opts = {}) {
-  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v98";
+  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v99";
   const cashEl = document.getElementById("hud-cash");
   const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
@@ -548,6 +548,9 @@ export function createHud(opts = {}) {
     overlay.classList.toggle("hidden", !show);
     overlay.classList.toggle("pause-mode", state.mode === "paused");
     overlay.classList.toggle("title-mode", state.mode === "title");
+    // Title flyover: no control pad — Play/More/Back only.
+    document.getElementById("pad")?.classList.toggle("title-hide", state.mode === "title");
+    document.body.classList.toggle("title-open", state.mode === "title");
     // Title: drone flyover + Play / More / Back (no TAP TO START).
     cartPicks?.classList.toggle("hidden", state.mode !== "title");
     pauseActions?.classList.toggle("hidden", state.mode !== "paused");

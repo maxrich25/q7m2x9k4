@@ -4,9 +4,9 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=98";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=98";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=98";
+} from "./config.js?v=99";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=99";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=99";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -1132,7 +1132,7 @@ function makeLamp() {
   g.add(head);
   const glow = new THREE.Sprite(lampGlowMat);
   glow.name = "lampGlow";
-  glow.scale.set(1.8, 1.8, 1);
+  glow.scale.set(2.8, 2.8, 1);
   glow.position.set(0.12, 3.15, 0.1);
   g.add(glow);
   return g;
@@ -1803,9 +1803,13 @@ export function createWorld(canvas, sprites) {
     city.add(glow);
     if (lit) {
       const hex = color === "#3de0ff" ? 0x3de0ff : color === "#f0c430" ? 0xf0c430 : 0xe21b7a;
-      const light = new THREE.PointLight(hex, 2.2, 9, 2);
+      const light = new THREE.PointLight(hex, 2.8, 12, 1.7);
       light.position.set(x, y, z + 0.6);
       city.add(light);
+      // Soft facade spill so neon paints the sidewalk a bit.
+      const spill = new THREE.PointLight(hex, 0.55, 8, 2.2);
+      spill.position.set(x, Math.max(0.8, y - 1.2), z + 1.8);
+      city.add(spill);
     }
   }
 
@@ -1943,14 +1947,40 @@ export function createWorld(canvas, sprites) {
       palm.scale.setScalar(1.28 + (px % 3) * 0.04);
       city.add(palm);
     }
-    const lamp = makeLamp();
-    lamp.position.set(16 + xOff, 0, -0.2);
-    city.add(lamp);
-    if (lit || (Math.round(xOff / BLOCK_LEN) % 3 === 0)) {
-      const pl = new THREE.PointLight(0xf0c430, 0.85, 7, 2);
-      pl.position.set(16 + xOff + 0.12, 3.1, 0.4);
-      pl.userData.streetLamp = true;
-      city.add(pl);
+    // Far-curb + near-curb street lamps — warm pools on both sidewalks.
+    const lampFar = makeLamp();
+    lampFar.position.set(16 + xOff, 0, 0.35);
+    city.add(lampFar);
+    const lampNear = makeLamp();
+    lampNear.position.set(8 + xOff, 0, 12.6);
+    lampNear.scale.setScalar(0.92);
+    city.add(lampNear);
+    const lampNear2 = makeLamp();
+    lampNear2.position.set(24 + xOff, 0, 12.7);
+    lampNear2.scale.setScalar(0.92);
+    city.add(lampNear2);
+    {
+      const plFar = new THREE.PointLight(0xf0c430, 1.8, 18, 1.45);
+      plFar.position.set(16 + xOff + 0.12, 3.15, 1.1);
+      plFar.userData.streetLamp = true;
+      plFar.userData.lampBase = 1.8;
+      city.add(plFar);
+      const plNear = new THREE.PointLight(0xf0c430, 1.5, 14, 1.55);
+      plNear.position.set(8 + xOff + 0.12, 3.0, 12.9);
+      plNear.userData.streetLamp = true;
+      plNear.userData.lampBase = 1.5;
+      city.add(plNear);
+      const plNear2 = new THREE.PointLight(0xf0c430, 1.5, 14, 1.55);
+      plNear2.position.set(24 + xOff + 0.12, 3.0, 13.0);
+      plNear2.userData.streetLamp = true;
+      plNear2.userData.lampBase = 1.5;
+      city.add(plNear2);
+    }
+    // Warm spill from lit windows onto the far sidewalk.
+    if (lit || (Math.round(xOff / BLOCK_LEN) % 2 === 0)) {
+      const winSpill = new THREE.PointLight(0xffe08a, 0.7, 10, 1.9);
+      winSpill.position.set(12 + xOff, 2.4, 1.6);
+      city.add(winSpill);
     }
   }
   const blockCount = Math.round(STREET_LEN / BLOCK_LEN);
@@ -2188,6 +2218,7 @@ export function createWorld(canvas, sprites) {
   scene.add(plugGlow);
   let buyerT = 0;
   let lookFace = 1;
+  let carCamNow = 0;
   let camV = 0;
   let lookAim = 0;
   let lookAimV = 0;
@@ -2316,9 +2347,16 @@ export function createWorld(canvas, sprites) {
     const portrait = camera.aspect < 1;
     const boardDur = BOARD_T;
     const boardU = 1 - Math.max(0, Math.min(1, (state.boardT || 0) / boardDur));
-    // Ease camera into the car — linear boardU reads snappy/bumpy on enter.
-    const carCamLin = state.inCar ? boardU : (1 - boardU);
-    const carCam = carCamLin * carCamLin * (3 - 2 * carCamLin);
+    // Board pose stays on boardU; camera eases separately so enter/exit never snaps.
+    const carCamWant = state.inCar
+      ? (boardU * boardU * (3 - 2 * boardU))
+      : ((1 - boardU) * (1 - boardU) * (3 - 2 * (1 - boardU)));
+    if (stepDt > 0) {
+      carCamNow += (carCamWant - carCamNow) * (1 - Math.exp(-stepDt / 0.42));
+    } else {
+      carCamNow += (carCamWant - carCamNow) * 0.2;
+    }
+    const carCam = carCamNow;
     const wantZoom = Math.max(CAM_ZOOM_MIN, Math.min(CAM_ZOOM_MAX, Number(state.camZoom) || CAM_ZOOM_MED));
     const zoomFollow = Math.min(1, stepDt * 18);
     zoomMulNow += (wantZoom - zoomMulNow) * (zoomFollow || 1);
@@ -2330,12 +2368,15 @@ export function createWorld(canvas, sprites) {
     amb.intensity = inCrib ? 1.25 : 0.55;
     amb.color.setHex(inCrib ? 0xffe6c8 : 0x2a1838);
     hemi.intensity = inCrib ? 0.9 : 0.55;
-    const camZ = ((portrait ? 15.8 : 14.2) + carCam * 0.7) * zoomMul;
+    const camZ = ((portrait ? 15.8 : 14.2) + carCam * 0.55) * zoomMul;
     // Keep on-foot cam lower so billboard soles don't read as floating above the curb.
-    const camY = ((portrait ? 2.55 : 2.78) + carCam * 0.35) * (0.92 + zoomMul * 0.08);
-    // Ease follow-side after a turnaround (~0.75s), frame-rate independent — never snap.
-    const wantFace = p.facing < 0 ? -1 : 1;
-    const LOOK_FACE_T = 0.75;
+    const camY = ((portrait ? 2.55 : 2.78) + carCam * 0.28) * (0.92 + zoomMul * 0.08);
+    // Hold camera lead on old facing through the whole turnaround — flip after.
+    const turningNow = !state.inCar && (p.turnT || 0) > 0 && p.turnFrom != null;
+    const wantFace = turningNow
+      ? (p.turnFrom < 0 ? -1 : 1)
+      : (p.facing < 0 ? -1 : 1);
+    const LOOK_FACE_T = turningNow ? 1.15 : 0.95;
     if (stepDt > 0) {
       lookFace += (wantFace - lookFace) * (1 - Math.exp(-stepDt / LOOK_FACE_T));
     }
@@ -2387,7 +2428,7 @@ export function createWorld(canvas, sprites) {
       camera.position.set(camX, camY + gameToWorldY(p.y) * 0.12, camZ);
       const lookY = state.inCar ? 1.22 : 0.92;
       const lookFaceSign = faceLead === 0 ? wantFace : Math.sign(faceLead);
-      tmp.set(camX + lookFaceSign * lookAim, lookY + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 2.15);
+      tmp.set(camX + lookFaceSign * lookAim, lookY + gameToWorldY(p.y) * 0.18, 2.15 + carCam * 1.65);
       camera.lookAt(tmp);
       camera.rotation.z += camTilt * 0.25;
     } else {
@@ -2495,8 +2536,11 @@ export function createWorld(canvas, sprites) {
       winMatFar.map = litWin ? WIN_LIT : WIN_DIM;
       if (homePane) homePane.material.color.setHex(litWin ? 0xf0c430 : 0x1a1424);
       lampHeadMat.color.setHex(skyInfo.lamps > 0.35 ? 0xf0c430 : 0x2a2430);
-      lampGlowMat.opacity = skyInfo.lamps > 0.35 ? 0.2 + skyInfo.lamps * 0.7 : 0;
-      for (const pl of lampLights) pl.intensity = skyInfo.lamps > 0.35 ? 0.35 + skyInfo.lamps * 0.7 : 0;
+      lampGlowMat.opacity = skyInfo.lamps > 0.35 ? 0.35 + skyInfo.lamps * 0.65 : 0;
+      for (const pl of lampLights) {
+        const base = pl.userData.lampBase || 1.2;
+        pl.intensity = skyInfo.lamps > 0.35 ? base * (0.55 + skyInfo.lamps * 0.7) : 0;
+      }
       skyline.material.color.setHex(skyInfo.windows > 0.4 ? 0xffffff : 0x8aa4bc);
       skyline.material.opacity = skyInfo.windows > 0.4 ? 1 : 0.78;
     }
@@ -2546,11 +2590,8 @@ export function createWorld(canvas, sprites) {
       : running ? nWalk
       : walking ? nWalk
       : 3;
-    // Hold old facing most of the turn, flip once near the end (avoids mid-stride stutter).
-    const turnU = turning && (p.turnT || 0) > 0
-      ? 1 - Math.min(1, (p.turnT || 0) / 0.52)
-      : 1;
-    const sprFace = turning && p.turnFrom != null && turnU < 0.82
+    // Hold old facing for the entire turn — flip only after turnT hits 0.
+    const sprFace = turning && p.turnFrom != null
       ? (p.turnFrom < 0 ? -1 : 1)
       : (p.facing < 0 ? -1 : 1);
     const carZ = 4.95 + (state.car?.lat || 0);

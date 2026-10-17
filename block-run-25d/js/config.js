@@ -24,7 +24,7 @@ export const PARK_LAT_FAR = -1.0;
 /** Pull-over / pull-out clip length, seconds. Soft nose arc + lat ease. */
 export const PULL_OVER_T = 2.05;
 /** Door-open + walk-turn-sit clip length, seconds. */
-export const BOARD_T = 1.12;
+export const BOARD_T = 1.45;
 /** Seconds after EXIT before the player can enter the car again. */
 export const ENTER_LOCK = 1.05;
 /** Continuous camera zoom: close / mid / far multipliers on the base camZ. */

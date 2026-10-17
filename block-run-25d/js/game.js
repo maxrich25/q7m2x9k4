@@ -16,8 +16,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=98";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=98";
+} from "./config.js?v=99";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=99";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -2062,17 +2062,20 @@ export function createGame() {
         const want = input.moveX < 0 ? -1 : 1;
         if (want !== player.facing && !(player.turnT > 0)) {
           player.turnFrom = player.facing;
-          player.turnT = 0.52;
+          player.turnT = 0.58;
         }
-        if (!(player.turnT > 0.26)) player.facing = want;
       }
       {
         const wasTurning = (player.turnT || 0) > 0;
         player.turnT = Math.max(0, (player.turnT || 0) - dt);
-        // Plant stride when the turn ends so the first step out isn't mid-bob.
-        if (wasTurning && player.turnT <= 0 && Math.abs(input.moveX) > 0) {
-          const cycle = input.run ? 14 : 10;
-          player.stride = Math.round((player.stride || 0) / cycle) * cycle;
+        // Flip facing + plant stride only when the turn finishes (no mid-turn snap).
+        if (wasTurning && player.turnT <= 0) {
+          if (input.moveX !== 0) player.facing = input.moveX < 0 ? -1 : 1;
+          else if (player.turnFrom != null) player.facing = -(player.turnFrom < 0 ? -1 : 1);
+          if (Math.abs(input.moveX) > 0) {
+            const cycle = input.run ? 14 : 10;
+            player.stride = Math.round((player.stride || 0) / cycle) * cycle;
+          }
         }
       }
       player.vx = input.moveX * MOVE_SPEED * (input.run ? 1.55 : 1);
@@ -2089,16 +2092,19 @@ export function createGame() {
         const want = input.moveX < 0 ? -1 : 1;
         if (want !== player.facing && !(player.turnT > 0)) {
           player.turnFrom = player.facing;
-          player.turnT = 0.52;
+          player.turnT = 0.58;
         }
-        if (!(player.turnT > 0.26)) player.facing = want;
       }
       {
         const wasTurning = (player.turnT || 0) > 0;
         player.turnT = Math.max(0, (player.turnT || 0) - dt);
-        if (wasTurning && player.turnT <= 0 && Math.abs(input.moveX) > 0) {
-          const cycle = input.run ? 14 : 10;
-          player.stride = Math.round((player.stride || 0) / cycle) * cycle;
+        if (wasTurning && player.turnT <= 0) {
+          if (input.moveX !== 0) player.facing = input.moveX < 0 ? -1 : 1;
+          else if (player.turnFrom != null) player.facing = -(player.turnFrom < 0 ? -1 : 1);
+          if (Math.abs(input.moveX) > 0) {
+            const cycle = input.run ? 14 : 10;
+            player.stride = Math.round((player.stride || 0) / cycle) * cycle;
+          }
         }
       }
       player.vx = input.moveX * MOVE_SPEED * (input.run ? 1.85 : 1);
@@ -2907,7 +2913,7 @@ export function createGame() {
       const d = dir < 0 ? -1 : 1;
       if (d !== player.facing) {
         player.turnFrom = player.facing;
-        player.turnT = 0.52;
+        player.turnT = 0.58;
       }
       player.facing = d;
       if (inCar) {
