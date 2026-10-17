@@ -61,7 +61,14 @@ export const PACK_COST = 20;
 export const PACK_PAY = 46;
 export const PLUG_X = 1480;
 export const HOME_X = 240;
-export const PED_COUNT = 10;
+/** Pool size on the whole strip (far ones get pulled into camera view). */
+export const PED_COUNT = 18;
+/** Never let the sidewalk drop below this many walkers. */
+export const PED_MIN = 5;
+/** Aim for this many peds on-screen around the camera. */
+export const PED_NEAR_WANT = 5;
+/** Fallback densify half-width when the live frustum is unknown. */
+export const PED_NEAR_HALF = 90;
 /** On-foot personal space, game units. */
 export const PED_SPACE = 18;
 export const TRAFFIC_MAX = 7;

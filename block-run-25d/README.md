@@ -4,7 +4,9 @@ Night-street prototype at [`./block-run-25d/`](./). Gameplay modules here are sh
 
 Live: [https://maxrich25.github.io/q7m2x9k4/block-run-25d/](https://maxrich25.github.io/q7m2x9k4/block-run-25d/)
 
-The hero uses the painted views in `sprites/hero-*.png` (side, front, back, and both three-quarters), picked from where the camera is. Getting in opens the driver door, the left side, not the camera-side passenger door. Pull over only works while you are rolling in drive: the nose arcs toward the curb, then the stick scrolls D→N→R→P under brake. Hold brake to pick Drive, then release brake before it leaves the curb. Red lights stop the bumper on the line. In the car, B is U-turn (not Run). The two lanes are the same width, with a curb on each side. The corner of the screen says v87 when this build is the one running. Cache is v=87.
+Sidewalk densify keeps about six walkers near the camera (never fewer than five), so the curb does not look empty on a long strip.
+
+The hero uses the painted views in `sprites/hero-*.png` (side, front, back, and both three-quarters), picked from where the camera is. Getting in opens the driver door, the left side, not the camera-side passenger door. Pull over only works while you are rolling in drive: the nose arcs toward the curb, then the stick scrolls D→N→R→P under brake. Hold brake to pick Drive, then release brake before it leaves the curb. Red lights stop the bumper on the line. In the car, B is U-turn (not Run). The two lanes are the same width, with a curb on each side. The corner of the screen says v89 when this build is the one running. Cache is v=89.
 
 ## Cache bust
 
