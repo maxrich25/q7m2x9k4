@@ -2,7 +2,7 @@ import {
   WORLD, GROUND_Y, MAX_HP, CAR_HP, COP_CAR_HP, CAR_ACCEL, CAR_MAX, CAR_FRICTION,
   CAR_CREEP, CAR_TURN_TIME, CAR_TURN_MAX, CAR_TURN_ARC, CAR_STOP, GEARS,
   GRAVITY, JUMP_VEL, COYOTE, JUMP_BUFFER, BUYER_COUNT,
-  MOVE_SPEED, TELEGRAPH, BOSS_CASH_BASE, BOSS_CASH_PER_WAVE, HI_KEY,
+  MOVE_SPEED, RUN_MULT, RUN_MULT_CRIB, TELEGRAPH, BOSS_CASH_BASE, BOSS_CASH_PER_WAVE, HI_KEY,
   SHOP_X, DUMPSTER_X, CAR_X, ORDER_SPOTS, WEAPONS, wrap, wrapDelta, hitWrap,
   formatDeal, dealFeet, COMBAT, START_CASH, PACK_COST, PACK_PAY,
   PLUG_X, HOME_X, PED_COUNT, PED_SPACE,
@@ -16,8 +16,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=110";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=110";
+} from "./config.js?v=111";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=111";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -605,16 +605,17 @@ export function createGame() {
       return false;
     }
     const destLat = restLat(-car.facing);
-    if (laneBusyNow(destLat, car.x, 128)) {
+    /* Only block when someone's actually in the turn pocket — not half a block away. */
+    if (laneBusyNow(destLat, car.x, 56)) {
       pop(car.x, 150, "WAIT");
       return false;
     }
     return requestTurn(-car.facing, { force: true });
   }
 
-  function laneBusyNow(lat, x, span = 72) {
+  function laneBusyNow(lat, x, span = 56) {
     for (const o of traffic) {
-      if (Math.abs((o.lat ?? restLat(o.facing)) - lat) < 1.8
+      if (Math.abs((o.lat ?? restLat(o.facing)) - lat) < 1.55
         && Math.abs(wrapDelta(x, o.x, WORLD)) < span) return true;
     }
     return false;
@@ -1442,7 +1443,7 @@ export function createGame() {
     }
     let spot = ORDER_SPOTS.find((s) => s.id === spotId);
     if (!spot) {
-      const minFar = WORLD * 0.28;
+      const minFar = WORLD * 0.34;
       const far = ORDER_SPOTS.filter((s) => Math.abs(wrapDelta(player.x, s.x, WORLD)) > minFar);
       const pool = far.length ? far : ORDER_SPOTS;
       pool.sort((a, b) => Math.abs(wrapDelta(player.x, b.x, WORLD)) - Math.abs(wrapDelta(player.x, a.x, WORLD)));
@@ -2216,7 +2217,7 @@ export function createGame() {
           }
         }
       }
-      player.vx = input.moveX * MOVE_SPEED * (input.run ? 1.55 : 1);
+      player.vx = input.moveX * MOVE_SPEED * (input.run ? RUN_MULT_CRIB : 1);
       cribX = Math.max(-3.55, Math.min(3.55, cribX + player.vx * dt * (STREET_LEN / WORLD)));
       player.y = GROUND_Y;
       player.vy = 0;
@@ -2245,7 +2246,7 @@ export function createGame() {
           }
         }
       }
-      player.vx = input.moveX * MOVE_SPEED * (input.run ? 1.85 : 1);
+      player.vx = input.moveX * MOVE_SPEED * (input.run ? RUN_MULT : 1);
       player.x = wrap(player.x + player.vx * dt, WORLD);
       separatePeople(player, peds);
 
