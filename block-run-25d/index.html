@@ -12,8 +12,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="BLOCK RUN" />
   <meta name="description" content="2.5D night-street prototype of BLOCK RUN. Hit the plug, serve from the curb, stash at home." />
-  <link rel="manifest" href="manifest.json?v=109" />
-  <link rel="apple-touch-icon" href="apple-touch-icon-v109.png" />
+  <link rel="manifest" href="manifest.json?v=110" />
+  <link rel="apple-touch-icon" href="apple-touch-icon-v110.png" />
   <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg" />
   <!--
     Home-screen / GH Pages stickiness: never trust this HTML's BUILD alone.
@@ -22,7 +22,7 @@
   -->
   <script>
     (function () {
-      var BUILD = "109";
+      var BUILD = "110";
       function go(v) {
         var u = new URL(location.href);
         u.searchParams.set("v", v);
@@ -68,7 +68,7 @@
   <!-- Cold open stays on this drone title. Root ?menu=1 is only for picking 2D. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <!-- Cache bust: GitHub Pages max-age=600. Bump ?v= here, on js/main.js, and every relative import in js/*.js (see README). -->
-  <link rel="stylesheet" href="style.css?v=109" />
+  <link rel="stylesheet" href="style.css?v=110" />
   <script type="importmap">
   {
     "imports": {
@@ -77,7 +77,7 @@
   }
   </script>
 </head>
-<body>
+<body style="background:#0c1428">
   <div id="app">
     <!-- HUD lives outside #view so a canvas/DPR scale never softens DOM text in iOS standalone. -->
     <div id="hud" aria-live="polite">
@@ -87,7 +87,7 @@
           <span id="hud-cash">$0130</span>
           <span id="hud-inv"><span class="g-grn">GRN 0</span> <span class="g-wht">WHT 0</span></span>
           <span id="hud-rep">REP 1</span>
-          <span id="hud-build">v109</span>
+          <span id="hud-build">v110</span>
         </div>
         <span id="hud-heat" class="hidden" title="heat"></span>
         <span id="hud-time" class="hud-sr">9:00 PM</span>
@@ -247,7 +247,7 @@
         <div id="overlay">
           <div id="overlay-card">
             <h1 id="overlay-title">BLOCK<br><span>RUN</span></h1>
-            <p id="overlay-sub">2.5D NIGHT BLOCK  v109</p>
+            <p id="overlay-sub">2.5D NIGHT BLOCK  v110</p>
             <div id="overlay-body"></div>
             <p id="overlay-hi"></p>
             <p id="overlay-prompt" class="blink hidden">TAP TO START</p>
@@ -322,11 +322,11 @@
   </div>
   <p id="status" class="sr-only">title</p>
   <script>
-    document.body.dataset.cartLabel = "2.5D NIGHT BLOCK  v109";
+    document.body.dataset.cartLabel = "2.5D NIGHT BLOCK  v110";
     document.getElementById("btn-title")?.addEventListener("click", () => {
       window.__br?.toTitle?.();
     });
   </script>
-  <script type="module" src="js/main.js?v=109"></script>
+  <script type="module" src="js/main.js?v=110"></script>
 </body>
 </html>

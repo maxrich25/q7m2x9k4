@@ -1,6 +1,13 @@
 {
   "versions": [
     {
+      "pr": 83,
+      "date": "2026-10-17",
+      "note": "v109: drive cam pull-back, pass merge, park-at-red, blink board",
+      "path": "v109/",
+      "sha": "c0d2d7e"
+    },
+    {
       "pr": 82,
       "date": "2026-10-17",
       "note": "v108: Bliss hill wall, far street, smooth cam, bigger pad",
