@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=105";
-import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=105";
-import { createInput } from "./input.js?v=105";
-import { createGame } from "./game.js?v=105";
-import { loadSprites } from "./sprites.js?v=105";
-import { createWorld } from "./world.js?v=105";
-import { createHud } from "./hud.js?v=105";
+import { TICK } from "./config.js?v=106";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=106";
+import { createInput } from "./input.js?v=106";
+import { createGame } from "./game.js?v=106";
+import { loadSprites } from "./sprites.js?v=106";
+import { createWorld } from "./world.js?v=106";
+import { createHud } from "./hud.js?v=106";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -73,7 +73,7 @@ let view = { camGameX: 80, halfWidth: 90 };
 try {
   if (document.fonts?.ready) await document.fonts.ready;
   const sprites = await loadSprites();
-  world = createWorld(canvas, sprites);
+  world = await createWorld(canvas, sprites);
 } catch (err) {
   const status = document.getElementById("status");
   if (status) status.textContent = String(err && err.message ? err.message : err);
