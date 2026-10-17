@@ -870,6 +870,11 @@ body.title-open #pad { display: none !important; }
   border-color: rgba(244, 240, 232, 0.42);
   box-shadow: none;
 }
+#pad-car .pad-brake.held {
+  color: #07060c;
+  background: var(--pink);
+  border-color: var(--cream);
+}
 .pad-jump { min-height: 82px; }
 .pad-fire {
   width: 86px;
