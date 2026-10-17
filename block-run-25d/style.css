@@ -596,7 +596,7 @@ html, body {
 #pause-actions #btn-sound { color: #07060c; background: var(--cyan); border-color: var(--cyan); }
 #pause-actions #btn-sound.off { color: var(--cream); background: #2a1824; border-color: var(--pink); }
 #pause-actions #btn-restart { color: var(--cyan); }
-#pause-actions #btn-mainmenu { color: var(--pink); }
+#pause-actions #btn-title { color: var(--pink); }
 #pause-actions #btn-versions { color: var(--gold); }
 #overlay-hi {
   color: var(--muted);
@@ -1332,11 +1332,15 @@ html, body {
   box-shadow: none;
 }
 .face-btn.off {
-  opacity: 0.28;
+  /* Dim only — never shrink. Empty labels keep the same box as EXIT/CRIB/CAR. */
+  opacity: 0.42;
   pointer-events: none;
   background: rgba(18, 16, 24, 0.32);
 }
-.face-btn.off span:empty { opacity: 0; }
+.face-btn.off span:empty {
+  opacity: 0;
+  min-height: 1em;
+}
 /* PHONE + RUN stay tappable with the soft frosted look. */
 .face-btn[data-role="quick-phone"],
 .face-btn[data-role="run"] {
@@ -1431,24 +1435,24 @@ html, body {
     position: absolute;
     inset: 0;
   }
-  /* ~10% taller action row; shared foot/drive right-cluster metrics. */
+  /* Shared foot/drive row — taller pedals, face cluster flush to shifter. */
   #pad.gb.sa #pad-foot {
     position: absolute;
-    left: calc(6px + var(--sal));
+    left: calc(4px + var(--sal));
     bottom: calc(8px + var(--sab));
-    width: min(48vw, 188px);
-    height: 124px;
+    width: min(54vw, 220px);
+    height: 140px;
     pointer-events: auto;
   }
   #pad.gb.sa #gb-dpad {
     gap: 6px;
-    height: 124px;
+    height: 140px;
   }
   #pad.gb.sa .gb-dir {
-    min-width: 72px;
-    min-height: 124px;
-    height: 124px;
-    font-size: 26px;
+    min-width: 78px;
+    min-height: 140px;
+    height: 140px;
+    font-size: 28px;
     opacity: 0.72;
     background: rgba(18, 16, 24, 0.34);
     -webkit-backdrop-filter: blur(10px) saturate(1.15);
@@ -1458,61 +1462,81 @@ html, body {
     color: #f4f0e8;
     box-shadow: none;
   }
-  /* Sit the face cluster next to the dpad (small gap), not stranded far-right. */
+  /* Face cluster flush to dpad/shifter; Start/Select trail after face. */
   #pad.gb.sa #gb-btns {
     position: absolute;
-    left: calc(6px + var(--sal) + min(48vw, 188px) + 6px);
-    right: calc(6px + var(--sar));
+    left: calc(4px + var(--sal) + min(54vw, 220px) + 2px);
+    right: calc(4px + var(--sar));
     bottom: calc(8px + var(--sab));
     width: auto;
-    height: 124px;
+    height: 140px;
     pointer-events: auto;
     flex-direction: row;
     align-items: stretch;
-    justify-content: flex-end;
-    gap: 6px;
+    justify-content: flex-start;
+    gap: 4px;
   }
   #pad.gb.sa #gb-ab { display: none; }
   #pad.gb.sa .face-grid {
-    width: 118px;
+    width: 132px;
     height: 100%;
     gap: 6px;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
   }
+  /* Fixed cells — lit/unlit never changes footprint. */
   #pad.gb.sa .face-btn {
-    height: auto;
+    height: 100%;
     min-height: 0;
-    flex: 1 1 auto;
+    width: 100%;
+    box-sizing: border-box;
   }
   #pad.gb.sa #gb-sys {
     width: 20px;
     height: 100%;
   }
   #pad.gb.sa .gb-sys.stack-letters i { font-size: 5px; }
-  /* Drive: left pedals only — right face/sys keep the exact same box as on foot. */
+  /* Drive: bigger BRAKE/GAS/P-R-N-D; face/sys keep the exact same box as on foot. */
   #pad.gb.sa.driving #pad-car {
     position: absolute;
-    left: calc(6px + var(--sal));
+    left: calc(4px + var(--sal));
     bottom: calc(8px + var(--sab));
-    width: min(48vw, 188px);
-    height: 124px;
-    grid-template-columns: 1fr 1fr 56px;
+    width: min(54vw, 220px);
+    height: 140px;
+    grid-template-columns: 1.35fr 1.2fr 70px;
     grid-template-areas: "brake gas shifter";
     pointer-events: auto;
     background: transparent;
-    gap: 6px;
+    gap: 5px;
   }
   #pad.gb.sa.driving .pad-brake { grid-area: brake; }
   #pad.gb.sa.driving #shifter { grid-area: shifter; }
   #pad.gb.sa.driving .pad-gas {
     grid-area: gas;
-    min-height: 124px;
-    height: 124px;
-    font-size: 10px;
+    min-height: 140px;
+    height: 140px;
+  }
+  #pad.gb.sa.driving .pad-pedal {
+    font-size: 9px;
+    letter-spacing: 0;
+    padding: 8px 2px;
+    line-height: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+  #pad.gb.sa.driving .pad-pedal.stack-letters i {
+    font-style: normal;
+    font-size: 11px;
+    line-height: 1.05;
+    display: block;
   }
   #pad.gb.sa.driving .pad-pedal,
   #pad.gb.sa.driving #shifter {
-    opacity: 0.78;
-    background: rgba(18, 16, 24, 0.38);
+    opacity: 0.82;
+    background: rgba(18, 16, 24, 0.42);
     -webkit-backdrop-filter: blur(10px) saturate(1.15);
     backdrop-filter: blur(10px) saturate(1.15);
     border: 2px solid rgba(244, 240, 232, 0.28);
@@ -1525,40 +1549,40 @@ html, body {
   #pad.gb.sa.driving #shift-track {
     height: 100%;
     min-height: 0;
-    padding: 2px 2px 3px 3px;
+    padding: 3px 3px 4px 4px;
   }
   #pad.gb.sa.driving .gear {
     min-height: 0;
-    padding: 1px 0;
-    font-size: 7px;
+    padding: 2px 0;
+    font-size: 10px;
     flex: 1 1 auto;
   }
   #pad.gb.sa.driving #shift-knob {
-    height: 8px;
+    height: 10px;
   }
   #pad.gb.sa.driving #gb-btns {
     display: flex;
     position: absolute;
-    left: calc(6px + var(--sal) + min(48vw, 188px) + 6px);
-    right: calc(6px + var(--sar));
+    left: calc(4px + var(--sal) + min(54vw, 220px) + 2px);
+    right: calc(4px + var(--sar));
     bottom: calc(8px + var(--sab));
     width: auto;
-    height: 124px;
+    height: 140px;
     pointer-events: auto;
     flex-direction: row;
     align-items: stretch;
-    justify-content: flex-end;
-    gap: 6px;
+    justify-content: flex-start;
+    gap: 4px;
   }
   #pad.gb.sa.driving .face-grid {
-    width: 118px;
+    width: 132px;
     height: 100%;
     gap: 6px;
   }
   #pad.gb.sa.driving .face-btn {
-    height: auto;
+    height: 100%;
     min-height: 0;
-    flex: 1 1 auto;
+    width: 100%;
   }
   #pad.gb.sa.driving #gb-sys {
     width: 20px;
@@ -1572,38 +1596,40 @@ html, body {
   #pad.gb.sa #gb-btns,
   #pad.gb.sa.driving #gb-btns,
   #pad.gb.sa.driving #pad-car {
-    height: 108px;
+    height: 120px;
     bottom: calc(6px + var(--sab));
   }
   #pad.gb.sa #pad-foot,
   #pad.gb.sa.driving #pad-car {
-    width: min(46vw, 168px);
+    width: min(52vw, 200px);
     left: calc(4px + var(--sal));
   }
-  #pad.gb.sa #gb-dpad { height: 108px; gap: 5px; }
+  #pad.gb.sa #gb-dpad { height: 120px; gap: 5px; }
   #pad.gb.sa .gb-dir {
-    min-width: 64px;
-    min-height: 108px;
-    height: 108px;
-    font-size: 22px;
+    min-width: 70px;
+    min-height: 120px;
+    height: 120px;
+    font-size: 24px;
     border-radius: 14px;
   }
   #pad.gb.sa #gb-btns,
   #pad.gb.sa.driving #gb-btns {
-    left: calc(4px + var(--sal) + min(46vw, 168px) + 8px);
+    left: calc(4px + var(--sal) + min(52vw, 200px) + 2px);
     right: calc(4px + var(--sar));
-    gap: 5px;
+    gap: 4px;
+    justify-content: flex-start;
   }
   #pad.gb.sa .face-grid,
-  #pad.gb.sa.driving .face-grid { width: 104px; gap: 5px; }
+  #pad.gb.sa.driving .face-grid { width: 118px; gap: 5px; }
   #pad.gb.sa #gb-sys,
   #pad.gb.sa.driving #gb-sys { width: 18px; }
   #pad.gb.sa.driving #pad-car {
-    grid-template-columns: 1fr 1fr 48px;
-    gap: 5px;
+    grid-template-columns: 1.1fr 1.1fr 64px;
+    gap: 4px;
   }
-  #pad.gb.sa.driving .pad-gas { min-height: 108px; height: 108px; font-size: 9px; }
+  #pad.gb.sa.driving .pad-gas { min-height: 120px; height: 120px; }
+  #pad.gb.sa.driving .pad-pedal { font-size: 11px; }
   #pad.gb.sa.driving #shifter { min-height: 0; height: 100%; max-height: 100%; }
-  #pad.gb.sa.driving .gear { font-size: 6px; padding: 0; }
+  #pad.gb.sa.driving .gear { font-size: 9px; padding: 1px 0; }
   #pad.gb.sa.driving .face-btn span { font-size: 7px; }
 }

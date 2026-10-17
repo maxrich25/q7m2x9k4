@@ -1,9 +1,9 @@
 import * as THREE from "three";
 import {
-  pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
+  pixelCanvas, derivePose, plantStride, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, WALK_CYCLE_POSES, RUN_CYCLE_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
-  paintClassicHeroSet, classicWithoutHat,
-} from "./paint.js?v=94";
+  STRIDE_POSES, paintClassicHeroSet, classicWithoutHat,
+} from "./paint.js?v=95";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -58,30 +58,29 @@ function texturizeSoft(source) {
 
 const HERO_VIEW_NAMES = ["side", "front34", "front", "back34", "back"];
 
-/** Soft bob / leg shift poses derived from the painted side still (not classic pixels). */
-const PAINTED_WALK_POSES = [
-  { legDx: 9, armDx: -5, bob: 0 },
-  { legDx: 5, armDx: -3, bob: 2 },
-  { legDx: 0, armDx: 0, bob: 0 },
-  { legDx: -5, armDx: 3, bob: 2 },
-  { legDx: -9, armDx: 5, bob: 0 },
-  { legDx: -5, armDx: 3, bob: 2 },
-  { legDx: 0, armDx: 0, bob: 0 },
-  { legDx: 5, armDx: -3, bob: 2 },
-];
-const PAINTED_RUN_POSES = [
-  { legDx: 11, armDx: -6, bob: 0 },
-  { legDx: 4, armDx: -3, bob: 2 },
-  { legDx: -4, armDx: 3, bob: 0 },
-  { legDx: -11, armDx: 6, bob: 2 },
-  { legDx: -4, armDx: 3, bob: 0 },
-  { legDx: 4, armDx: -3, bob: 2 },
+/** Planted left/right foot poses from the painted side still (scaled for tall hero art). */
+const PAINTED_WALK_STRIDES = STRIDE_POSES;
+const PAINTED_RUN_STRIDES = [
+  { leftDx: 8, leftDy: 0, rightDx: -6, rightDy: -3, bob: 0, arm: 5 },
+  { leftDx: 5, leftDy: 0, rightDx: -4, rightDy: -2, bob: 1, arm: 3 },
+  { leftDx: 0, leftDy: 0, rightDx: 0, rightDy: 0, bob: 0, arm: 0 },
+  { leftDx: -6, leftDy: -3, rightDx: 8, rightDy: 0, bob: 0, arm: -5 },
+  { leftDx: -4, leftDy: -2, rightDx: 5, rightDy: 0, bob: 1, arm: -3 },
+  { leftDx: 0, leftDy: 0, rightDx: 0, rightDy: 0, bob: 0, arm: 0 },
 ];
 
 function paintedLocoFromSide(sideImg, poses) {
   if (!sideImg) return [];
   const src = toCanvas(sideImg);
-  return poses.map((pose) => texturizeSoft(derivePose(src, pose)));
+  const scale = Math.max(1.2, (src.height || 40) / 40);
+  return poses.map((pose) => texturizeSoft(plantStride(src, {
+    leftDx: (pose.leftDx || 0) * scale * 0.9,
+    rightDx: (pose.rightDx || 0) * scale * 0.9,
+    leftDy: (pose.leftDy || 0) * scale,
+    rightDy: (pose.rightDy || 0) * scale,
+    bob: (pose.bob || 0) * scale,
+    arm: (pose.arm || 0) * scale * 0.75,
+  })));
 }
 
 async function loadHeroViews() {
@@ -96,8 +95,8 @@ async function loadHeroViews() {
     }
   }));
   if (!out.side || !out.front || !out.back) return null;
-  out.walk = paintedLocoFromSide(raw.side, PAINTED_WALK_POSES);
-  out.run = paintedLocoFromSide(raw.side, PAINTED_RUN_POSES);
+  out.walk = paintedLocoFromSide(raw.side, PAINTED_WALK_STRIDES);
+  out.run = paintedLocoFromSide(raw.side, PAINTED_RUN_STRIDES);
   return out;
 }
 
