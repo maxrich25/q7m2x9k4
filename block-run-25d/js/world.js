@@ -4,9 +4,9 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=103";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=103";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=103";
+} from "./config.js?v=104";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=104";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=104";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -54,10 +54,19 @@ function stuccoTex(color) {
   return canvasTex(64, 64, (g, w, h) => {
     g.fillStyle = color;
     g.fillRect(0, 0, w, h);
-    g.fillStyle = "rgba(0,0,0,0.12)";
-    for (let i = 0; i < 90; i++) g.fillRect((i * 13) % w, (i * 17) % h, 2, 2);
-    g.fillStyle = "rgba(255,255,255,0.07)";
-    for (let i = 0; i < 50; i++) g.fillRect((i * 19) % w, (i * 23) % h, 1, 1);
+    // Soft speckles only — avoid (i*a)% lattices that read as spiral stripes on boxes.
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const n = ((x * 73 + y * 31) ^ (x * 19 + y * 47)) & 255;
+        if (n > 228) {
+          g.fillStyle = "rgba(0,0,0,0.16)";
+          g.fillRect(x, y, 1, 1);
+        } else if (n < 22) {
+          g.fillStyle = "rgba(255,255,255,0.09)";
+          g.fillRect(x, y, 1, 1);
+        }
+      }
+    }
   });
 }
 
@@ -1489,8 +1498,16 @@ export function createWorld(canvas, sprites) {
     stencil: false,
     depth: true,
   });
-  // Cap DPR at 2 — 3x + lots of lights froze iPhone standalone.
-  renderer.setPixelRatio(Math.max(1, Math.min(2, window.devicePixelRatio || 1)));
+  // iPhone home-screen (standalone) + 3x DPR was freezing again after v103 scene cost.
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
+  const ios = /iPad|iPhone|iPod/.test(ua)
+    || (typeof navigator !== "undefined" && navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1);
+  const standalone = !!(typeof navigator !== "undefined" && (
+    navigator.standalone
+    || (typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)")?.matches)
+  ));
+  const dprCap = ios && standalone ? 1.25 : 2;
+  renderer.setPixelRatio(Math.max(1, Math.min(dprCap, window.devicePixelRatio || 1)));
   renderer.setClearColor(0x0c1428, 1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = false;
@@ -1686,9 +1703,11 @@ export function createWorld(canvas, sprites) {
   }
 
   const city = new THREE.Group();
+  // One shared asphalt map — recreating canvases per plane was spiking iPhone load.
+  const asphaltMap = asphaltTex();
   const asphalt = new THREE.Mesh(
     new THREE.PlaneGeometry(STREET_LEN + 4, 9.2),
-    new THREE.MeshLambertMaterial({ map: asphaltTex() }),
+    new THREE.MeshLambertMaterial({ map: asphaltMap }),
   );
   asphalt.rotation.x = -Math.PI / 2;
   asphalt.position.set(STREET_LEN / 2, 0, 7.55);
@@ -1704,15 +1723,21 @@ export function createWorld(canvas, sprites) {
   walk.material.map.repeat.set(160, 1);
   city.add(walk);
 
+  // Far-side yards stay dark green — don't fall back to a black slab behind the curb strip.
+  const grassBase = grassTex();
+  const grassYardMap = grassBase.clone();
+  grassYardMap.needsUpdate = true;
+  grassYardMap.repeat.set(40, 8);
   const lots = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 16.5),
-    new THREE.MeshLambertMaterial({ color: 0x1a1420 }),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 12.5),
+    new THREE.MeshLambertMaterial({ map: grassYardMap }),
   );
   lots.rotation.x = -Math.PI / 2;
-  lots.position.set(STREET_LEN / 2, 0.01, -6.4);
+  lots.position.set(STREET_LEN / 2, 0.01, -5.4);
   city.add(lots);
-  // Planting strip / dark green turf between facades and the player sidewalk.
-  const grassFarMap = grassTex();
+  // Planting strip between facades and the player sidewalk.
+  const grassFarMap = grassBase.clone();
+  grassFarMap.needsUpdate = true;
   grassFarMap.repeat.set(48, 2);
   const grassFar = new THREE.Mesh(
     new THREE.PlaneGeometry(STREET_LEN + 4, 2.8),
@@ -1723,7 +1748,7 @@ export function createWorld(canvas, sprites) {
   city.add(grassFar);
   const alley = new THREE.Mesh(
     new THREE.PlaneGeometry(STREET_LEN + 4, 1.1),
-    new THREE.MeshLambertMaterial({ color: 0x1a1820 }),
+    new THREE.MeshLambertMaterial({ color: 0x243828 }),
   );
   alley.rotation.x = -Math.PI / 2;
   alley.position.set(STREET_LEN / 2, 0.03, -1.85);
@@ -1758,7 +1783,8 @@ export function createWorld(canvas, sprites) {
   walkNear.position.set(STREET_LEN / 2, 0.04, 13.1);
   walkNear.material.map.repeat.set(160, 1);
   city.add(walkNear);
-  const grassNearMap = grassTex();
+  const grassNearMap = grassBase.clone();
+  grassNearMap.needsUpdate = true;
   grassNearMap.repeat.set(48, 3);
   const grassNear = new THREE.Mesh(
     new THREE.PlaneGeometry(STREET_LEN + 4, 2.8),
@@ -2072,11 +2098,15 @@ export function createWorld(canvas, sprites) {
   // Keep the box inside the lane asphalt — do not eat the far/near sidewalk curbs.
   const INTER_Z = 7.55;
   const INTER_DEPTH = 5.8;
-  const interMat = new THREE.MeshLambertMaterial({ map: asphaltTex() });
-  interMat.map.repeat.set(4, 3);
+  const interMap = asphaltMap.clone();
+  interMap.needsUpdate = true;
+  interMap.repeat.set(4, 3);
+  const interMat = new THREE.MeshLambertMaterial({ map: interMap });
   const stopMat = new THREE.MeshBasicMaterial({ color: 0xf4f0e8 });
-  const crossMat = new THREE.MeshLambertMaterial({ map: asphaltTex() });
-  crossMat.map.repeat.set(2, 6);
+  const crossMap = asphaltMap.clone();
+  crossMap.needsUpdate = true;
+  crossMap.repeat.set(2, 4);
+  const crossMat = new THREE.MeshLambertMaterial({ map: crossMap });
   for (let i = 0; i < blockCount; i++) {
     const x = i * BLOCK_LEN;
     const box = new THREE.Mesh(
@@ -2087,7 +2117,7 @@ export function createWorld(canvas, sprites) {
     city.add(box);
     // Visual cross-street stub (four-way read; freemove turns still later).
     const cross = new THREE.Mesh(
-      new THREE.BoxGeometry(INTER_METERS * 0.72, 0.045, 13.6),
+      new THREE.BoxGeometry(INTER_METERS * 0.72, 0.045, 11.2),
       crossMat,
     );
     cross.position.set(x, 0.055, INTER_Z);
@@ -2104,13 +2134,13 @@ export function createWorld(canvas, sprites) {
     const edgeNear = edgeFar.clone();
     edgeNear.position.z = INTER_Z + INTER_DEPTH / 2;
     city.add(edgeNear);
-    // Crosswalk bars on the near approach.
-    for (let k = 0; k < 5; k++) {
+    // Crosswalk bars on the near approach (keep light — iPhone cost).
+    for (let k = 0; k < 4; k++) {
       const bar = new THREE.Mesh(
-        new THREE.BoxGeometry(0.55, 0.055, 2.4),
+        new THREE.BoxGeometry(0.55, 0.055, 2.2),
         stopMat,
       );
-      bar.position.set(x - 1.4 + k * 0.7, 0.11, INTER_Z + INTER_DEPTH * 0.28);
+      bar.position.set(x - 1.1 + k * 0.75, 0.11, INTER_Z + INTER_DEPTH * 0.28);
       city.add(bar);
     }
   }
@@ -2119,7 +2149,10 @@ export function createWorld(canvas, sprites) {
     const g = new THREE.Group();
     const houseH = 9.4;
     const doorH = 2.85;
-    const face = stuccoTex("#7a6a58");
+    const face = stuccoTex("#8a7a62");
+    face.wrapS = THREE.RepeatWrapping;
+    face.wrapT = THREE.RepeatWrapping;
+    face.repeat.set(1.6, 2.4);
     const body = new THREE.Mesh(
       new THREE.BoxGeometry(5.2, houseH, 3.0),
       new THREE.MeshLambertMaterial({ map: face }),
@@ -2407,7 +2440,7 @@ export function createWorld(canvas, sprites) {
     const w = Math.max(1, parent.clientWidth || Math.round(vv?.width || window.innerWidth));
     const h = Math.max(1, parent.clientHeight || Math.round(vv?.height || window.innerHeight));
     // Cap at 2 — iPhone 3x + scene cost was freezing standalone after v101 lights.
-    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const dpr = Math.max(1, Math.min(dprCap, window.devicePixelRatio || 1));
     renderer.setPixelRatio(dpr);
     renderer.setSize(w, h, false);
     canvas.style.width = w + "px";
