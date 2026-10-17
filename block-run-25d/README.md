@@ -2,13 +2,15 @@
 
 Night-street prototype at [`./block-run-25d/`](./). Gameplay modules here are shared with classic [`../block-run/`](../block-run/) (2D renderer only).
 
-Live: [https://maxrich25.github.io/q7m2x9k4/block-run-25d/](https://maxrich25.github.io/q7m2x9k4/block-run-25d/)
+Live: [https://maxrich25.github.io/q7m2x9k4/block-run-25d/?v=97&fresh=nuke&play=1](https://maxrich25.github.io/q7m2x9k4/block-run-25d/?v=97&fresh=nuke&play=1)
 
 Cold open (root + home-screen) lands on this **drone title**. Quiet **Play / More / Back** sit low so the flyover stays visible. Back → root `?menu=1` (2D / 2.5D). Versions Back returns here. Pause only has **TITLE**.
 
+When the build number changes, the page nukes Cache Storage / service workers and reloads once. The HUD corner shows a gold **v97** badge — if you see an older number (or no badge), you’re on a stale home-screen / Safari cache. Use the live link above, or delete and re-add the home-screen icon.
+
 Sidewalk on both sides; bright near-camera grass/bushes under the see-through pad. Sidewalk peds stay sparse. Refs dump in [`../media/`](../media/).
 
-Hero stays on painted `sprites/hero-*.png` art. Walk/run soft-bob the side still (no left/right chop, no NES flicker). Getting in opens the driver door. Pull over only while rolling in drive. In the car, bottom-left is U-turn (on foot: RUN). Corner says v96. Cache is v=96.
+Hero stays on painted `sprites/hero-*.png` art. Walk/run soft-bob the side still (no left/right chop, no NES flicker). Getting in opens the driver door. Pull over only while rolling in drive. In the car, bottom-left is U-turn (on foot: RUN). Corner says v97. Cache is v=97.
 
 ## Cache bust
 
