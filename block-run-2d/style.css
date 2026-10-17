@@ -47,16 +47,19 @@ html, body {
 
 #chrome {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: auto;
+  bottom: calc(212px + 6px + var(--sab));
+  left: calc(6px + var(--sal));
+  right: auto;
   display: flex;
-  justify-content: flex-start;
-  align-items: flex-start;
-  gap: 8px;
-  padding: calc(4px + var(--sat)) calc(8px + var(--sar)) 2px calc(8px + var(--sal));
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+  gap: 6px;
+  padding: 0;
   z-index: 5;
   pointer-events: none;
+  width: 44px;
 }
 
 #btn-quit, #btn-mute {
@@ -65,23 +68,21 @@ html, body {
   font-size: 8px;
   color: var(--muted);
   text-decoration: none;
-  padding: 6px 8px;
-  background: rgba(18, 16, 24, 0.55);
+  padding: 6px 4px;
+  background: rgba(18, 16, 24, 0.72);
   border: 2px solid var(--line);
+  text-align: center;
 }
 
-/* QUIT stays left of the cash HUD; mute parks in the mid gap before GRN. */
-#btn-quit {
-  order: 1;
-  flex: 0 0 auto;
-}
+/* Stacked above the pad — clear of the NES HUD cash / grams row. */
+#btn-quit { order: 1; }
 #btn-mute.icon-btn {
   order: 2;
   position: relative;
-  width: 34px;
+  width: 100%;
   height: 30px;
   padding: 0;
-  margin-left: 12px;
+  margin: 0;
   display: grid;
   place-items: center;
   color: var(--gold);
@@ -126,6 +127,12 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+/* Match 2.5D: no controls on the title / PRESS START screen. */
+#pad.title-hide,
+body.title-open #pad { display: none !important; }
+body.title-open #chrome {
+  bottom: calc(10px + var(--sab));
 }
 #gb-grill {
   height: 14px;
@@ -329,5 +336,9 @@ html, body {
     max-height: none;
     border-top: 0;
     border-left: 4px solid var(--line);
+  }
+  #chrome {
+    bottom: calc(8px + var(--sab));
+    left: calc(8px + var(--sal));
   }
 }

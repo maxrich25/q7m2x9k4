@@ -1,16 +1,17 @@
 /* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
-const ASSET_V = "22";
-const BUILD_LABEL = "v22";
+const ASSET_V = "23";
+const BUILD_LABEL = "v23";
 /** Sidewalk belt only — no up/down depth walk this pass. */
 const SIDEWALK_Z = 0.28;
-const RUN_MULT = 1.55;
+const RUN_MULT = 2.45;
 const RIM_SET = "5spoke-option1-MAIN/silver";
 const RIM_DIST = 4.6;
-/** Parked nose sits just off the curb — soft lerp, no sidewalk snap. */
-const Z_CAR_PARK = 0.68;
+/** Parked nose on the curb band; drive in the lane — soft lerp between. */
+const Z_CAR_PARK = 0.58;
 const Z_CAR_DRIVE = 0.74;
 /** Classic car.png / rim sheets face LEFT; draw with this flip vs logical facing. */
 const CAR_ART_FACE = -1;
+const CAR_TURN_TIME = 1.0;
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v3";
 const HERO_SRC_W = 40;
@@ -49,7 +50,7 @@ const MAX_G = 56;
 const SALES = [20, 40, 60];
 const CAR_ACCEL = 140;
 const CAR_MAX = 120;
-const CAR_CREEP = 0; /* no ghost throttle in D/R */
+const CAR_CREEP = 22; /* auto creep in D/R when off the brake — like 2.5D / real life */
 const CAR_STOP = 8;
 const NAMES = ["DEZ", "MARI", "KILO", "NIA", "JUNO"];
 const MEETS = [
@@ -132,10 +133,14 @@ let art = null;
 let mode = "title";
 let ui = null;
 let player = { x: 70, z: 0.28, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
-let car = { x: 140, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0, street: "sunset" };
+let car = {
+  x: 140, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true,
+  pullOverT: 0, shiftHint: 0, street: "sunset", turnT: 0, turnFrom: 1, turnTo: -1,
+};
 let inCar = false;
 let cash = START_CASH;
 let grams = 0;
+let white = 0;
 let stash = 0;
 let rep = 0;
 let hi = 0;
@@ -365,7 +370,7 @@ function persist() {
   if (cash > hi) hi = cash;
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
-      cash, grams, stash, rep, hi, x: player.x, z: player.z, facing: player.facing,
+      cash, grams, white, stash, rep, hi, x: player.x, z: player.z, facing: player.facing,
       streetId, heading, carX: car.x, carZ: car.z, carFacing: car.facing, carStreet: car.street, order, inbox,
     }));
     hasSave = true;
@@ -394,22 +399,22 @@ function alongDist(a, b) {
 }
 function carComingNear(x) {
   const cars = [];
-  if (car.street === streetId) cars.push(car);
-  for (const t of traffic) cars.push(t);
+  if (car.street === streetId && !carIsParked() && Math.abs(car.vx) > 20) cars.push(car);
+  for (const t of traffic) {
+    if (Math.abs(t.vx) > 20) cars.push(t);
+  }
   for (const c of cars) {
     const d = wrapDelta(x, c.x, Math.max(1, WORLD));
-    const spd = Math.abs(c.vx);
-    if (spd > 8 && ((c.vx > 0 && d > 0 && d < 110) || (c.vx < 0 && d < 0 && d > -110))) return true;
-    if (spd > 4 && Math.abs(d) < 30) return true;
+    /* Only freeze when a car is actually bearing down on this ped. */
+    if ((c.vx > 0 && d > 0 && d < 90) || (c.vx < 0 && d < 0 && d > -90)) return true;
   }
   return false;
 }
 function carBlocksPed(x) {
-  /* Parked player whip is not a wall — only moving traffic slows peds. */
   for (const t of traffic) {
-    if (Math.abs(t.vx) > 8 && alongDist(t.x, x) < 40) return true;
+    if (Math.abs(t.vx) > 24 && alongDist(t.x, x) < 28) return true;
   }
-  if (car.street === streetId && !carIsParked() && Math.abs(car.vx) > 8 && alongDist(car.x, x) < 40) {
+  if (car.street === streetId && !carIsParked() && Math.abs(car.vx) > 24 && alongDist(car.x, x) < 28) {
     return true;
   }
   return false;
@@ -418,14 +423,14 @@ function updatePeds(dt) {
   for (const ped of peds) {
     ped.anim += dt;
     ped.z = SIDEWALK_Z;
-    /* Pass through each other + parked whip. Only yield to moving cars. */
     if (carComingNear(ped.x) || carBlocksPed(ped.x)) {
       ped.mode = "wait";
       continue;
     }
     ped.mode = "walk";
     ped.x = clampAlong(ped.x + ped.facing * ped.speed * dt);
-    if (Math.random() < 0.0012) ped.facing *= -1;
+    /* Rare turnarounds — constant flipping looked like a glitch. */
+    if (Math.random() < 0.00025) ped.facing *= -1;
   }
 }
 function carClearOf(x, ignore) {
@@ -442,33 +447,43 @@ function trafficDir() {
   return car.facing >= 0 ? 1 : -1;
 }
 function updateTraffic(dt) {
+  /* No clone whip while you're on foot / parked. */
+  if (!inCar || carIsParked() || car.gear === "P") {
+    traffic = [];
+    crossSpawnT = 10;
+    return;
+  }
   const dir = trafficDir();
-  for (const t of traffic) {
+  for (let i = traffic.length - 1; i >= 0; i--) {
+    const t = traffic[i];
     t.justTurned = Math.max(0, (t.justTurned || 0) - dt);
-    /* Keep them flowing with us; no reverse-runaway when boxed in. */
-    if (t.facing !== dir) {
-      t.facing = dir;
-      t.vx = Math.abs(t.vx) * dir || dir * 36;
-    }
-    const want = dir * Math.max(28, Math.min(52, Math.abs(t.cruise || t.vx) || 36));
-    t.vx += (want - t.vx) * Math.min(1, dt * 1.8);
+    const want = t.cruise || dir * 44;
+    t.facing = Math.sign(want) || dir;
+    t.vx += (want - t.vx) * Math.min(1, dt * 1.4);
     const nx = t.x + t.vx * dt;
     if (!carClearOf(nx, t)) {
+      /* Stuck on the player = despawn, don't camp as a parked clone. */
+      if (alongDist(t.x, car.x) < 160) {
+        traffic.splice(i, 1);
+        continue;
+      }
       t.vx *= Math.exp(-1.6 * dt);
       continue;
     }
     t.x = clampAlong(nx);
     t.odo = (t.odo || 0) + Math.abs(t.vx) * dt;
+    /* Drifted off-screen behind — recycle later. */
+    if (alongDist(t.x, car.x) > WORLD * 0.45) traffic.splice(i, 1);
   }
   if (traffic.length > 1) traffic.length = 1;
   crossSpawnT -= dt;
   if (crossSpawnT <= 0) {
-    crossSpawnT = 18 + Math.random() * 14;
-    if (traffic.length < 1 && inCar && !carIsParked()) {
-      /* Spawn well behind so they don't pop in the windshield. */
-      const x = clampAlong(car.x - dir * (320 + Math.random() * 160));
-      if (carClearOf(x) && alongDist(x, car.x) > 200) {
-        const spd = dir * (32 + Math.random() * 12);
+    crossSpawnT = 22 + Math.random() * 16;
+    if (traffic.length < 1 && Math.abs(car.vx) > 20) {
+      /* Ahead, cruising their own speed — not stalking from behind. */
+      const x = clampAlong(car.x + dir * (420 + Math.random() * 180));
+      if (carClearOf(x) && alongDist(x, car.x) > 300) {
+        const spd = dir * (38 + Math.random() * 16);
         traffic.push({
           x,
           z: Z_CAR_DRIVE,
@@ -484,20 +499,7 @@ function updateTraffic(dt) {
 }
 function spawnTraffic() {
   traffic = [];
-  const dir = trafficDir();
-  const behind = clampAlong(car.x - dir * 260);
-  if (carClearOf(behind)) {
-    const spd = dir * 38;
-    traffic.push({
-      x: behind,
-      z: Z_CAR_DRIVE,
-      facing: dir,
-      vx: spd,
-      cruise: spd,
-      justTurned: 0,
-      odo: 0,
-    });
-  }
+  crossSpawnT = 8 + Math.random() * 6;
 }
 function fresh() {
   streetId = "sunset";
@@ -505,11 +507,15 @@ function fresh() {
   WORLD = streets.sunset?.length || WORLD;
   longStreet = streets.sunset?.strip || longStreet;
   player = { x: at(CRIB) + 18, z: SIDEWALK_Z, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
-  car = { x: at(CRIB) + 86, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0, street: "sunset" };
+  car = {
+    x: at(CRIB) + 86, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true,
+    pullOverT: 0, shiftHint: 0, street: "sunset", turnT: 0, turnFrom: 1, turnTo: -1,
+  };
   carOdo = 0;
   inCar = false;
   cash = START_CASH;
   grams = 0;
+  white = 0;
   stash = 0;
   rep = 0;
   order = null;
@@ -541,10 +547,12 @@ function continueSave(s) {
     facing: s.carFacing === -1 ? -1 : 1,
     gear: "P", parked: true, pullOverT: 0, shiftHint: 0,
     street: streets[s.carStreet] ? s.carStreet : streetId,
+    turnT: 0, turnFrom: 1, turnTo: -1,
   };
   inCar = false;
   cash = s.cash;
   grams = s.grams || 0;
+  white = s.white || 0;
   stash = s.stash || 0;
   rep = s.rep || 0;
   hi = s.hi || s.cash;
@@ -640,6 +648,8 @@ function enterCar(force) {
   car.vx = 0;
   car.parked = true;
   car.z = Z_CAR_PARK;
+  car.turnT = 0;
+  car.pullOverT = 0;
   player.x = car.x;
   player.z = SIDEWALK_Z;
   player.facing = car.facing;
@@ -667,7 +677,7 @@ function leaveCar() {
 }
 function tryShift(to, brakeOn) {
   if (!to || !GEARS.includes(to) || to === car.gear) return false;
-  if (car.pullOverT > 0) return false;
+  if (car.pullOverT > 0 || car.turnT > 0) return false;
   /* Mirror 2.5D: every gear change needs brake held. */
   if (!brakeOn) {
     car.shiftHint = 1.35;
@@ -698,8 +708,8 @@ function tryShift(to, brakeOn) {
   return true;
 }
 function startPullOver() {
-  if (!inCar || car.parked || car.pullOverT > 0) return false;
-  car.pullOverT = 0.7;
+  if (!inCar || car.parked || car.pullOverT > 0 || car.turnT > 0) return false;
+  car.pullOverT = 1.15;
   return true;
 }
 function doCarBtn() {
@@ -711,14 +721,15 @@ function doCarBtn() {
   return false;
 }
 function doUturn() {
-  if (!inCar || car.gear !== "D" || car.pullOverT > 0) return false;
-  if (Math.abs(car.vx) > 28) {
+  if (!inCar || car.gear !== "D" || car.pullOverT > 0 || car.turnT > 0) return false;
+  if (Math.abs(car.vx) > 48) {
     addPop(car.x, car.z, "SLOW DOWN");
     return false;
   }
-  car.facing *= -1;
-  syncHeadingFromFacing();
-  car.vx = 0;
+  car.turnT = CAR_TURN_TIME;
+  car.turnFrom = car.facing >= 0 ? 1 : -1;
+  car.turnTo = -car.turnFrom;
+  car.parked = false;
   addPop(car.x, car.z, "U-TURN");
   BRAudio.sfx.shift();
   return true;
@@ -794,7 +805,19 @@ function sidewalkCurb() {
   return streetDestY(SIDEWALK_CURB);
 }
 function carGroundY() {
-  return streetDestY((car.parked || car.gear === "P") ? SIDEWALK_CURB + 4 : ROAD_Y);
+  /* Parked: plant on the curb strip. Drive: road. Soft blend while pull-over runs. */
+  if (car.pullOverT > 0) {
+    const u = 1 - Math.min(1, car.pullOverT / 1.15);
+    const from = ROAD_Y;
+    const to = SIDEWALK_CURB - 1;
+    return streetDestY(from + (to - from) * (u * u * (3 - 2 * u)));
+  }
+  if (car.turnT > 0) {
+    const u = 1 - Math.min(1, car.turnT / CAR_TURN_TIME);
+    const bob = Math.sin(u * Math.PI) * 3;
+    return streetDestY(ROAD_Y - bob);
+  }
+  return streetDestY((car.parked || car.gear === "P") ? SIDEWALK_CURB - 1 : ROAD_Y);
 }
 function clampWalkZ(z) {
   return Math.max(Z_WALK_MIN, Math.min(Z_WALK_MAX, Number(z) || Z_WALK_MIN));
@@ -1101,16 +1124,16 @@ function streetTint(style) {
   return [1, 1, 1];
 }
 function streetPattern(def) {
-  /* ~4× longer block so the loop isn't obvious. Start/end on same slice. */
-  const base = {
-    sunset: [1, 2, 3, 1, 2, 0, 3, 1, 2, 3],
-    santa_monica: [1, 3, 0, 2, 3, 1, 0, 2, 1, 3],
-    melrose: [2, 0, 3, 1, 2, 3, 0, 1, 2, 0],
-    western: [3, 1, 0, 3, 1, 2, 3, 1, 0, 3],
-    normandie: [0, 3, 1, 2, 0, 3, 1, 2, 0, 3],
-  };
-  const one = base[def.id] || [1, 0, 3, 2, 1, 0, 3, 2, 1, 0];
-  return [...one, ...one, ...one, ...one, one[0]];
+  /*
+   * Contiguous classic order [0,1,2,3] = one full street.png tile.
+   * Shuffled slices were creating split-style buildings mid-block.
+   * Only seam left is the original art's left/right edge (same as classic).
+   */
+  const unit = [0, 1, 2, 3];
+  const copies = def.id === "sunset" ? 8 : 6;
+  const out = [];
+  for (let i = 0; i < copies; i++) out.push(...unit);
+  return out;
 }
 function buildStreetStrip(def, streetImg) {
   const pattern = streetPattern(def);
@@ -1295,9 +1318,12 @@ function drawActors() {
 
 function syncHud() {
   const driving = mode === "play" && inCar;
+  const onTitle = mode === "title";
+  document.body.classList.toggle("title-open", onTitle);
+  document.getElementById("pad")?.classList.toggle("title-hide", onTitle);
   document.getElementById("pad")?.classList.toggle("driving", driving);
-  padFoot.classList.toggle("hidden", driving);
-  padCar.classList.toggle("hidden", !driving);
+  padFoot.classList.toggle("hidden", driving || onTitle);
+  padCar.classList.toggle("hidden", !driving || onTitle);
   phoneEl.classList.toggle("hidden", ui !== "phone");
   cribEl.classList.toggle("hidden", ui !== "crib");
   muteBtn.classList.toggle("off", BRAudio.isMuted());
@@ -1313,7 +1339,7 @@ function syncHud() {
   const bLabel = document.getElementById("btn-b-label");
   const actBtn = document.getElementById("btn-action");
   const bBtn = document.getElementById("btn-b");
-  const uturnOk = !!(driving && car.gear === "D" && Math.abs(car.vx) < 28 && car.pullOverT <= 0);
+  const uturnOk = !!(driving && car.gear === "D" && Math.abs(car.vx) < 48 && car.pullOverT <= 0 && car.turnT <= 0);
   if (driving) {
     if (carLabel) carLabel.textContent = carIsParked() ? "EXIT" : "PULL";
     if (bLabel) bLabel.textContent = "";
@@ -1348,7 +1374,8 @@ function syncHud() {
     knob.classList.toggle("preview", !!(driving && shiftPreview && shiftPreview !== car.gear));
   }
   document.getElementById("phone-cash").textContent = "CASH $" + String(Math.floor(cash)).padStart(4, "0");
-  document.getElementById("phone-inv").textContent = "GRN " + fmtG(grams) + "   STASH $" + Math.floor(stash);
+  document.getElementById("phone-inv").textContent =
+    "GRN " + fmtG(grams) + "  WHT " + fmtG(white) + "  STASH $" + Math.floor(stash);
   document.getElementById("crib-meta").textContent = "CASH $" + Math.floor(cash) + "  STASH $" + Math.floor(stash);
   const texts = document.getElementById("phone-texts");
   texts.innerHTML = inbox.slice(0, 4).map((m) => (
@@ -1432,15 +1459,35 @@ function update(dt) {
     car.shiftHint = Math.max(0, car.shiftHint - dt);
     let brake = brakeHeld();
     let gas = gasHeld();
-    if (car.pullOverT > 0) {
+    if (car.turnT > 0) {
+      car.turnT = Math.max(0, car.turnT - dt);
+      const u = 1 - car.turnT / CAR_TURN_TIME;
+      const s = u * u * (3 - 2 * u);
+      /* Hold old nose through the first half, then show the new one. */
+      car.facing = u < 0.55 ? car.turnFrom : car.turnTo;
+      const along = Math.cos(u * Math.PI) * car.turnFrom;
+      car.vx = along * 36;
+      gas = false;
+      brake = false;
+      if (car.turnT <= 0) {
+        car.facing = car.turnTo;
+        car.vx = car.facing * Math.max(18, Math.abs(car.vx));
+        syncHeadingFromFacing();
+      }
+      const wantTurnZ = Z_CAR_DRIVE + Math.sin(s * Math.PI) * 0.04;
+      car.z += (wantTurnZ - car.z) * Math.min(1, dt * 4);
+    } else if (car.pullOverT > 0) {
       car.pullOverT = Math.max(0, car.pullOverT - dt);
       gas = false;
       brake = true;
-      car.vx *= Math.exp(-4.2 * dt);
+      car.vx *= Math.exp(-3.2 * dt);
+      const wantPullZ = Z_CAR_PARK;
+      car.z += (wantPullZ - car.z) * Math.min(1, dt * 2.4);
       if (Math.abs(car.vx) < CAR_STOP || car.pullOverT <= 0) {
         car.vx = 0;
         car.gear = "P";
         car.parked = true;
+        car.z = Z_CAR_PARK;
         car.pullOverT = 0;
         addPop(car.x, car.z, "PARKED");
       }
@@ -1455,20 +1502,25 @@ function update(dt) {
       /* Nose direction = facing. D = forward along nose, R = opposite. */
       const forward = car.facing >= 0 ? 1 : -1;
       const dir = car.gear === "D" ? forward : -forward;
+      const creep = dir * CAR_CREEP * (car.gear === "R" ? 0.7 : 1);
       if (gas) car.vx += dir * CAR_ACCEL * (car.gear === "R" ? 0.72 : 1) * dt;
-      else if (!brake) car.vx *= Math.exp(-0.9 * dt); /* coast — no creep */
+      else if (!brake) {
+        /* Creep toward gear speed when foot is off gas + brake. */
+        const diff = creep - car.vx;
+        car.vx += Math.sign(diff) * Math.min(Math.abs(diff), CAR_ACCEL * 0.55 * dt);
+      }
       if (brake) car.vx *= Math.exp(-4 * dt);
-      /* Kill wrong-way ghost velocity so D never looks like reverse. */
       if (gas && car.vx * dir < 0) car.vx = 0;
     }
     car.vx = Math.max(-CAR_MAX, Math.min(CAR_MAX, car.vx));
     if (brake && Math.abs(car.vx) < CAR_STOP) car.vx = 0;
-    if (!gas && !brake && Math.abs(car.vx) < CAR_STOP) car.vx = 0;
     const prevX = car.x;
     car.x = clampAlong(car.x + car.vx * dt);
     carOdo += alongDist(prevX, car.x);
-    const wantZ = (!car.parked && car.gear !== "P") ? Z_CAR_DRIVE : Z_CAR_PARK;
-    car.z += (wantZ - car.z) * Math.min(1, dt * 5.5);
+    if (car.turnT <= 0 && car.pullOverT <= 0) {
+      const wantZ = (!car.parked && car.gear !== "P") ? Z_CAR_DRIVE : Z_CAR_PARK;
+      car.z += (wantZ - car.z) * Math.min(1, dt * 2.8);
+    }
     player.x = car.x;
     player.z = SIDEWALK_Z;
     player.vx = car.vx;
@@ -1513,11 +1565,12 @@ function renderNes() {
   if (mode === "play") drawActors();
   nctx.font = "8px 'Press Start 2P', monospace";
   if (mode === "play") {
-    /* Gutter under QUIT (left) + mute (right). GRN sits in the open mid band. */
-    text(nctx, "$" + String(Math.floor(cash)).padStart(4, "0"), 52, 6, "#f0c430");
-    text(nctx, "GRN " + fmtG(grams), Math.round(nesW * 0.42), 6, grams > 0 ? "#38f070" : "#8a8696");
-    text(nctx, BUILD_LABEL, Math.round(nesW * 0.68), 6, "#8a8696");
-    text(nctx, "R" + rep, nesW - 28, 6, "#f8f8f8");
+    /* Mute/QUIT stack on the left chrome — HUD owns the top band. */
+    text(nctx, "$" + String(Math.floor(cash)).padStart(4, "0"), 8, 6, "#f0c430");
+    text(nctx, "GRN " + fmtG(grams), Math.round(nesW * 0.30), 6, grams > 0 ? "#38f070" : "#8a8696");
+    text(nctx, "WHT " + fmtG(white), Math.round(nesW * 0.52), 6, white > 0 ? "#f4f0e8" : "#8a8696");
+    text(nctx, BUILD_LABEL, Math.round(nesW * 0.74), 6, "#8a8696");
+    text(nctx, "REP " + rep, nesW - 44, 6, "#f8f8f8");
   }
   if (toast.life > 0 && toast.text) {
     const msg = toast.text;
@@ -1687,7 +1740,7 @@ if (BRAudio.isMuted()) muteBtn.classList.add("off");
 
 window.__br = {
   getState: () => ({
-    mode, inCar, cash, grams, stash, rep, order, ui,
+    mode, inCar, cash, grams, white, stash, rep, order, ui,
     player: { ...player },
     car: { ...car },
     heroPx: HERO_SRC_H * spriteScale * cssScale,
