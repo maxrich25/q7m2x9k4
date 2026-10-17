@@ -1,5 +1,5 @@
 /* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
-const ASSET_V = "18";
+const ASSET_V = "20";
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v3";
 const HERO_SRC_W = 40;
@@ -15,7 +15,8 @@ const FACADE_Y = 86;
 const STREET_SRC_W = 398;
 const STREET_SRC_H = 224;
 const SLICE_X = [0, 99, 190, 275, 398];
-const CAR_ERASE = { x: 6, y: 156, w: 86, h: 20 };
+/** Baked lowrider in street.png — wipe a fat patch so no half-car ghosts remain. */
+const CAR_ERASE = { x: 2, y: 148, w: 100, h: 42 };
 const GEARS = ["P", "R", "N", "D"];
 const WALK_FPS = 8;
 /** Hero walk: walk14 (locked Oct 15 2026), 12 frames at 12.5 fps, native 40px. */
@@ -457,32 +458,32 @@ function updateTraffic(dt) {
   for (const t of traffic) {
     t.justTurned = Math.max(0, (t.justTurned || 0) - dt);
     const nx = t.x + t.vx * dt;
+    /* Slow for blocked path instead of ping-pong reversing forever. */
     if (!carClearOf(nx, t)) {
-      t.facing *= -1;
-      t.vx *= -1;
+      t.vx *= Math.exp(-3.2 * dt);
+      if (Math.abs(t.vx) < 10) t.vx = t.facing * 28;
       continue;
     }
     t.x = nx;
     if (t.x < lo || t.x > hi) {
-      t.facing *= -1;
-      t.vx *= -1;
-      t.x = Math.max(lo, Math.min(hi, t.x));
+      t.x = t.facing > 0 ? lo + 8 : hi - 8;
+      t.vx = t.facing * (36 + Math.random() * 12);
     }
   }
   if (traffic.length > 1) traffic.length = 1;
   crossSpawnT -= dt;
   if (crossSpawnT <= 0) {
-    crossSpawnT = 7 + Math.random() * 8;
+    crossSpawnT = 10 + Math.random() * 10;
     const st = currentStreet();
     const ix = st?.intersections[Math.floor(Math.random() * st.intersections.length)];
     const x = ix ? clampAlong(ix.x) : 0;
     if (ix && traffic.length < 1 && carClearOf(x)) {
-      const dir = Math.random() < 0.5 ? 1 : -1;
+      const dir = heading === "W" || heading === "S" ? -1 : 1;
       traffic.push({
         x,
         z: Z_CAR_DRIVE,
         facing: dir,
-        vx: dir * (40 + Math.random() * 16),
+        vx: dir * (36 + Math.random() * 12),
         justTurned: 1.4,
       });
     }
@@ -668,17 +669,26 @@ function leaveCar() {
   player.facing = car.facing;
   return true;
 }
-function tryShift(to, brakeHeld) {
+function tryShift(to, brakeOn) {
   if (!to || !GEARS.includes(to) || to === car.gear) return false;
   if (car.pullOverT > 0) return false;
-  if (car.gear === "P" && !brakeHeld) {
-    car.shiftHint = 1.15;
+  /* Mirror 2.5D: every gear change needs brake held. */
+  if (!brakeOn) {
+    car.shiftHint = 1.35;
     return false;
   }
   if (to === "P" && Math.abs(car.vx) > 18) {
     car.vx = 0;
     addPop(car.x, car.z, "CLUNK");
     BRAudio.sfx.hit();
+  }
+  const from = car.gear;
+  if ((from === "R" && to === "D") || (from === "D" && to === "R")) {
+    if (Math.abs(car.vx) > 22) {
+      car.vx *= 0.28;
+      addPop(car.x, car.z, "CLUNK");
+      BRAudio.sfx.hit();
+    }
   }
   car.gear = to;
   car.shiftHint = 0;
@@ -876,10 +886,13 @@ function sliceW(i) {
   return SLICE_X[i + 1] - SLICE_X[i];
 }
 function eraseBakedCar(g, img, dx) {
-  const { x, y, w } = CAR_ERASE;
-  g.drawImage(img, x, 140, w, 16, dx + x, y, w, 16);
-  g.drawImage(img, x, 171, w, 9, dx + x, 171, w, 9);
-  g.drawImage(img, 120, 180, w, 10, dx + x, 180, w, 10);
+  const { x, y, w, h } = CAR_ERASE;
+  /* Patch from clean sidewalk / road samples so the baked car doesn't ghost. */
+  const patchY = Math.min(y + h, STREET_SRC_H);
+  g.drawImage(img, 110, 148, w, 23, dx + x, y, w, 23);
+  g.drawImage(img, 110, 171, w, 9, dx + x, 171, w, 9);
+  g.drawImage(img, 110, 180, w, Math.max(8, patchY - 180), dx + x, 180, w, Math.max(8, patchY - 180));
+  g.drawImage(img, 200, 156, Math.min(24, w), 20, dx + x, 156, Math.min(24, w), 20);
 }
 function tintBuildings(canvas, mr, mg, mb) {
   if (mr === 1 && mg === 1 && mb === 1) return canvas;
@@ -1209,9 +1222,10 @@ function drawActors() {
     const near = (wx) => Math.abs(px - wx) < 54;
     if (near(at(CRIB))) drawLabel(at(CRIB), 0.12, "CRIB", "#e81818");
     if (near(at(PLUG))) drawLabel(at(PLUG), 0.12, "PLUG", "#f0c430");
-    for (const m of MEETS) {
-      const here = order && order.spot === m.id && order.phase === "active";
-      if (here || near(at(m))) drawLabel(at(m), 0.12, m.label, here ? "#38d8f8" : "#8a8696");
+    /* Meet tags (TACO/PARK/…) only when that deal is live — not random facade text. */
+    if (order && order.phase === "active") {
+      const m = meetById(order.spot);
+      if (m) drawLabel(at(m), 0.12, m.label, "#38d8f8");
     }
   }
 }
@@ -1404,8 +1418,18 @@ function update(dt) {
     player.vz = ax.z * (spd * 0.62);
     if (Math.abs(ax.z) > Math.abs(ax.x) + 0.1) player.moveDir = ax.z > 0 ? "front" : "back";
     else player.moveDir = "side";
-    player.x = clampAlong(player.x + player.vx * dt);
-    player.z = clampWalkZ(player.z + (player.vz / 80) * dt);
+    let nx = clampAlong(player.x + player.vx * dt);
+    let nz = clampWalkZ(player.z + (player.vz / 80) * dt);
+    /* Soft body vs parked whip — stop walking through the sprite. */
+    if (car.street === streetId && carIsParked()) {
+      const dx = nx - car.x;
+      if (Math.abs(dx) < 34 && nz > 0.30) {
+        nx = car.x + Math.sign(dx || player.facing || 1) * 34;
+        nx = clampAlong(nx);
+      }
+    }
+    player.x = nx;
+    player.z = nz;
     if (Math.abs(ax.x) > 0 || Math.abs(ax.z) > 0) player.anim += dt;
     else player.anim = 0;
     if (jump && player.z < Z_STREET_MIN) {
@@ -1431,7 +1455,7 @@ function update(dt) {
 function renderNes() {
   nctx.imageSmoothingEnabled = false;
   drawParallax();
-  if (mode === "play") drawStreetSigns();
+  /* Street-sign popups shelved — not the look we want. */
   if (mode === "play") drawActors();
   nctx.font = "8px 'Press Start 2P', monospace";
   if (mode === "play") {
@@ -1512,25 +1536,63 @@ window.addEventListener("keyup", (e) => keys.delete(e.code));
 function roleOf(el) {
   return el?.closest?.("[data-role]")?.dataset?.role || null;
 }
+/** pointerId → role so brake stays held while the other thumb taps gears. */
+const holdPointers = new Map();
+function gearFromClientY(clientY) {
+  const track = document.getElementById("shift-track");
+  if (!track) return null;
+  const r = track.getBoundingClientRect();
+  if (r.height <= 0) return null;
+  const u = Math.max(0, Math.min(0.999, (clientY - r.top) / r.height));
+  return GEARS[Math.floor(u * GEARS.length)] || null;
+}
+function rebuildHolds() {
+  holds.clear();
+  for (const role of holdPointers.values()) {
+    if (role && role !== "shifter" && role !== "gear") holds.add(role);
+    if (role === "brake" || role === "gas") holds.add(role);
+  }
+}
+const shifterDrag = new Map();
 document.getElementById("app").addEventListener("pointerdown", (e) => {
-  const role = roleOf(e.target);
+  let role = roleOf(e.target);
   if (!role) {
     if (e.target.closest("#game") && mode === "title") pulses.start = true;
     return;
   }
-  holds.add(role);
-  pulseFromRole(role, e.target.dataset.gear || e.target.dataset.dir);
-  try { e.target.setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
+  let gear = e.target.dataset.gear || null;
+  if (role === "shifter" || role === "gear") {
+    gear = gearFromClientY(e.clientY) || gear;
+    holdPointers.set(e.pointerId, "shifter");
+    shifterDrag.set(e.pointerId, { gear, moved: false, startY: e.clientY });
+    /* Tap a letter = commit now; slide commits on release. */
+    if (role === "gear" && gear) pulses.gear = gear;
+  } else {
+    holdPointers.set(e.pointerId, role);
+    pulseFromRole(role, gear || e.target.dataset.dir);
+  }
+  rebuildHolds();
+  try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
   e.preventDefault();
 });
-document.getElementById("app").addEventListener("pointerup", (e) => {
-  const role = roleOf(e.target);
-  if (role) holds.delete(role);
+document.getElementById("app").addEventListener("pointermove", (e) => {
+  const drag = shifterDrag.get(e.pointerId);
+  if (!drag) return;
+  if (Math.abs(e.clientY - drag.startY) > 6) drag.moved = true;
+  drag.gear = gearFromClientY(e.clientY) || drag.gear;
 });
-document.getElementById("app").addEventListener("pointercancel", (e) => {
-  const role = roleOf(e.target);
-  if (role) holds.delete(role);
-});
+function endPointer(e) {
+  const drag = shifterDrag.get(e.pointerId);
+  if (drag) {
+    const gear = gearFromClientY(e.clientY) || drag.gear;
+    if (drag.moved && gear) pulses.gear = gear;
+    shifterDrag.delete(e.pointerId);
+  }
+  holdPointers.delete(e.pointerId);
+  rebuildHolds();
+}
+document.getElementById("app").addEventListener("pointerup", endPointer);
+document.getElementById("app").addEventListener("pointercancel", endPointer);
 muteBtn.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();

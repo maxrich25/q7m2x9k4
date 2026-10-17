@@ -23,11 +23,22 @@
   <script>
     (function () {
       var BUILD = "110";
+      /* Flip with root index WORK when the playtest cart changes. */
+      var WORK = "2d";
+      var params = new URLSearchParams(location.search);
+      var standalone = !!(navigator.standalone
+        || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches));
+      /* Old home-screen icons still open 2.5D and freeze — bounce to active cart. */
+      if (WORK === "2d" && standalone && !params.has("stay")) {
+        location.replace("../block-run-2d/?v=20&fresh=clear");
+        return;
+      }
       function go(v) {
         var u = new URL(location.href);
         u.searchParams.set("v", v);
         u.searchParams.set("fresh", "nuke");
         u.searchParams.set("play", "1");
+        if (params.has("stay")) u.searchParams.set("stay", "1");
         location.replace(u.href);
       }
       function bootSw() {
@@ -36,7 +47,7 @@
       }
       try {
         localStorage.setItem("br_build", BUILD);
-        var urlV = new URL(location.href).searchParams.get("v");
+        var urlV = params.get("v");
         var key = "br_reloaded_" + BUILD;
         fetch("./build.json?t=" + Date.now(), { cache: "no-store" })
           .then(function (r) { return r.json(); })

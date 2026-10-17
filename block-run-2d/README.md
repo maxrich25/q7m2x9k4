@@ -2,7 +2,12 @@
 
 The main cart. Phone-first night street at the classic NES size, 256×224.
 
-Play: https://maxrich25.github.io/q7m2x9k4/block-run-2d/
+Play: https://maxrich25.github.io/q7m2x9k4/block-run-2d/?v=20&fresh=clear
+
+v20: cold open / home-screen lands on this title while 2D is the active cart.
+Shelved street-sign popups + idle TACO/PARK tags; bigger brake/gas + slide
+shifter (brake required like 2.5D); traffic wraps instead of ping-pong;
+fatter wipe of the baked sidewalk car; soft body vs parked whip.
 
 ## What's in it
 

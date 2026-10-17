@@ -10,15 +10,15 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="description" content="BLOCK RUN. NES-style night block. Buy from the plug, drive deals, stash at the crib." />
-  <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg?v=19" />
+  <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg?v=20" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
-  <link rel="stylesheet" href="style.css?v=19" />
+  <link rel="stylesheet" href="style.css?v=20" />
 </head>
 <body>
   <div id="app">
     <div id="chrome">
-      <a href="../">QUIT</a>
-      <span id="cart-name">2D</span>
+      <a href="../?menu=1">QUIT</a>
+      <span id="cart-name">2D v20</span>
       <button type="button" id="btn-mute" aria-label="sound on">SOUND: ON</button>
     </div>
     <div id="view">
@@ -61,27 +61,29 @@
         <button type="button" class="pad-btn" data-role="crib">CRIB</button>
       </div>
       <div id="pad-car" class="hidden">
-        <button type="button" class="pad-btn brake" data-role="brake">BRAKE</button>
-        <button type="button" class="pad-btn gas" data-role="gas">GAS</button>
-        <div id="shifter">
-          <button type="button" class="gear" data-role="gear" data-gear="P">P</button>
-          <button type="button" class="gear" data-role="gear" data-gear="R">R</button>
-          <button type="button" class="gear" data-role="gear" data-gear="N">N</button>
-          <button type="button" class="gear" data-role="gear" data-gear="D">D</button>
+        <button type="button" class="pad-btn brake pad-pedal" data-role="brake">BRAKE</button>
+        <button type="button" class="pad-btn gas pad-pedal" data-role="gas">GAS</button>
+        <div id="shifter" data-role="shifter">
+          <div id="shift-track">
+            <button type="button" class="gear" data-role="gear" data-gear="P">P</button>
+            <button type="button" class="gear" data-role="gear" data-gear="R">R</button>
+            <button type="button" class="gear" data-role="gear" data-gear="N">N</button>
+            <button type="button" class="gear" data-role="gear" data-gear="D">D</button>
+          </div>
           <div id="shift-hint">HOLD BRAKE</div>
         </div>
         <div id="drive-row">
-          <button type="button" class="pad-btn" data-role="pullover">PULL</button>
-          <button type="button" class="pad-btn" data-role="phone">PHONE</button>
           <button type="button" class="pad-btn accent" data-role="car" id="btn-exit">EXIT</button>
+          <button type="button" class="pad-btn" data-role="phone">PHONE</button>
+          <button type="button" class="pad-btn" data-role="pullover">PULL</button>
         </div>
       </div>
     </div>
   </div>
-  <script src="audio.js?v=19"></script>
-  <script src="sprites/walk14.js?v=19"></script>
-  <script src="sprites/chain24.js?v=19"></script>
-  <script src="sprites/driver-overlay.js?v=19"></script>
-  <script src="game.js?v=19"></script>
+  <script src="audio.js?v=20"></script>
+  <script src="sprites/walk14.js?v=20"></script>
+  <script src="sprites/chain24.js?v=20"></script>
+  <script src="sprites/driver-overlay.js?v=20"></script>
+  <script src="game.js?v=20"></script>
 </body>
 </html>
