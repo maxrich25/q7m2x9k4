@@ -2,16 +2,15 @@
 
 Night-street prototype at [`./block-run-25d/`](./). Gameplay modules here are shared with classic [`../block-run/`](../block-run/) (2D renderer only).
 
-Live: [https://maxrich25.github.io/q7m2x9k4/block-run-25d/?v=107&fresh=nuke&play=1](https://maxrich25.github.io/q7m2x9k4/block-run-25d/?v=107&fresh=nuke&play=1)
+Live: [https://maxrich25.github.io/q7m2x9k4/block-run-25d/?v=108&fresh=nuke&play=1](https://maxrich25.github.io/q7m2x9k4/block-run-25d/?v=108&fresh=nuke&play=1)
 
 Cold open (root + home-screen) lands on this **drone title**. Quiet **Play / More / Back** sit low so the flyover stays visible. Back → root `?menu=1` (2D / 2.5D). Versions Back returns here. Pause only has **TITLE**.
 
-Home-screen freshness: `build.json` + network-first `sw.js`. Gold **v107**. Force-close home-screen once after merge. iOS still needs a tap for audio; page bg matches the night clear color to cut the black flash.
+Home-screen freshness: `build.json` + network-first `sw.js`. Gold **v108**. Force-close home-screen once after merge. iOS still needs a tap for audio; page bg matches the night clear color to cut the black flash.
 
-Pad: on-foot ◀▶ and drive BRAKE/GAS/shifter share one box; face + START/SELECT stay the same height in or out of the car. No double EXIT.
+Pad: bigger BRAKE/GAS/◀▶ + skinnier face foursome; driving layout is PULL | PHONE / EXIT | U-TN.
 
-v107 street/drive: low-seg hill domes + visible back street, warmer bricks (no charcoal mortar), drive cam pins the whip left and zooms on the car, brake freezes pull-in too, brake pedal lights on light approach, PLUG signs only when he's out, proper crosswalk stripes, smaller world pins.
-
+v108: Bliss-style close hill wall (no sphere sky holes), far-side street behind facades, smooth board/zoom cam on the whip (still 2.5D), tiny neon glows (no giant yellow blocks), traffic gaps, rounded bushes.
 
 ## Cache bust
 

@@ -1,8 +1,8 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=107";
-import { paintClassicHero } from "./paint.js?v=107";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=108";
+import { paintClassicHero } from "./paint.js?v=108";
 
 export function createHud(opts = {}) {
-  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v107";
+  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v108";
   const cashEl = document.getElementById("hud-cash");
   const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
@@ -260,7 +260,7 @@ export function createHud(opts = {}) {
     const wht = "WHT " + fmtGrams(g.WHITE);
     const rep = "REP " + Math.round(state.rep || 0);
     const buildEl = document.getElementById("hud-build");
-    const build = (buildEl?.textContent || "v107").trim();
+    const build = (buildEl?.textContent || "v108").trim();
     if (cashEl) cashEl.textContent = cash;
     if (invEl) invEl.innerHTML = invHtml(state);
     if (repEl) repEl.textContent = rep;
@@ -396,19 +396,17 @@ export function createHud(opts = {}) {
       ctx.innerHTML = "";
     }
 
-    // Face grid (no letter labels), fixed size always:
-    //   CAR/EXIT | PHONE
-    //   RUN/U-TN | ACTION (CRIB/EXIT/etc when available)
+    // On foot:
+    //   CAR | PHONE
+    //   RUN | ACTION
+    // In the whip (playtest):
+    //   PULL | PHONE
+    //   EXIT | U-TN
     const carOn = !!(state.carBtnOk && state.mode === "play" && state.faceCarLabel);
     const label = state.actionLabel || "";
     const actionOn = !!(state.actionOk && state.mode === "play" && label);
-
-    if (btnCarLabel) btnCarLabel.textContent = carOn ? (state.faceCarLabel || "") : "";
-    if (btnCar) {
-      btnCar.dataset.role = "car";
-      btnCar.classList.toggle("off", !carOn);
-      btnCar.classList.remove("go", "arm", "pulse", "serve");
-    }
+    const pullOn = !!(driving && state.pullOverOk);
+    const uturnOn = !!(driving && state.uturnBtnOk);
 
     if (btnXLabel) btnXLabel.textContent = "PHONE";
     if (btnX) {
@@ -417,27 +415,43 @@ export function createHud(opts = {}) {
       btnX.classList.remove("go", "arm", "pulse", "serve");
     }
 
-    if (actionLabelEl) actionLabelEl.textContent = actionOn ? label : "";
-    if (btnAction) {
-      btnAction.dataset.role = "action";
-      btnAction.classList.toggle("off", !actionOn);
-      btnAction.classList.remove("go", "arm", "pulse", "serve");
-    }
-    // On foot: RUN. In the whip: U-TN only when available (blank when parked / not in D).
     if (driving) {
-      const uturnOn = !!state.uturnBtnOk;
-      if (bLabelEl) bLabelEl.textContent = uturnOn ? "U-TN" : "";
+      if (btnCarLabel) btnCarLabel.textContent = pullOn ? "PULL" : "";
+      if (btnCar) {
+        btnCar.dataset.role = "pullover";
+        btnCar.classList.toggle("off", !pullOn);
+        btnCar.classList.remove("go", "arm", "pulse", "serve");
+      }
+      if (bLabelEl) bLabelEl.textContent = carOn ? (state.faceCarLabel || "EXIT") : "";
       if (btnB) {
-        btnB.dataset.role = "uturn";
-        btnB.classList.toggle("off", !uturnOn);
+        btnB.dataset.role = "car";
+        btnB.classList.toggle("off", !carOn);
         btnB.classList.remove("go", "arm", "pulse", "serve");
       }
+      if (actionLabelEl) actionLabelEl.textContent = uturnOn ? "U-TN" : "";
+      if (btnAction) {
+        btnAction.dataset.role = "uturn";
+        btnAction.classList.toggle("off", !uturnOn);
+        btnAction.classList.remove("go", "arm", "pulse", "serve");
+      }
     } else {
+      if (btnCarLabel) btnCarLabel.textContent = carOn ? (state.faceCarLabel || "") : "";
+      if (btnCar) {
+        btnCar.dataset.role = "car";
+        btnCar.classList.toggle("off", !carOn);
+        btnCar.classList.remove("go", "arm", "pulse", "serve");
+      }
       if (bLabelEl) bLabelEl.textContent = "RUN";
       if (btnB) {
         btnB.dataset.role = "run";
         btnB.classList.toggle("off", false);
         btnB.classList.remove("go", "arm", "pulse", "serve");
+      }
+      if (actionLabelEl) actionLabelEl.textContent = actionOn ? label : "";
+      if (btnAction) {
+        btnAction.dataset.role = "action";
+        btnAction.classList.toggle("off", !actionOn);
+        btnAction.classList.remove("go", "arm", "pulse", "serve");
       }
     }
 

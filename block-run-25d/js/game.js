@@ -16,8 +16,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=107";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=107";
+} from "./config.js?v=108";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=108";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -2397,12 +2397,22 @@ export function createGame() {
         const playerParkedOrStopped = blockerIsPlayer
           && (carIsParked() || car.gear === "P" || Math.abs(car.vx) < CAR_STOP);
         // Parked/stopped player: pass even near a green junction (batch 11 jam fix).
+        // Only one passer at a time near the player — no double-merge melt.
+        let otherPassing = false;
+        for (const o of traffic) {
+          if (o === t) continue;
+          if ((o.passT || 0) > 0 && Math.abs(wrapDelta(o.x, car.x, WORLD)) < 140) {
+            otherPassing = true;
+            break;
+          }
+        }
         const canStartPass = !(t.passT > 0)
+          && !otherPassing
           && !oncomingClose && !redAhead
           && (playerParkedOrStopped || !nearJunction)
           && !laneBusy(otherLat, t.x, t, carGap * 1.2)
           && (playerParkedOrStopped || mergeGapClear(t, otherLat));
-        if (canStartPass || (playerParkedOrStopped && !(t.passT > 0) && !oncomingClose && !redAhead
+        if (canStartPass || (playerParkedOrStopped && !(t.passT > 0) && !otherPassing && !oncomingClose && !redAhead
           && !laneBusy(otherLat, t.x, t, carGap * 0.9))) {
           t.passT = Math.max(t.passT || 0, playerParkedOrStopped ? 1.8 : 1.45);
           want = cruise * 1.22;
@@ -2433,7 +2443,8 @@ export function createGame() {
       t.vx += (want - t.vx) * Math.min(1, dt * 2.4);
       t.x = wrap(t.x + t.vx * dt, WORLD);
     }
-    const minGap = Math.max(carGap, CAR_NOSE_GAME * 3.15);
+    // Wider lane gaps — two cars were stacking / melting through each other.
+    const minGap = Math.max(carGap * 1.15, CAR_NOSE_GAME * 3.8);
     const laneKey = (lat) => Math.round((lat ?? 0) * 4);
     const groups = new Map();
     for (const t of traffic) {
