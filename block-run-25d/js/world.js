@@ -4,8 +4,8 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=93";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=93";
+} from "./config.js?v=94";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=94";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -2491,10 +2491,10 @@ export function createWorld(canvas, sprites) {
     }
     const views = sprites.heroViews;
     // Stay on the painted hero art always — never swap to classic NES walk pixels.
+    // Hat on/off must not kick us back to the old school sheet.
     // Loco = stride-synced poses derived from the painted side still.
     const loco = !!(walking || running || boardPose === "walk");
     const paintedOk = !!(views && views.side)
-      && hatId !== "none"
       && !(state.muzzle > 0)
       && !airborne;
     if (paintedOk && loco && (views.walk?.length || views.run?.length)) {

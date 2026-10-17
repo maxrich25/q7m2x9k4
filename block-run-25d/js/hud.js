@@ -1,9 +1,8 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=93";
-import { paintClassicHero } from "./paint.js?v=93";
-import { isUnlocked } from "./audio.js?v=93";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=94";
+import { paintClassicHero } from "./paint.js?v=94";
 
 export function createHud(opts = {}) {
-  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v93";
+  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v94";
   const cashEl = document.getElementById("hud-cash");
   const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
@@ -549,7 +548,7 @@ export function createHud(opts = {}) {
     overlay.classList.toggle("hidden", !show);
     overlay.classList.toggle("pause-mode", state.mode === "paused");
     overlay.classList.toggle("title-mode", state.mode === "title");
-    // Title: drone + TAP TO START + MENU back to root launcher.
+    // Title: drone flyover + Play / More / Back (no TAP TO START).
     cartPicks?.classList.toggle("hidden", state.mode !== "title");
     pauseActions?.classList.toggle("hidden", state.mode !== "paused");
     titleEl.classList.remove("wasted", "clear");
@@ -559,19 +558,22 @@ export function createHud(opts = {}) {
       subEl.textContent = document.body.dataset.cartLabel || subtitle;
       bodyEl.innerHTML = "";
       hiEl.textContent = "";
-      promptEl.textContent = isUnlocked() ? "TAP TO START" : "TAP TO START";
+      promptEl.textContent = "";
+      promptEl.classList.add("hidden");
     } else if (state.mode === "intro") {
       titleEl.innerHTML = "";
       subEl.textContent = "";
       bodyEl.classList.add("intro-card");
       bodyEl.textContent = state.introText || "";
       hiEl.textContent = "";
+      promptEl.classList.remove("hidden");
       promptEl.textContent = "TAP";
     } else if (state.mode === "paused") {
       titleEl.textContent = "PAUSED";
       subEl.textContent = "2.5D";
       bodyEl.innerHTML = "";
       hiEl.textContent = "CASH $" + state.cash + "  STASH $" + (state.stash || 0);
+      promptEl.classList.remove("hidden");
       promptEl.textContent = "";
     } else if (state.mode === "dead") {
       titleEl.textContent = "WASTED";
@@ -579,6 +581,7 @@ export function createHud(opts = {}) {
       subEl.textContent = "";
       bodyEl.textContent = "CASH $" + state.cash;
       hiEl.textContent = "HI $" + state.hi;
+      promptEl.classList.remove("hidden");
       promptEl.textContent = "TAP TO RESTART";
     } else if (state.mode === "clear") {
       titleEl.innerHTML = "STAGE<br>CLEAR";
@@ -586,6 +589,7 @@ export function createHud(opts = {}) {
       subEl.textContent = "";
       bodyEl.textContent = "CASH $" + state.cash;
       hiEl.textContent = "";
+      promptEl.classList.remove("hidden");
       promptEl.textContent = "TAP TO CONTINUE";
     }
 

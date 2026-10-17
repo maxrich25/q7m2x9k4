@@ -4,11 +4,11 @@ Night-street prototype at [`./block-run-25d/`](./). Gameplay modules here are sh
 
 Live: [https://maxrich25.github.io/q7m2x9k4/block-run-25d/](https://maxrich25.github.io/q7m2x9k4/block-run-25d/)
 
-Home-screen / standalone opens go to the **root menu** (not this drone title). Menu → Play adds `play=1` so the cart stays here. Cold opens without that flag bounce to `../`.
+Home-screen / standalone opens go to the **root menu** (2D / 2.5D). Tap **2.5D** for this drone title. Title has **Play / More / Back** (Play starts the night, More opens older batches, Back returns to the root line). Cold opens without `play`/`fresh` bounce to `../`.
 
 Sidewalk stays sparse (no densify / ghost mob). Refs and mockups dump in [`../media/`](../media/).
 
-Hero stays on the painted `sprites/hero-*.png` art (idle multi-views). Walk/run are stride-synced poses derived from the painted side still — no classic NES pixel swap. Getting in opens the driver door, the left side, not the camera-side passenger door. Pull over only works while you are rolling in drive: the nose arcs toward the curb, then the stick scrolls D→N→R→P under brake. Hold brake to pick Drive, then release brake before it leaves the curb. Red lights stop the bumper on the line. In the car, B is U-turn (not Run). The two lanes are the same width, with a curb on each side. The corner of the screen says v93 when this build is the one running. Cache is v=93.
+Hero stays on the painted `sprites/hero-*.png` art (idle multi-views), hat on or off. Walk/run are stride-synced poses derived from the painted side still — no classic NES pixel swap. Getting in opens the driver door, the left side, not the camera-side passenger door. Pull over only works while you are rolling in drive: the nose arcs toward the curb, then the stick scrolls D→N→R→P under brake. Hold brake to pick Drive, then release brake before it leaves the curb. Red lights stop the bumper on the line. In the car, B is U-turn (not Run). The two lanes are the same width, with a curb on each side. The corner of the screen says v94 when this build is the one running. Cache is v=94.
 
 ## Cache bust
 

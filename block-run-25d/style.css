@@ -526,58 +526,56 @@ html, body {
 }
 #overlay.pause-mode, #overlay.title-mode { pointer-events: auto; }
 #overlay.pause-mode { background: rgba(7, 6, 12, 0.78); }
-#overlay.title-mode #cart-picks.title-menu-link {
-  position: absolute;
-  left: max(10px, env(safe-area-inset-left));
-  bottom: max(10px, env(safe-area-inset-bottom));
-  margin: 0;
-  display: block;
-  pointer-events: auto;
-  z-index: 2;
-}
-#overlay:not(.title-mode) #cart-picks.title-menu-link { display: none; }
-#cart-picks.title-menu-link .cart-pick.menu-quiet {
-  min-width: 0;
-  min-height: 0;
-  padding: 8px 6px;
-  border: none;
-  background: transparent;
-  color: #6a6674;
-  font-size: 7px;
-  letter-spacing: 1px;
-  justify-content: flex-start;
-}
-#cart-picks.title-menu-link .cart-pick.menu-quiet:hover,
-#cart-picks.title-menu-link .cart-pick.menu-quiet:focus-visible {
-  color: var(--cyan);
-  border: none;
-  box-shadow: none;
-  outline: none;
-}
+#overlay.title-mode { background: rgba(7, 6, 12, 0.42); }
+#overlay.title-mode #overlay-prompt { display: none; }
+#overlay:not(.title-mode) #cart-picks.title-picks { display: none; }
 #cart-picks {
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
-  margin: 0 0 16px;
+  margin: 0 auto 8px;
+  max-width: 260px;
+  width: min(260px, 88vw);
   pointer-events: auto;
 }
 #cart-picks.hidden, #cart-line.hidden, #cart-step.hidden, #cart-prev.hidden { display: none; }
 .cart-pick {
   font-family: var(--font);
-  font-size: 8px;
+  font-size: 9px;
   line-height: 1.35;
+  letter-spacing: 1px;
   text-decoration: none;
   color: var(--cream);
   background: #121018;
   border: 2px solid #3a3644;
-  padding: 12px 8px;
-  min-height: 44px;
+  padding: 14px 10px;
+  min-height: 48px;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   pointer-events: auto;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
 }
-.cart-pick.on { border-color: var(--gold); color: var(--gold); }
+.cart-pick.on {
+  border-color: var(--gold);
+  color: #07060c;
+  background: var(--gold);
+}
+.cart-pick:hover,
+.cart-pick:focus-visible {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  outline: none;
+}
+.cart-pick.on:hover,
+.cart-pick.on:focus-visible {
+  border-color: var(--cream);
+  color: #07060c;
+  background: var(--cream);
+}
 #pause-actions {
   display: flex;
   flex-direction: column;
@@ -610,6 +608,7 @@ html, body {
   font-size: 8px;
   margin: 0;
 }
+#overlay-prompt.hidden { display: none; }
 .blink { animation: blink 1s steps(1) infinite; }
 @keyframes blink {
   50% { opacity: 0; }
