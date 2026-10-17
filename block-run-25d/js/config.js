@@ -78,7 +78,12 @@ export const GRAVITY = 780;
 export const JUMP_VEL = -340;
 export const COYOTE = 0.22;
 export const JUMP_BUFFER = 0.2;
-export const MOVE_SPEED = 46;
+/** On-foot cruise — keep it slow so the whip is the real way across town. */
+export const MOVE_SPEED = 28;
+/** Run multiplier on foot (street). Still slower than a creeping car. */
+export const RUN_MULT = 1.28;
+/** Softer jog indoors / in the crib. */
+export const RUN_MULT_CRIB = 1.18;
 export const TELEGRAPH = 0.4;
 export const BOSS_CASH_BASE = 280;
 export const BOSS_CASH_PER_WAVE = 120;
@@ -99,14 +104,15 @@ export const CAR_NOSE_GAME = CAR_NOSE_M * WORLD / STREET_LEN;
 export const BLOCK_LEN = 52;
 export const LIGHT_COUNT = Math.round(STREET_LEN / BLOCK_LEN);
 
+/** Meet spots spread around the loop so foot-hacking deals is a long slog. */
 export const ORDER_SPOTS = [
   { id: "motel", label: "the motel", x: 1520 },
-  { id: "studio", label: "the studio", x: 1880 },
-  { id: "alley", label: "the back alley", x: 1924 },
-  { id: "taco", label: "the taco stand", x: 2100 },
-  { id: "gas", label: "the gas station", x: 1640 },
-  { id: "park", label: "the park", x: 1960 },
-  { id: "liquor", label: "the uptown liquor", x: 1760 },
+  { id: "studio", label: "the studio", x: 2680 },
+  { id: "alley", label: "the back alley", x: 3180 },
+  { id: "taco", label: "the taco stand", x: 720 },
+  { id: "gas", label: "the gas station", x: 1840 },
+  { id: "park", label: "the park", x: 3520 },
+  { id: "liquor", label: "the uptown liquor", x: 2280 },
 ];
 
 export const MAX_REP = 16;

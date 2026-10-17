@@ -3,7 +3,7 @@
   "short_name": "BLOCK RUN",
   "id": "./",
   "scope": "./",
-  "start_url": "./block-run-2d/?v=25&fresh=clear",
+  "start_url": "./block-run-25d/?v=111&fresh=nuke&play=1&stay=1",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#07060c",
