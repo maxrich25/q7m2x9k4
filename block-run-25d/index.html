@@ -10,13 +10,28 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="BLOCK RUN" />
-  <meta name="description" content="2.5D night-street prototype of BLOCK RUN. Text the plug, serve from the curb, stash at home." />
+  <meta name="description" content="2.5D night-street prototype of BLOCK RUN. Hit the plug, serve from the curb, stash at home." />
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg" />
+  <!--
+    Home-screen / standalone cold open should hit the root menu (2D vs 2.5D).
+    iPhone "Add to Home Screen" often bookmarks this page URL, not start_url —
+    so bounce standalone opens without an intentional play/fresh flag.
+  -->
+  <script>
+    (function () {
+      var params = new URLSearchParams(location.search);
+      if (params.has("play") || params.has("fresh")) return;
+      var standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches)
+        || window.navigator.standalone === true;
+      if (!standalone) return;
+      location.replace(new URL("../", location.href).href);
+    })();
+  </script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <!-- Cache bust: GitHub Pages max-age=600. Bump ?v= here, on js/main.js, and every relative import in js/*.js (see README). -->
-  <link rel="stylesheet" href="style.css?v=89" />
+  <link rel="stylesheet" href="style.css?v=90" />
   <script type="importmap">
   {
     "imports": {
@@ -35,7 +50,7 @@
           <span id="hud-cash">$0130</span>
           <span id="hud-inv"><span class="g-grn">GRN 0</span> <span class="g-wht">WHT 0</span></span>
           <span id="hud-rep">REP 1</span>
-          <span id="hud-build">v89</span>
+          <span id="hud-build">v90</span>
         </div>
         <span id="hud-heat" class="hidden" title="heat"></span>
         <span id="hud-time" class="hud-sr">9:00 PM</span>
@@ -195,7 +210,7 @@
         <div id="overlay">
           <div id="overlay-card">
             <h1 id="overlay-title">BLOCK<br><span>RUN</span></h1>
-            <p id="overlay-sub">2.5D NIGHT BLOCK  v89</p>
+            <p id="overlay-sub">2.5D NIGHT BLOCK  v90</p>
             <!-- No cart dive — MENU jumps back to the root launcher. -->
             <div id="cart-picks" class="title-menu-link">
               <a class="cart-pick" href="../">◀ MENU</a>
@@ -267,11 +282,11 @@
   </div>
   <p id="status" class="sr-only">title</p>
   <script>
-    document.body.dataset.cartLabel = "2.5D NIGHT BLOCK  v89";
+    document.body.dataset.cartLabel = "2.5D NIGHT BLOCK  v90";
     document.getElementById("btn-title")?.addEventListener("click", () => {
       window.__br?.toTitle?.();
     });
   </script>
-  <script type="module" src="js/main.js?v=89"></script>
+  <script type="module" src="js/main.js?v=90"></script>
 </body>
 </html>
