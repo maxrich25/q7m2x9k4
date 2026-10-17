@@ -1,9 +1,9 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=86";
-import { paintClassicHero } from "./paint.js?v=86";
-import { isUnlocked } from "./audio.js?v=86";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=87";
+import { paintClassicHero } from "./paint.js?v=87";
+import { isUnlocked } from "./audio.js?v=87";
 
 export function createHud(opts = {}) {
-  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v86";
+  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v87";
   const cashEl = document.getElementById("hud-cash");
   const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
@@ -549,8 +549,8 @@ export function createHud(opts = {}) {
     overlay.classList.toggle("hidden", !show);
     overlay.classList.toggle("pause-mode", state.mode === "paused");
     overlay.classList.toggle("title-mode", state.mode === "title");
-    // Nested cart picker removed — title is drone + TAP TO START only.
-    cartPicks?.classList.add("hidden");
+    // Title: drone + TAP TO START + MENU back to root launcher.
+    cartPicks?.classList.toggle("hidden", state.mode !== "title");
     pauseActions?.classList.toggle("hidden", state.mode !== "paused");
     titleEl.classList.remove("wasted", "clear");
     bodyEl.classList.remove("tips", "intro-card");
