@@ -526,8 +526,34 @@ html, body {
 }
 #overlay.pause-mode, #overlay.title-mode { pointer-events: auto; }
 #overlay.pause-mode { background: rgba(7, 6, 12, 0.78); }
-#overlay.title-mode { background: rgba(7, 6, 12, 0.42); }
+#overlay.title-mode { background: rgba(7, 6, 12, 0.22); }
 #overlay.title-mode #overlay-prompt { display: none; }
+#overlay.title-mode #overlay-card {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: max(12px, env(safe-area-inset-top));
+  bottom: auto;
+  padding: 8px 12px 0;
+  max-width: none;
+  pointer-events: none;
+}
+#overlay.title-mode #overlay-title { font-size: 18px; margin: 0 0 4px; }
+#overlay.title-mode #overlay-sub { font-size: 7px; margin: 0; opacity: 0.85; }
+#overlay.title-mode #cart-picks.title-picks {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: max(156px, calc(140px + env(safe-area-inset-bottom)));
+  margin: 0;
+  width: min(300px, 86vw);
+  max-width: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  pointer-events: auto;
+  z-index: 3;
+}
 #overlay:not(.title-mode) #cart-picks.title-picks { display: none; }
 #cart-picks {
   display: grid;
@@ -541,15 +567,15 @@ html, body {
 #cart-picks.hidden, #cart-line.hidden, #cart-step.hidden, #cart-prev.hidden { display: none; }
 .cart-pick {
   font-family: var(--font);
-  font-size: 9px;
-  line-height: 1.35;
+  font-size: 8px;
+  line-height: 1.2;
   letter-spacing: 1px;
   text-decoration: none;
-  color: var(--cream);
-  background: #121018;
-  border: 2px solid #3a3644;
-  padding: 14px 10px;
-  min-height: 48px;
+  color: rgba(244, 240, 232, 0.88);
+  background: rgba(7, 6, 12, 0.42);
+  border: 1px solid rgba(244, 240, 232, 0.28);
+  padding: 10px 6px;
+  min-height: 36px;
   width: 100%;
   display: flex;
   align-items: center;
@@ -558,11 +584,13 @@ html, body {
   cursor: pointer;
   -webkit-appearance: none;
   appearance: none;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 .cart-pick.on {
-  border-color: var(--gold);
-  color: #07060c;
-  background: var(--gold);
+  border-color: rgba(240, 196, 48, 0.7);
+  color: var(--gold);
+  background: rgba(7, 6, 12, 0.5);
 }
 .cart-pick:hover,
 .cart-pick:focus-visible {
@@ -573,8 +601,8 @@ html, body {
 .cart-pick.on:hover,
 .cart-pick.on:focus-visible {
   border-color: var(--cream);
-  color: #07060c;
-  background: var(--cream);
+  color: var(--cream);
+  background: rgba(7, 6, 12, 0.55);
 }
 #pause-actions {
   display: flex;
@@ -1282,6 +1310,10 @@ html, body {
   width: 128px;
   flex: 0 0 auto;
 }
+.face-grid .face-tl { grid-area: 1 / 1; }
+.face-grid .face-tr { grid-area: 1 / 2; }
+.face-grid .face-bl { grid-area: 2 / 1; } /* RUN / U-TN */
+.face-grid .face-br { grid-area: 2 / 2; }
 /* Same face-grid footprint on foot and in the car — no size jump. */
 .face-grid.driving {
   width: 128px;
@@ -1293,6 +1325,7 @@ html, body {
   width: 100%;
   height: 52px;
   min-height: 52px;
+  max-height: 52px;
   border: 2px solid rgba(244, 240, 232, 0.28);
   background: rgba(18, 16, 24, 0.38);
   -webkit-backdrop-filter: blur(10px) saturate(1.15);
@@ -1308,10 +1341,13 @@ html, body {
   opacity: 0.72;
   box-shadow: none;
   text-shadow: none;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .face-grid.driving .face-btn {
   height: 52px;
   min-height: 52px;
+  max-height: 52px;
   border-radius: 14px;
   border-width: 2px;
   gap: 3px;
@@ -1484,11 +1520,12 @@ html, body {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
   }
-  /* Fixed cells — lit/unlit never changes footprint. */
+  /* Fixed equal cells — lit/unlit never changes footprint. */
   #pad.gb.sa .face-btn {
-    height: 100%;
-    min-height: 0;
-    width: 100%;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    width: 100% !important;
     box-sizing: border-box;
   }
   #pad.gb.sa #gb-sys {
@@ -1501,9 +1538,9 @@ html, body {
     position: absolute;
     left: calc(4px + var(--sal));
     bottom: calc(8px + var(--sab));
-    width: min(54vw, 220px);
+    width: min(58vw, 236px);
     height: 140px;
-    grid-template-columns: 1.35fr 1.2fr 70px;
+    grid-template-columns: 1.45fr 1.25fr 68px;
     grid-template-areas: "brake gas shifter";
     pointer-events: auto;
     background: transparent;
@@ -1517,21 +1554,15 @@ html, body {
     height: 140px;
   }
   #pad.gb.sa.driving .pad-pedal {
-    font-size: 9px;
+    font-size: 8px;
     letter-spacing: 0;
     padding: 8px 2px;
-    line-height: 1;
+    line-height: 1.2;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-  }
-  #pad.gb.sa.driving .pad-pedal.stack-letters i {
-    font-style: normal;
-    font-size: 11px;
-    line-height: 1.05;
-    display: block;
+    text-align: center;
+    white-space: nowrap;
   }
   #pad.gb.sa.driving .pad-pedal,
   #pad.gb.sa.driving #shifter {
@@ -1544,7 +1575,7 @@ html, body {
     min-height: 0;
     height: 100%;
     max-height: 100%;
-    overflow: hidden;
+    overflow: visible;
   }
   #pad.gb.sa.driving #shift-track {
     height: 100%;
@@ -1563,7 +1594,7 @@ html, body {
   #pad.gb.sa.driving #gb-btns {
     display: flex;
     position: absolute;
-    left: calc(4px + var(--sal) + min(54vw, 220px) + 2px);
+    left: calc(4px + var(--sal) + min(58vw, 236px) + 2px);
     right: calc(4px + var(--sar));
     bottom: calc(8px + var(--sab));
     width: auto;

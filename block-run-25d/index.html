@@ -14,24 +14,10 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg" />
-  <!--
-    Home-screen / standalone cold open should hit the root menu (2D vs 2.5D).
-    iPhone "Add to Home Screen" often bookmarks this page URL, not start_url —
-    so bounce standalone opens without an intentional play/fresh flag.
-  -->
-  <script>
-    (function () {
-      var params = new URLSearchParams(location.search);
-      if (params.has("play") || params.has("fresh")) return;
-      var standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches)
-        || window.navigator.standalone === true;
-      if (!standalone) return;
-      location.replace(new URL("../", location.href).href);
-    })();
-  </script>
+  <!-- Cold open stays on this drone title. Root ?menu=1 is only for picking 2D. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <!-- Cache bust: GitHub Pages max-age=600. Bump ?v= here, on js/main.js, and every relative import in js/*.js (see README). -->
-  <link rel="stylesheet" href="style.css?v=95" />
+  <link rel="stylesheet" href="style.css?v=96" />
   <script type="importmap">
   {
     "imports": {
@@ -50,7 +36,7 @@
           <span id="hud-cash">$0130</span>
           <span id="hud-inv"><span class="g-grn">GRN 0</span> <span class="g-wht">WHT 0</span></span>
           <span id="hud-rep">REP 1</span>
-          <span id="hud-build">v95</span>
+          <span id="hud-build">v96</span>
         </div>
         <span id="hud-heat" class="hidden" title="heat"></span>
         <span id="hud-time" class="hud-sr">9:00 PM</span>
@@ -210,22 +196,22 @@
         <div id="overlay">
           <div id="overlay-card">
             <h1 id="overlay-title">BLOCK<br><span>RUN</span></h1>
-            <p id="overlay-sub">2.5D NIGHT BLOCK  v95</p>
+            <p id="overlay-sub">2.5D NIGHT BLOCK  v96</p>
             <div id="overlay-body"></div>
             <p id="overlay-hi"></p>
             <p id="overlay-prompt" class="blink hidden">TAP TO START</p>
-            <!-- Title IS the 2.5D menu: Play / More / Back on the drone flyover. -->
-            <div id="cart-picks" class="title-picks">
-              <button type="button" id="cart-latest" class="cart-pick on">PLAY 2.5D</button>
-              <a class="cart-pick" href="../versions/">MORE</a>
-              <a class="cart-pick" href="../">BACK</a>
-            </div>
             <div id="pause-actions" class="hidden">
               <button type="button" id="btn-resume">RESUME</button>
               <button type="button" id="btn-sound" data-role="mute">SOUND ON</button>
               <!-- Title = 2.5D menu (drone). One button — no separate root MENU. -->
               <button type="button" id="btn-title">TITLE</button>
             </div>
+          </div>
+          <!-- Quiet strip on the overlay (not the top card) so the drone stays open. -->
+          <div id="cart-picks" class="title-picks">
+            <button type="button" id="cart-latest" class="cart-pick on">PLAY</button>
+            <a class="cart-pick" href="../versions/?from=title">MORE</a>
+            <a class="cart-pick" href="../?menu=1">BACK</a>
           </div>
         </div>
       </div>
@@ -240,12 +226,8 @@
           </div>
         </div>
         <div id="pad-car" class="hidden">
-          <button type="button" class="pad-btn pad-pedal pad-brake stack-letters" data-role="brake" aria-label="brake">
-            <i>B</i><i>R</i><i>A</i><i>K</i><i>E</i>
-          </button>
-          <button type="button" class="pad-btn pad-pedal pad-gas stack-letters" data-role="gas" aria-label="gas">
-            <i>G</i><i>A</i><i>S</i>
-          </button>
+          <button type="button" class="pad-btn pad-pedal pad-brake" data-role="brake">BRAKE</button>
+          <button type="button" class="pad-btn pad-pedal pad-gas" data-role="gas">GAS</button>
           <div id="shifter" data-role="shifter">
             <div id="shift-track">
               <div id="shift-gears">
@@ -260,18 +242,18 @@
           </div>
         </div>
         <div id="gb-btns">
-          <!-- 2×2: CAR/EXIT | PHONE / RUN | ACTION — RUN bottom-left. -->
+          <!-- Explicit grid areas: RUN is always bottom-left. -->
           <div id="gb-face-grid" class="face-grid">
-            <button type="button" id="btn-car" class="face-btn off" data-role="car">
+            <button type="button" id="btn-car" class="face-btn off face-tl" data-role="car">
               <span id="btn-car-label"></span>
             </button>
-            <button type="button" id="btn-x" class="face-btn" data-role="quick-phone">
+            <button type="button" id="btn-x" class="face-btn face-tr" data-role="quick-phone">
               <span id="btn-x-label">PHONE</span>
             </button>
-            <button type="button" id="btn-b" class="face-btn" data-role="run">
+            <button type="button" id="btn-b" class="face-btn face-bl" data-role="run">
               <span id="btn-b-label">RUN</span>
             </button>
-            <button type="button" id="btn-action" class="face-btn off" data-role="action">
+            <button type="button" id="btn-action" class="face-btn off face-br" data-role="action">
               <span id="btn-action-label"></span>
             </button>
           </div>
@@ -289,11 +271,11 @@
   </div>
   <p id="status" class="sr-only">title</p>
   <script>
-    document.body.dataset.cartLabel = "2.5D NIGHT BLOCK  v95";
+    document.body.dataset.cartLabel = "2.5D NIGHT BLOCK  v96";
     document.getElementById("btn-title")?.addEventListener("click", () => {
       window.__br?.toTitle?.();
     });
   </script>
-  <script type="module" src="js/main.js?v=95"></script>
+  <script type="module" src="js/main.js?v=96"></script>
 </body>
 </html>
