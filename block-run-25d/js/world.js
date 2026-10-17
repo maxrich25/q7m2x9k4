@@ -67,22 +67,23 @@ function sidewalkTex() {
 
 function grassTex() {
   return canvasTex(64, 64, (g, w, h) => {
-    g.fillStyle = "#2a6a38";
+    // Bright enough to read under night fog; speckles for turf, not a flat slab.
+    g.fillStyle = "#3a8a48";
     g.fillRect(0, 0, w, h);
-    g.fillStyle = "#348044";
-    for (let i = 0; i < 90; i++) {
+    g.fillStyle = "#4a9e58";
+    for (let i = 0; i < 110; i++) {
       const x = (i * 17 + 5) % w;
       const y = (i * 23 + 3) % h;
       g.fillRect(x, y, 2, 3);
     }
-    g.fillStyle = "#1e5028";
-    for (let i = 0; i < 70; i++) {
+    g.fillStyle = "#2a6a34";
+    for (let i = 0; i < 80; i++) {
       const x = (i * 29 + 11) % w;
       const y = (i * 13 + 7) % h;
       g.fillRect(x, y, 1, 2);
     }
-    g.fillStyle = "#3a9050";
-    for (let i = 0; i < 40; i++) {
+    g.fillStyle = "#6ab870";
+    for (let i = 0; i < 50; i++) {
       g.fillRect((i * 41) % w, (i * 19) % h, 1, 1);
     }
   });
@@ -92,18 +93,18 @@ function bushTex(hex) {
   return canvasTex(32, 32, (g, w, h) => {
     g.fillStyle = hex;
     g.fillRect(0, 0, w, h);
-    g.fillStyle = "rgba(0,0,0,0.22)";
+    g.fillStyle = "rgba(0,0,0,0.18)";
     for (let i = 0; i < 28; i++) {
       g.fillRect((i * 11) % w, (i * 17) % h, 2, 2);
     }
-    g.fillStyle = "rgba(255,255,255,0.12)";
-    for (let i = 0; i < 18; i++) {
+    g.fillStyle = "rgba(180,255,160,0.22)";
+    for (let i = 0; i < 22; i++) {
       g.fillRect((i * 13 + 4) % w, (i * 7 + 2) % h, 1, 1);
     }
-    g.fillStyle = "rgba(0,40,0,0.28)";
+    g.fillStyle = "rgba(0,50,0,0.22)";
     g.fillRect(0, h - 4, w, 4);
-    g.fillStyle = "rgba(80,160,70,0.35)";
-    for (let i = 0; i < 12; i++) {
+    g.fillStyle = "rgba(120,200,90,0.4)";
+    for (let i = 0; i < 14; i++) {
       g.fillRect((i * 5) % w, (i * 3) % (h / 2), 3, 2);
     }
   });
@@ -1665,20 +1666,23 @@ export function createWorld(canvas, sprites) {
     new THREE.MeshLambertMaterial({ map: sidewalkTex() }),
   );
   walkNear.rotation.x = -Math.PI / 2;
-  walkNear.position.set(STREET_LEN / 2, 0.04, 13.55);
+  // Sit just past the near curb so the strip reads above the translucent pad.
+  walkNear.position.set(STREET_LEN / 2, 0.04, 13.1);
   walkNear.material.map.repeat.set(160, 1);
   city.add(walkNear);
   const grassNearMap = grassTex();
   grassNearMap.repeat.set(48, 3);
   const grassNear = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 3.6),
-    new THREE.MeshLambertMaterial({ map: grassNearMap }),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 2.8),
+    // Unlit so night fog doesn't crush the strip into black.
+    new THREE.MeshBasicMaterial({ map: grassNearMap }),
   );
   grassNear.rotation.x = -Math.PI / 2;
-  grassNear.position.set(STREET_LEN / 2, 0.05, 15.85);
+  grassNear.position.set(STREET_LEN / 2, 0.05, 14.85);
   city.add(grassNear);
-  const bushHex = ["#245a30", "#2e6a38", "#1e5028", "#347844"];
-  const bushMats = bushHex.map((hex) => new THREE.MeshLambertMaterial({ map: bushTex(hex) }));
+  // Brighter bush bases — MeshBasic keeps leaf texture readable at night.
+  const bushHex = ["#3a7a40", "#4a8a48", "#327038", "#52a050"];
+  const bushMats = bushHex.map((hex) => new THREE.MeshBasicMaterial({ map: bushTex(hex) }));
   for (let i = 0; i < 40; i++) {
     const bw = 1.2 + (i % 4) * 0.35;
     const bd = 0.85 + (i % 3) * 0.25;
@@ -1690,7 +1694,7 @@ export function createWorld(canvas, sprites) {
     bush.position.set(
       (i + 0.35) * (STREET_LEN / 40) + (i % 2) * 0.35,
       bh * 0.5,
-      14.15 + (i % 3) * 0.45,
+      13.55 + (i % 3) * 0.4,
     );
     city.add(bush);
   }
@@ -1699,7 +1703,7 @@ export function createWorld(canvas, sprites) {
     nearPalm.position.set(
       (i + 0.5) * (STREET_LEN / 12) + (i % 2) * 1.1,
       0,
-      14.7 + (i % 2) * 0.4,
+      14.2 + (i % 2) * 0.35,
     );
     nearPalm.scale.setScalar(1.05 + (i % 3) * 0.1);
     city.add(nearPalm);

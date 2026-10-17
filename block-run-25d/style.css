@@ -568,33 +568,39 @@ html, body {
 #overlay.title-mode #cart-picks.title-picks .cart-pick {
   font-size: 9px;
   letter-spacing: 1.4px;
-  min-height: 44px;
+  min-height: 46px;
   padding: 12px 6px;
-  border-radius: 6px;
-  border: 2px solid rgba(240, 196, 48, 0.62);
-  color: var(--gold);
-  background: linear-gradient(180deg, rgba(240, 196, 48, 0.28) 0%, rgba(24, 18, 12, 0.72) 100%);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  box-shadow: 0 3px 0 rgba(7, 6, 12, 0.55);
+  border-radius: 8px;
+  border: 2px solid #f0c430 !important;
+  color: #120e08 !important;
+  background: linear-gradient(180deg, #f6d45a 0%, #e0b028 55%, #c89420 100%) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: 0 3px 0 #5a4010, inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  opacity: 1;
 }
 #overlay.title-mode #cart-picks.title-picks .cart-pick.on {
-  color: #120e08;
-  border-color: var(--cream);
-  background: linear-gradient(180deg, #f0c430 0%, #c89420 100%);
-  box-shadow: 0 3px 0 rgba(7, 6, 12, 0.4);
+  border-color: var(--cream) !important;
+  color: #07060c !important;
+  background: linear-gradient(180deg, #ffe06a 0%, #f0c430 50%, #d4a028 100%) !important;
+  box-shadow: 0 3px 0 #3a2808, inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+#overlay.title-mode #cart-picks.title-picks .cart-pick:not(.on) {
+  opacity: 0.88;
+  filter: saturate(0.85) brightness(0.92);
 }
 #overlay.title-mode #cart-picks.title-picks .cart-pick:hover,
 #overlay.title-mode #cart-picks.title-picks .cart-pick:focus-visible {
-  border-color: var(--cream);
-  color: var(--cream);
+  border-color: var(--cream) !important;
+  color: #07060c !important;
+  filter: none;
   outline: none;
 }
 #overlay.title-mode #cart-picks.title-picks .cart-pick.on:hover,
 #overlay.title-mode #cart-picks.title-picks .cart-pick.on:focus-visible {
-  border-color: var(--cream);
-  color: #07060c;
-  background: linear-gradient(180deg, #f6d45a 0%, #d4a028 100%);
+  border-color: var(--cream) !important;
+  color: #07060c !important;
+  background: linear-gradient(180deg, #ffe88a 0%, #f6d45a 50%, #e0b028 100%) !important;
 }
 #overlay:not(.title-mode) #cart-picks.title-picks { display: none; }
 #cart-picks {
