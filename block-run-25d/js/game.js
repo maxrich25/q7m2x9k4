@@ -16,8 +16,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=91";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=91";
+} from "./config.js?v=92";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=92";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -2053,7 +2053,7 @@ export function createGame() {
       player.y = GROUND_Y;
       player.vy = 0;
       player.anim += dt;
-      if (Math.abs(player.vx) > 8) player.stride = (player.stride || 0) + Math.abs(player.vx) * dt;
+      if (Math.abs(player.vx) > 3) player.stride = (player.stride || 0) + Math.abs(player.vx) * dt;
     } else if (inCrib) {
       holdLight = false;
       holdCar = false;
@@ -2072,7 +2072,7 @@ export function createGame() {
       player.y = GROUND_Y;
       player.vy = 0;
       player.anim += dt;
-      if (Math.abs(player.vx) > 8) player.stride = (player.stride || 0) + Math.abs(player.vx) * dt;
+      if (Math.abs(player.vx) > 3) player.stride = (player.stride || 0) + Math.abs(player.vx) * dt;
     } else {
       holdLight = false;
       holdCar = false;
@@ -2105,7 +2105,7 @@ export function createGame() {
         player.vy = 0;
       }
       player.anim += dt;
-      if (Math.abs(player.vx) > 8) player.stride = (player.stride || 0) + Math.abs(player.vx) * dt;
+      if (Math.abs(player.vx) > 3) player.stride = (player.stride || 0) + Math.abs(player.vx) * dt;
       if (car.hp > 0) car.vx = 0;
     }
 

@@ -8,7 +8,7 @@ Home-screen / standalone opens go to the **root menu** (not this drone title). M
 
 Sidewalk stays sparse (no densify / ghost mob). Refs and mockups dump in [`../media/`](../media/).
 
-The hero uses the painted views in `sprites/hero-*.png` (side, front, back, and both three-quarters), picked from where the camera is. Getting in opens the driver door, the left side, not the camera-side passenger door. Pull over only works while you are rolling in drive: the nose arcs toward the curb, then the stick scrolls D→N→R→P under brake. Hold brake to pick Drive, then release brake before it leaves the curb. Red lights stop the bumper on the line. In the car, B is U-turn (not Run). The two lanes are the same width, with a curb on each side. The corner of the screen says v91 when this build is the one running. Cache is v=91.
+Idle uses the painted views in `sprites/hero-*.png` (side / front / back / ¾). While walking or running, the classic `walk-1…4` sheet plays stride-synced so he doesn’t skate. Getting in opens the driver door, the left side, not the camera-side passenger door. Pull over only works while you are rolling in drive: the nose arcs toward the curb, then the stick scrolls D→N→R→P under brake. Hold brake to pick Drive, then release brake before it leaves the curb. Red lights stop the bumper on the line. In the car, B is U-turn (not Run). The two lanes are the same width, with a curb on each side. The corner of the screen says v92 when this build is the one running. Cache is v=92.
 
 ## Cache bust
 

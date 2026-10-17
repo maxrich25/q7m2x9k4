@@ -93,7 +93,7 @@
       border-color: #4a6270;
     }
     a.pick.latest strong, button.pick.latest strong {
-      font-size: 20px;
+      font-size: 18px;
       margin-bottom: 10px;
     }
     a.pick.more, button.pick.more,
@@ -159,7 +159,8 @@
     <p class="tag">NIGHT ARCADE</p>
     <h1>BLOCK<br><span>RUN</span></h1>
     <p class="cali">CALI</p>
-    <div class="picks" id="menu-line">
+    <!-- Cold open lands on 2.5D (main focus). Back reveals 2D / 2.5D. -->
+    <div class="picks" id="menu-line" style="display:none">
       <button type="button" class="pick line" data-go="2d-mode">
         <strong>2D</strong>
         <em>ON-FOOT BLOCK</em>
@@ -171,11 +172,11 @@
     </div>
     <div class="picks" id="menu-2d-mode" style="display:none">
       <button type="button" class="pick shoot" data-go="2d-shoot-ver">
-        <strong>SHOOTING</strong>
+        <strong>2D SHOOTING</strong>
         <em>CLASSIC PACKS + GUNS</em>
       </button>
       <button type="button" class="pick safe" data-go="2d-safe-ver">
-        <strong>NON-SHOOTING</strong>
+        <strong>2D NON-SHOOTING</strong>
         <em>DRIVE DEALS ON THE BLOCK</em>
       </button>
       <button type="button" class="pick back" data-go="line">
@@ -185,10 +186,9 @@
     </div>
     <div class="picks" id="menu-2d-shoot-ver" style="display:none">
       <a class="pick latest shoot" href="./block-run/?v=58&fresh=clear">
-        <strong>PLAY</strong>
+        <strong>PLAY 2D SHOOTING</strong>
         <em>CLASSIC SHOOTER</em>
       </a>
-      <!-- Only other real 2D shooter cart is legacy — no 2.5D archives here. -->
       <a class="pick more" href="./block-run/legacy/">
         <strong>MORE</strong>
         <em>OLDER CLASSIC 2D BUILD</em>
@@ -199,9 +199,8 @@
       </button>
     </div>
     <div class="picks" id="menu-2d-safe-ver" style="display:none">
-      <!-- Sole non-shooting 2D cart — Play + Back (no More). -->
       <a class="pick latest" href="./block-run-2d/?v=19&fresh=clear">
-        <strong>PLAY</strong>
+        <strong>PLAY 2D NON-SHOOTING</strong>
         <em>CURRENT 2D DEALS</em>
       </a>
       <button type="button" class="pick back" data-go="2d-mode">
@@ -209,9 +208,9 @@
         <em>2D MODE</em>
       </button>
     </div>
-    <div class="picks" id="menu-25d-ver" style="display:none">
-      <a class="pick latest" href="./block-run-25d/?v=91&fresh=clear&play=1">
-        <strong>PLAY</strong>
+    <div class="picks" id="menu-25d-ver">
+      <a class="pick latest" href="./block-run-25d/?v=92&fresh=clear&play=1">
+        <strong>PLAY 2.5D</strong>
         <em>CURRENT NIGHT STREET</em>
       </a>
       <a class="pick more" href="./versions/">
@@ -220,10 +219,10 @@
       </a>
       <button type="button" class="pick back" data-go="line">
         <strong>BACK</strong>
-        <em>MAIN MENU</em>
+        <em>2D OR 2.5D</em>
       </button>
     </div>
-    <footer id="menu-foot">PICK A CART</footer>
+    <footer id="menu-foot">2.5D</footer>
   </main>
   <script>
     const panels = {
@@ -236,9 +235,9 @@
     const foot = document.getElementById("menu-foot");
     const feet = {
       line: "PICK A CART",
-      "2d-mode": "SHOOTING OR DEALS",
-      "2d-shoot-ver": "CLASSIC 2D",
-      "2d-safe-ver": "2D DEALS",
+      "2d-mode": "2D SHOOTING OR NON-SHOOTING",
+      "2d-shoot-ver": "2D SHOOTING",
+      "2d-safe-ver": "2D NON-SHOOTING",
       "25d-ver": "2.5D",
     };
     function show(id) {
@@ -250,6 +249,8 @@
     document.querySelectorAll("[data-go]").forEach((btn) => {
       btn.addEventListener("click", () => show(btn.dataset.go));
     });
+    // Default: already on 2.5D (main focus).
+    show("25d-ver");
   </script>
 </body>
 </html>
