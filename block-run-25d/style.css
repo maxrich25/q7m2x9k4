@@ -1533,11 +1533,13 @@ body.title-open #pad { display: none !important; }
    * left = ◀▶  OR  BRAKE/GAS/shifter (same box), right = face + START/SELECT (same box).
    */
   #pad.gb.sa {
-    --br-pad-h: 156px;
-    --br-pad-left: min(52vw, 236px);
+    /* Bigger pedals / ◀▶; face foursome gets the leftover (skinnier). */
+    --br-pad-h: 172px;
+    --br-pad-left: min(58vw, 268px);
     --br-pad-bottom: calc(8px + var(--sab));
     --br-pad-left-x: calc(2px + var(--sal));
     --br-pad-gap: 2px;
+    --br-pad-face-max: min(38vw, 168px);
   }
   #pad.gb.sa #pad-foot,
   #pad.gb.sa.driving #pad-car {
@@ -1604,8 +1606,9 @@ body.title-open #pad { display: none !important; }
   #pad.gb.sa #gb-ab { display: none; }
   #pad.gb.sa .face-grid,
   #pad.gb.sa.driving .face-grid {
-    flex: 1 1 auto;
-    width: auto;
+    flex: 0 1 var(--br-pad-face-max);
+    width: var(--br-pad-face-max);
+    max-width: var(--br-pad-face-max);
     min-width: 0;
     height: 100%;
     gap: var(--br-pad-gap);
@@ -1619,10 +1622,10 @@ body.title-open #pad { display: none !important; }
     max-height: none !important;
     width: 100% !important;
     box-sizing: border-box;
-    border-radius: 12px;
+    border-radius: 10px;
   }
   #pad.gb.sa .face-btn span,
-  #pad.gb.sa.driving .face-btn span { font-size: 8px; }
+  #pad.gb.sa.driving .face-btn span { font-size: 7px; }
   #pad.gb.sa #gb-sys,
   #pad.gb.sa.driving #gb-sys {
     width: 22px;
@@ -1635,7 +1638,7 @@ body.title-open #pad { display: none !important; }
   #pad.gb.sa.driving .gb-sys.stack-letters i { font-size: 5px; }
   /* Drive left column fills the shared box. */
   #pad.gb.sa.driving #pad-car {
-    grid-template-columns: 1.45fr 1.3fr 70px;
+    grid-template-columns: 1.55fr 1.4fr 78px;
     grid-template-areas: "brake gas shifter";
     background: transparent;
     gap: var(--br-pad-gap);
@@ -1648,7 +1651,7 @@ body.title-open #pad { display: none !important; }
     height: 100%;
   }
   #pad.gb.sa.driving .pad-pedal {
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 0;
     padding: 8px 2px;
     line-height: 1.2;
@@ -1697,17 +1700,18 @@ body.title-open #pad { display: none !important; }
 /* Short phones (iPhone SE 375×667 and similar): keep pad fully on-screen. */
 @media (orientation: portrait) and (max-height: 700px) {
   #pad.gb.sa {
-    --br-pad-h: 132px;
-    --br-pad-left: min(50vw, 210px);
+    --br-pad-h: 148px;
+    --br-pad-left: min(56vw, 240px);
+    --br-pad-face-max: min(36vw, 148px);
     --br-pad-bottom: calc(6px + var(--sab));
   }
-  #pad.gb.sa .gb-dir { font-size: 25px; border-radius: 12px; }
+  #pad.gb.sa .gb-dir { font-size: 27px; border-radius: 12px; }
   #pad.gb.sa.driving #pad-car {
-    grid-template-columns: 1.35fr 1.2fr 64px;
+    grid-template-columns: 1.45fr 1.3fr 70px;
   }
   #pad.gb.sa.driving #shift-track { grid-template-columns: 1fr 20px; }
-  #pad.gb.sa.driving .pad-pedal { font-size: 9px; }
-  #pad.gb.sa.driving .gear { font-size: 9px; padding: 1px 0; }
+  #pad.gb.sa.driving .pad-pedal { font-size: 10px; }
+  #pad.gb.sa.driving .gear { font-size: 10px; padding: 1px 0; }
   #pad.gb.sa .face-btn span,
-  #pad.gb.sa.driving .face-btn span { font-size: 7px; }
+  #pad.gb.sa.driving .face-btn span { font-size: 6px; }
 }

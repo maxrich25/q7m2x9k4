@@ -1,6 +1,13 @@
 {
   "versions": [
     {
+      "pr": 81,
+      "date": "2026-10-17",
+      "note": "v107: hills, drive cam, pull-in brake, street cleanup",
+      "path": "v107/",
+      "sha": "669ee69"
+    },
+    {
       "pr": 80,
       "date": "2026-10-17",
       "note": "v106: unfreeze Safari/home-screen after v105 hill/texture hang",
