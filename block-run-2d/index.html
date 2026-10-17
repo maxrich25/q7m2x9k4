@@ -4,15 +4,52 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>BLOCK RUN</title>
-  <meta http-equiv="Cache-Control" content="no-cache" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
   <meta name="theme-color" content="#07060c" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="description" content="BLOCK RUN. NES-style night block. Buy from the plug, drive deals, stash at the crib." />
-  <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg?v=23" />
+  <!--
+    Home-screen icons open this URL directly (manifest start_url), so cache
+    busting must live HERE — not only on the root menu.
+  -->
+  <script>
+    (function () {
+      var BUILD = "116";
+      var CART = "24";
+      try {
+        var prev = localStorage.getItem("br_build");
+        var params = new URLSearchParams(location.search);
+        var urlV = params.get("v");
+        var key = "br2d_reloaded_" + BUILD;
+        if (prev !== BUILD || (urlV && urlV !== CART)) {
+          localStorage.setItem("br_build", BUILD);
+          if (window.caches) {
+            caches.keys().then(function (ks) { ks.forEach(function (k) { caches.delete(k); }); });
+          }
+          if (navigator.serviceWorker) {
+            navigator.serviceWorker.getRegistrations().then(function (rs) {
+              rs.forEach(function (r) { r.unregister(); });
+            });
+          }
+          if (!sessionStorage.getItem(key)) {
+            sessionStorage.setItem(key, "1");
+            var u = new URL(location.href);
+            u.searchParams.set("v", CART);
+            u.searchParams.set("fresh", "clear");
+            location.replace(u.href);
+            return;
+          }
+        }
+        localStorage.setItem("br_build", BUILD);
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg?v=24" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
-  <link rel="stylesheet" href="style.css?v=23" />
+  <link rel="stylesheet" href="style.css?v=24" />
 </head>
 <body class="title-open">
   <div id="app">
@@ -92,11 +129,11 @@
       </div>
     </div>
   </div>
-  <script src="../art/rims/alternates/rims.js?v=23"></script>
-  <script src="audio.js?v=23"></script>
-  <script src="sprites/walk14.js?v=23"></script>
-  <script src="sprites/chain24.js?v=23"></script>
-  <script src="sprites/driver-overlay.js?v=23"></script>
-  <script src="game.js?v=23"></script>
+  <script src="../art/rims/alternates/rims.js?v=24"></script>
+  <script src="audio.js?v=24"></script>
+  <script src="sprites/walk14.js?v=24"></script>
+  <script src="sprites/chain24.js?v=24"></script>
+  <script src="sprites/driver-overlay.js?v=24"></script>
+  <script src="game.js?v=24"></script>
 </body>
 </html>

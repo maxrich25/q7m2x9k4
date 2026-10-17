@@ -1,17 +1,31 @@
 /* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
-const ASSET_V = "23";
-const BUILD_LABEL = "v23";
+const ASSET_V = "24";
+const BUILD_LABEL = "v24";
 /** Sidewalk belt only — no up/down depth walk this pass. */
 const SIDEWALK_Z = 0.28;
 const RUN_MULT = 2.45;
 const RIM_SET = "5spoke-option1-MAIN/silver";
 const RIM_DIST = 4.6;
-/** Parked nose on the curb band; drive in the lane — soft lerp between. */
-const Z_CAR_PARK = 0.58;
-const Z_CAR_DRIVE = 0.74;
+/**
+ * US right-hand traffic (side view, sidewalk above the road):
+ * facing east (+) → near/bottom lane; facing west (−) → far/top lane.
+ * Park sits in the curb gutter — not up on the sidewalk.
+ */
+const Z_LANE_NEAR = 0.86;
+const Z_LANE_FAR = 0.68;
+const Z_CURB_NEAR = 0.78;
+const Z_CURB_FAR = 0.62;
 /** Classic car.png / rim sheets face LEFT; draw with this flip vs logical facing. */
 const CAR_ART_FACE = -1;
 const CAR_TURN_TIME = 1.0;
+const PULL_OVER_T = 1.15;
+const PULL_OUT_T = 0.85;
+function laneZ(facing) {
+  return (facing >= 0 ? Z_LANE_NEAR : Z_LANE_FAR);
+}
+function curbZ(facing) {
+  return (facing >= 0 ? Z_CURB_NEAR : Z_CURB_FAR);
+}
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v3";
 const HERO_SRC_W = 40;
@@ -134,8 +148,9 @@ let mode = "title";
 let ui = null;
 let player = { x: 70, z: 0.28, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
 let car = {
-  x: 140, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true,
-  pullOverT: 0, shiftHint: 0, street: "sunset", turnT: 0, turnFrom: 1, turnTo: -1,
+  x: 140, z: curbZ(1), vx: 0, facing: 1, gear: "P", parked: true,
+  pullOverT: 0, pullOutT: 0, shiftHint: 0, street: "sunset",
+  turnT: 0, turnFrom: 1, turnTo: -1, pendingPullOut: null,
 };
 let inCar = false;
 let cash = START_CASH;
@@ -486,7 +501,7 @@ function updateTraffic(dt) {
         const spd = dir * (38 + Math.random() * 16);
         traffic.push({
           x,
-          z: Z_CAR_DRIVE,
+          z: laneZ(dir),
           facing: dir,
           vx: spd,
           cruise: spd,
@@ -508,8 +523,9 @@ function fresh() {
   longStreet = streets.sunset?.strip || longStreet;
   player = { x: at(CRIB) + 18, z: SIDEWALK_Z, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
   car = {
-    x: at(CRIB) + 86, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true,
-    pullOverT: 0, shiftHint: 0, street: "sunset", turnT: 0, turnFrom: 1, turnTo: -1,
+    x: at(CRIB) + 86, z: curbZ(1), vx: 0, facing: 1, gear: "P", parked: true,
+    pullOverT: 0, pullOutT: 0, shiftHint: 0, street: "sunset",
+    turnT: 0, turnFrom: 1, turnTo: -1, pendingPullOut: null,
   };
   carOdo = 0;
   inCar = false;
@@ -540,14 +556,15 @@ function continueSave(s) {
     facing: s.facing === -1 ? -1 : 1,
     anim: 0, moveDir: "side",
   };
+  const face = s.carFacing === -1 ? -1 : 1;
   car = {
     x: clampAlong(s.carX || at(CRIB) + 86),
-    z: s.carZ ?? Z_CAR_PARK,
+    z: curbZ(face),
     vx: 0,
-    facing: s.carFacing === -1 ? -1 : 1,
-    gear: "P", parked: true, pullOverT: 0, shiftHint: 0,
+    facing: face,
+    gear: "P", parked: true, pullOverT: 0, pullOutT: 0, shiftHint: 0,
     street: streets[s.carStreet] ? s.carStreet : streetId,
-    turnT: 0, turnFrom: 1, turnTo: -1,
+    turnT: 0, turnFrom: 1, turnTo: -1, pendingPullOut: null,
   };
   inCar = false;
   cash = s.cash;
@@ -647,9 +664,11 @@ function enterCar(force) {
   car.gear = "P";
   car.vx = 0;
   car.parked = true;
-  car.z = Z_CAR_PARK;
+  car.z = curbZ(car.facing);
   car.turnT = 0;
   car.pullOverT = 0;
+  car.pullOutT = 0;
+  car.pendingPullOut = null;
   player.x = car.x;
   player.z = SIDEWALK_Z;
   player.facing = car.facing;
@@ -667,7 +686,9 @@ function leaveCar() {
   car.gear = "P";
   car.vx = 0;
   car.parked = true;
-  car.z = Z_CAR_PARK;
+  car.z = curbZ(car.facing);
+  car.pendingPullOut = null;
+  car.pullOutT = 0;
   player.x = car.x;
   player.z = SIDEWALK_Z;
   player.vx = 0;
@@ -677,7 +698,7 @@ function leaveCar() {
 }
 function tryShift(to, brakeOn) {
   if (!to || !GEARS.includes(to) || to === car.gear) return false;
-  if (car.pullOverT > 0 || car.turnT > 0) return false;
+  if (car.pullOverT > 0 || car.pullOutT > 0 || car.turnT > 0) return false;
   /* Mirror 2.5D: every gear change needs brake held. */
   if (!brakeOn) {
     car.shiftHint = 1.35;
@@ -698,18 +719,25 @@ function tryShift(to, brakeOn) {
   }
   car.gear = to;
   car.shiftHint = 0;
-  if (to !== "P") {
+  car.pendingPullOut = null;
+  const onCurb = Math.abs(car.z - curbZ(car.facing)) < 0.08 || car.parked;
+  if ((to === "D" || to === "R") && onCurb) {
+    /* Leave the curb after brake release — no snap into the lane. */
+    car.parked = false;
+    car.pendingPullOut = to;
+  } else if (to !== "P") {
     car.parked = false;
   } else if (Math.abs(car.vx) < CAR_STOP) {
     car.parked = true;
+    car.z = curbZ(car.facing);
   }
-  /* Depth eases via wantZ lerp — no curb snap on shift. */
   BRAudio.sfx.shift();
   return true;
 }
 function startPullOver() {
-  if (!inCar || car.parked || car.pullOverT > 0 || car.turnT > 0) return false;
-  car.pullOverT = 1.15;
+  if (!inCar || car.parked || car.pullOverT > 0 || car.pullOutT > 0 || car.turnT > 0) return false;
+  car.pullOverT = PULL_OVER_T;
+  car.pendingPullOut = null;
   return true;
 }
 function doCarBtn() {
@@ -781,8 +809,9 @@ function snapView() {
   nesW = NES_W;
   cssScale = Math.max(0.5, vw / NES_W);
   nesH = Math.max(NES_H, Math.round(vh / cssScale));
-  worldY0 = 12;
-  const roadPad = 34;
+  worldY0 = 8;
+  /* Shorter chrome pad → more road / far lane visible. */
+  const roadPad = 16;
   worldZoom = (nesH - roadPad) / Math.max(1, SIDEWALK_CURB - worldY0);
   if (nes.width !== nesW || nes.height !== nesH) {
     nes.width = nesW;
@@ -804,20 +833,41 @@ function sidewalkTop() {
 function sidewalkCurb() {
   return streetDestY(SIDEWALK_CURB);
 }
+function roadSrcY(facing, parked) {
+  const face = facing >= 0 ? 1 : -1;
+  if (parked) {
+    /* Curb gutter — not planted on the sidewalk (that looked like jail-time). */
+    return face > 0 ? SIDEWALK_CURB + 4 : SIDEWALK_CURB + 3;
+  }
+  /* US right-hand: eastbound near/bottom, westbound far/top of the road band. */
+  return face > 0 ? ROAD_Y + 7 : ROAD_Y - 5;
+}
 function carGroundY() {
-  /* Parked: plant on the curb strip. Drive: road. Soft blend while pull-over runs. */
+  const face = car.facing >= 0 ? 1 : -1;
+  const parkY = roadSrcY(face, true);
+  const driveY = roadSrcY(face, false);
+  if (car.pullOutT > 0) {
+    const u = 1 - Math.min(1, car.pullOutT / PULL_OUT_T);
+    const s = u * u * (3 - 2 * u);
+    return streetDestY(parkY + (driveY - parkY) * s);
+  }
   if (car.pullOverT > 0) {
-    const u = 1 - Math.min(1, car.pullOverT / 1.15);
-    const from = ROAD_Y;
-    const to = SIDEWALK_CURB - 1;
-    return streetDestY(from + (to - from) * (u * u * (3 - 2 * u)));
+    const u = 1 - Math.min(1, car.pullOverT / PULL_OVER_T);
+    const s = u * u * (3 - 2 * u);
+    return streetDestY(driveY + (parkY - driveY) * s);
   }
   if (car.turnT > 0) {
     const u = 1 - Math.min(1, car.turnT / CAR_TURN_TIME);
-    const bob = Math.sin(u * Math.PI) * 3;
-    return streetDestY(ROAD_Y - bob);
+    const s = u * u * (3 - 2 * u);
+    const fromY = roadSrcY(car.turnFrom, false);
+    const toY = roadSrcY(car.turnTo, false);
+    const bob = Math.sin(u * Math.PI) * 4;
+    return streetDestY(fromY + (toY - fromY) * s - bob);
   }
-  return streetDestY((car.parked || car.gear === "P") ? SIDEWALK_CURB - 1 : ROAD_Y);
+  return streetDestY((car.parked || car.gear === "P") ? parkY : driveY);
+}
+function trafficGroundY(facing) {
+  return streetDestY(roadSrcY(facing, false));
 }
 function clampWalkZ(z) {
   return Math.max(Z_WALK_MIN, Math.min(Z_WALK_MAX, Number(z) || Z_WALK_MIN));
@@ -903,11 +953,20 @@ function carDrawFace(facing) {
 }
 function drawCarWithRims(base, wx, z, w, h, facing, yLock, odo) {
   const artFace = carDrawFace(facing);
-  drawSprite(base, wx, z, w, h, artFace, 0, yLock);
-  if (!rimFrames.length) return;
-  const frame = rimFrames[rimIndex(odo, facing)];
-  if (!frame) return;
-  drawSprite(frame, wx, z, w, h, artFace, 0, yLock);
+  /* Composite rims inside the car alpha so nothing reads as a black slab / smog. */
+  const bw = base.naturalWidth || base.width || 95;
+  const bh = base.naturalHeight || base.height || 29;
+  const { c, g } = mkCanvas(bw, bh);
+  g.drawImage(base, 0, 0);
+  if (rimFrames.length) {
+    const frame = rimFrames[rimIndex(odo, facing)];
+    if (frame) {
+      g.globalCompositeOperation = "source-atop";
+      g.drawImage(frame, 0, 0);
+      g.globalCompositeOperation = "source-over";
+    }
+  }
+  drawSprite(c, wx, z, w, h, artFace, 0, yLock);
 }
 /** Drop near-black junk outside the wheel hubs so overlays can't read as hood smog. */
 function cleanRimFrame(img) {
@@ -920,7 +979,7 @@ function cleanRimFrame(img) {
   try { id = g.getImageData(0, 0, w, h); } catch { return img; }
   const d = id.data;
   const hubs = [[14, 22], [69, 22]];
-  const r2 = 11 * 11;
+  const r2 = 10 * 10;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
@@ -931,12 +990,39 @@ function cleanRimFrame(img) {
         const dy = y - hy;
         if (dx * dx + dy * dy <= r2) { inHub = true; break; }
       }
-      if (!inHub) {
+      if (!inHub || y < 17) d[i + 3] = 0;
+    }
+  }
+  g.putImageData(id, 0, 0);
+  return c;
+}
+/** Soften the flat black roof/underbody slab so the whip isn't a glorified rectangle. */
+function cleanCarSheet(img) {
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+  if (!w || !h) return img;
+  const { c, g } = mkCanvas(w, h);
+  g.drawImage(img, 0, 0);
+  let id;
+  try { id = g.getImageData(0, 0, w, h); } catch { return img; }
+  const d = id.data;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const a = d[i + 3];
+      if (a < 10) continue;
+      const sum = d[i] + d[i + 1] + d[i + 2];
+      /* Top slab / underbody void — punch out pure black that isn't purple body. */
+      if (sum < 36 && (y <= 3 || y >= h - 2)) {
         d[i + 3] = 0;
         continue;
       }
-      /* Tire-well black stays; pure void above the hubs is already cleared. */
-      if (y < 16 && d[i] + d[i + 1] + d[i + 2] < 48) d[i + 3] = 0;
+      if (sum < 42 && y <= 5) {
+        /* Lift near-black roof toward deep purple so it doesn't read as smog. */
+        d[i] = Math.max(d[i], 48);
+        d[i + 1] = Math.max(d[i + 1], 28);
+        d[i + 2] = Math.max(d[i + 2], 72);
+      }
     }
   }
   g.putImageData(id, 0, 0);
@@ -1042,16 +1128,8 @@ function drawClassicSkylineBand(scroll) {
   blitClassic(nctx, src, scroll, 40, FACADE_Y - 40);
 }
 function drawDowntownSkyline() {
-  const src = art?.street;
+  /* Full skyline band only — chopped tower stamps were butchering the seam. */
   drawClassicSkylineBand(Math.round(camScroll * 0.2) + 18);
-  if (!src) return;
-  const towers = [[18, 7, 22], [74, 6, 18], [140, 9, 16], [210, 5, 20], [300, 8, 14]];
-  for (const [sx, tw, lift] of towers) {
-    const dx = (sx * 2 + 36 + Math.round(camScroll * 0.2)) % Math.max(1, nesW);
-    const dy = streetDestY(Math.max(18, 48 - lift));
-    const dh = Math.round((38 + Math.min(14, lift)) * worldZoom);
-    nctx.drawImage(src, sx, 48, tw, 38, dx, dy, tw, dh);
-  }
 }
 function hillHeight(x, seed, baseH, amp1, amp2) {
   const t = x + seed;
@@ -1123,30 +1201,18 @@ function streetTint(style) {
   if (style === "ave") return [0.86, 0.84, 0.96];
   return [1, 1, 1];
 }
-function streetPattern(def) {
-  /*
-   * Contiguous classic order [0,1,2,3] = one full street.png tile.
-   * Shuffled slices were creating split-style buildings mid-block.
-   * Only seam left is the original art's left/right edge (same as classic).
-   */
-  const unit = [0, 1, 2, 3];
-  const copies = def.id === "sunset" ? 8 : 6;
-  const out = [];
-  for (let i = 0; i < copies; i++) out.push(...unit);
-  return out;
-}
 function buildStreetStrip(def, streetImg) {
-  const pattern = streetPattern(def);
-  let width = 0;
-  for (const i of pattern) width += sliceW(i);
+  /*
+   * Tile the full classic street.png — same wrap seam as the original cart.
+   * No slice reshuffles (those made CALI / brick / stucco collide mid-block).
+   */
+  const copies = def.id === "sunset" ? 10 : 7;
+  const width = STREET_SRC_W * copies;
   const { c, g } = mkCanvas(width, STREET_SRC_H);
-  let x = 0;
-  for (const i of pattern) {
-    const sx = SLICE_X[i];
-    const sw = sliceW(i);
-    g.drawImage(streetImg, sx, 0, sw, STREET_SRC_H, x, 0, sw, STREET_SRC_H);
-    if (i === 0) eraseBakedCar(g, streetImg, x);
-    x += sw;
+  for (let i = 0; i < copies; i++) {
+    const x = i * STREET_SRC_W;
+    g.drawImage(streetImg, 0, 0, STREET_SRC_W, STREET_SRC_H, x, 0, STREET_SRC_W, STREET_SRC_H);
+    eraseBakedCar(g, streetImg, x);
   }
   const tint = streetTint(def.style);
   tintBuildings(c, tint[0], tint[1], tint[2]);
@@ -1276,8 +1342,8 @@ function drawActors() {
     const carH = (ride?.naturalHeight || ride?.height || 29) * spriteScale;
     for (const t of traffic) {
       actors.push({
-        z: 0.9,
-        draw: () => drawCarWithRims(ride, t.x, t.z, carW, carH, t.facing, streetDestY(ROAD_Y), t.odo || 0),
+        z: t.z,
+        draw: () => drawCarWithRims(ride, t.x, t.z, carW, carH, t.facing, trafficGroundY(t.facing), t.odo || 0),
       });
     }
     if (car.street === streetId) {
@@ -1339,7 +1405,8 @@ function syncHud() {
   const bLabel = document.getElementById("btn-b-label");
   const actBtn = document.getElementById("btn-action");
   const bBtn = document.getElementById("btn-b");
-  const uturnOk = !!(driving && car.gear === "D" && Math.abs(car.vx) < 48 && car.pullOverT <= 0 && car.turnT <= 0);
+  const uturnOk = !!(driving && car.gear === "D" && Math.abs(car.vx) < 48
+    && car.pullOverT <= 0 && car.pullOutT <= 0 && car.turnT <= 0 && !car.pendingPullOut);
   if (driving) {
     if (carLabel) carLabel.textContent = carIsParked() ? "EXIT" : "PULL";
     if (bLabel) bLabel.textContent = "";
@@ -1459,10 +1526,14 @@ function update(dt) {
     car.shiftHint = Math.max(0, car.shiftHint - dt);
     let brake = brakeHeld();
     let gas = gasHeld();
+    if (car.pendingPullOut && !brake && car.pullOverT <= 0 && car.pullOutT <= 0 && car.turnT <= 0) {
+      car.pullOutT = PULL_OUT_T;
+      car.pendingPullOut = null;
+      car.parked = false;
+    }
     if (car.turnT > 0) {
       car.turnT = Math.max(0, car.turnT - dt);
       const u = 1 - car.turnT / CAR_TURN_TIME;
-      const s = u * u * (3 - 2 * u);
       /* Hold old nose through the first half, then show the new one. */
       car.facing = u < 0.55 ? car.turnFrom : car.turnTo;
       const along = Math.cos(u * Math.PI) * car.turnFrom;
@@ -1473,53 +1544,73 @@ function update(dt) {
         car.facing = car.turnTo;
         car.vx = car.facing * Math.max(18, Math.abs(car.vx));
         syncHeadingFromFacing();
+        car.z = laneZ(car.facing);
+      } else {
+        const fromZ = laneZ(car.turnFrom);
+        const toZ = laneZ(car.turnTo);
+        car.z = fromZ + (toZ - fromZ) * (u * u * (3 - 2 * u));
       }
-      const wantTurnZ = Z_CAR_DRIVE + Math.sin(s * Math.PI) * 0.04;
-      car.z += (wantTurnZ - car.z) * Math.min(1, dt * 4);
+    } else if (car.pullOutT > 0) {
+      car.pullOutT = Math.max(0, car.pullOutT - dt);
+      const u = 1 - car.pullOutT / PULL_OUT_T;
+      const s = u * u * (3 - 2 * u);
+      const dir = (car.gear === "R" ? -1 : 1) * (car.facing >= 0 ? 1 : -1);
+      car.vx = dir * (10 + 28 * Math.sin(Math.min(1, u) * Math.PI));
+      gas = false;
+      car.z = curbZ(car.facing) + (laneZ(car.facing) - curbZ(car.facing)) * s;
+      if (car.pullOutT <= 0) {
+        car.z = laneZ(car.facing);
+        car.vx = dir * Math.max(20, Math.abs(car.vx));
+      }
     } else if (car.pullOverT > 0) {
       car.pullOverT = Math.max(0, car.pullOverT - dt);
       gas = false;
       brake = true;
       car.vx *= Math.exp(-3.2 * dt);
-      const wantPullZ = Z_CAR_PARK;
-      car.z += (wantPullZ - car.z) * Math.min(1, dt * 2.4);
+      const u = 1 - car.pullOverT / PULL_OVER_T;
+      const s = u * u * (3 - 2 * u);
+      car.z = laneZ(car.facing) + (curbZ(car.facing) - laneZ(car.facing)) * s;
       if (Math.abs(car.vx) < CAR_STOP || car.pullOverT <= 0) {
         car.vx = 0;
         car.gear = "P";
         car.parked = true;
-        car.z = Z_CAR_PARK;
+        car.z = curbZ(car.facing);
         car.pullOverT = 0;
         addPop(car.x, car.z, "PARKED");
       }
     } else if (car.gear === "P") {
       car.vx = 0;
-      if (ax.x < 0) { car.facing = -1; syncHeadingFromFacing(); }
-      if (ax.x > 0) { car.facing = 1; syncHeadingFromFacing(); }
+      if (ax.x < 0) { car.facing = -1; syncHeadingFromFacing(); car.z = curbZ(car.facing); }
+      if (ax.x > 0) { car.facing = 1; syncHeadingFromFacing(); car.z = curbZ(car.facing); }
     } else if (car.gear === "N") {
       car.vx *= Math.exp(-1.2 * dt);
       if (brake) car.vx *= Math.exp(-4 * dt);
     } else if (car.gear === "D" || car.gear === "R") {
-      /* Nose direction = facing. D = forward along nose, R = opposite. */
-      const forward = car.facing >= 0 ? 1 : -1;
-      const dir = car.gear === "D" ? forward : -forward;
-      const creep = dir * CAR_CREEP * (car.gear === "R" ? 0.7 : 1);
-      if (gas) car.vx += dir * CAR_ACCEL * (car.gear === "R" ? 0.72 : 1) * dt;
-      else if (!brake) {
-        /* Creep toward gear speed when foot is off gas + brake. */
-        const diff = creep - car.vx;
-        car.vx += Math.sign(diff) * Math.min(Math.abs(diff), CAR_ACCEL * 0.55 * dt);
+      if (car.pendingPullOut) {
+        /* Still holding brake after shifting out of P — stay on the curb. */
+        car.vx = 0;
+      } else {
+        /* Nose direction = facing. D = forward along nose, R = opposite. */
+        const forward = car.facing >= 0 ? 1 : -1;
+        const dir = car.gear === "D" ? forward : -forward;
+        const creep = dir * CAR_CREEP * (car.gear === "R" ? 0.7 : 1);
+        if (gas) car.vx += dir * CAR_ACCEL * (car.gear === "R" ? 0.72 : 1) * dt;
+        else if (!brake) {
+          const diff = creep - car.vx;
+          car.vx += Math.sign(diff) * Math.min(Math.abs(diff), CAR_ACCEL * 0.55 * dt);
+        }
+        if (brake) car.vx *= Math.exp(-4 * dt);
+        if (gas && car.vx * dir < 0) car.vx = 0;
       }
-      if (brake) car.vx *= Math.exp(-4 * dt);
-      if (gas && car.vx * dir < 0) car.vx = 0;
     }
     car.vx = Math.max(-CAR_MAX, Math.min(CAR_MAX, car.vx));
     if (brake && Math.abs(car.vx) < CAR_STOP) car.vx = 0;
     const prevX = car.x;
     car.x = clampAlong(car.x + car.vx * dt);
     carOdo += alongDist(prevX, car.x);
-    if (car.turnT <= 0 && car.pullOverT <= 0) {
-      const wantZ = (!car.parked && car.gear !== "P") ? Z_CAR_DRIVE : Z_CAR_PARK;
-      car.z += (wantZ - car.z) * Math.min(1, dt * 2.8);
+    if (car.turnT <= 0 && car.pullOverT <= 0 && car.pullOutT <= 0) {
+      const wantZ = (!car.parked && car.gear !== "P") ? laneZ(car.facing) : curbZ(car.facing);
+      car.z += (wantZ - car.z) * Math.min(1, dt * 2.4);
     }
     player.x = car.x;
     player.z = SIDEWALK_Z;
@@ -1565,12 +1656,22 @@ function renderNes() {
   if (mode === "play") drawActors();
   nctx.font = "8px 'Press Start 2P', monospace";
   if (mode === "play") {
-    /* Mute/QUIT stack on the left chrome — HUD owns the top band. */
-    text(nctx, "$" + String(Math.floor(cash)).padStart(4, "0"), 8, 6, "#f0c430");
-    text(nctx, "GRN " + fmtG(grams), Math.round(nesW * 0.30), 6, grams > 0 ? "#38f070" : "#8a8696");
-    text(nctx, "WHT " + fmtG(white), Math.round(nesW * 0.52), 6, white > 0 ? "#f4f0e8" : "#8a8696");
-    text(nctx, BUILD_LABEL, Math.round(nesW * 0.74), 6, "#8a8696");
-    text(nctx, "REP " + rep, nesW - 44, 6, "#f8f8f8");
+    /* Tight left cluster; QUIT/mute live in top-right chrome. */
+    let hx = 6;
+    const gap = 6;
+    const cashS = "$" + String(Math.floor(cash)).padStart(4, "0");
+    const grnS = "GRN " + fmtG(grams);
+    const whtS = "WHT " + fmtG(white);
+    const repS = "REP " + rep;
+    text(nctx, cashS, hx, 6, "#f0c430");
+    hx += Math.ceil(nctx.measureText(cashS).width) + gap;
+    text(nctx, grnS, hx, 6, grams > 0 ? "#38f070" : "#2a8a48");
+    hx += Math.ceil(nctx.measureText(grnS).width) + gap;
+    text(nctx, whtS, hx, 6, white > 0 ? "#f4f0e8" : "#9a9690");
+    hx += Math.ceil(nctx.measureText(whtS).width) + gap;
+    text(nctx, BUILD_LABEL, hx, 6, "#8a8696");
+    hx += Math.ceil(nctx.measureText(BUILD_LABEL).width) + gap;
+    text(nctx, repS, hx, 6, "#c8c4d0");
   }
   if (toast.life > 0 && toast.text) {
     const msg = toast.text;
@@ -1588,7 +1689,7 @@ function renderNes() {
     text(nctx, "BLOCK", nesW / 2, nesH * 0.28, "#f8f8f8", "center");
     text(nctx, "RUN", nesW / 2, nesH * 0.28 + 22, "#e81818", "center");
     nctx.font = "8px 'Press Start 2P', monospace";
-    text(nctx, "DRIVE THE BLOCK", nesW / 2, nesH * 0.28 + 52, "#38d8f8", "center");
+    text(nctx, "DRIVE THE BLOCK  " + BUILD_LABEL, nesW / 2, nesH * 0.28 + 52, "#38d8f8", "center");
     if (Math.floor(blink * 2) % 2 === 0) {
       text(nctx, hasSave ? "TAP TO CONTINUE" : "PRESS START", nesW / 2, nesH * 0.28 + 84, "#f0c430", "center");
     }
@@ -1837,11 +1938,12 @@ Promise.all([
   longStreet = streets.sunset.strip;
   WORLD = streets.sunset.length;
   rimFrames = rims || [];
+  const cleanCar = cleanCarSheet(carImg);
   art = {
     idle, walk: walkNew || walk, walkNew: walkNew || walk, thug, runner, pack,
     walkFront, walkBack,
-    car: carImg,
-    sedan: carImg,
+    car: cleanCar,
+    sedan: cleanCar,
     street: streetImg,
     driver: driverImg,
   };
