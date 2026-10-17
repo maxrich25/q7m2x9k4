@@ -1,8 +1,8 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=99";
-import { paintClassicHero } from "./paint.js?v=99";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=100";
+import { paintClassicHero } from "./paint.js?v=100";
 
 export function createHud(opts = {}) {
-  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v99";
+  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v100";
   const cashEl = document.getElementById("hud-cash");
   const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
@@ -259,6 +259,8 @@ export function createHud(opts = {}) {
     const grn = "GRN " + fmtGrams(g.GREEN);
     const wht = "WHT " + fmtGrams(g.WHITE);
     const rep = "REP " + Math.round(state.rep || 0);
+    const buildEl = document.getElementById("hud-build");
+    const build = (buildEl?.textContent || "v100").trim();
     if (cashEl) cashEl.textContent = cash;
     if (invEl) invEl.innerHTML = invHtml(state);
     if (repEl) repEl.textContent = rep;
@@ -269,7 +271,7 @@ export function createHud(opts = {}) {
     const cssW = Math.max(1, Math.round(host.clientWidth || window.innerWidth || 375));
     const cssH = 32;
     const dpr = Math.max(1, Math.round(Math.min(3, window.devicePixelRatio || 1)));
-    const sig = [cash, grn, wht, rep, cssW, cssH, dpr].join("|");
+    const sig = [cash, grn, wht, rep, build, cssW, cssH, dpr].join("|");
     if (sig === hudCanvasSig && hudCanvas.width === cssW * dpr) return;
     hudCanvasSig = sig;
     hudCanvas.width = cssW * dpr;
@@ -295,6 +297,16 @@ export function createHud(opts = {}) {
       ctx.fillText(text, x, y);
       x += Math.ceil(ctx.measureText(text).width) + gap;
     }
+    // Gold build chip — same as DOM badge (standalone used to drop it → ugly snap).
+    const bw = Math.ceil(ctx.measureText(build).width) + 10;
+    const bx = cssW - bw - 6;
+    ctx.fillStyle = "rgba(7, 6, 12, 0.55)";
+    ctx.fillRect(bx, y - 9, bw, 18);
+    ctx.strokeStyle = "rgba(240, 196, 48, 0.55)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx + 0.5, y - 9.5, bw - 1, 17);
+    ctx.fillStyle = "#f0c430";
+    ctx.fillText(build, bx + 5, y);
     // Prefer canvas on high-DPR standalone where DOM text softens; else crisp DOM row.
     const standalone = !!(window.navigator.standalone
       || window.matchMedia("(display-mode: standalone)").matches);

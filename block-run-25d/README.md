@@ -2,19 +2,19 @@
 
 Night-street prototype at [`./block-run-25d/`](./). Gameplay modules here are shared with classic [`../block-run/`](../block-run/) (2D renderer only).
 
-Live: [https://maxrich25.github.io/q7m2x9k4/block-run-25d/?v=99&fresh=nuke&play=1](https://maxrich25.github.io/q7m2x9k4/block-run-25d/?v=99&fresh=nuke&play=1)
+Live: [https://maxrich25.github.io/q7m2x9k4/block-run-25d/?v=100&fresh=nuke&play=1](https://maxrich25.github.io/q7m2x9k4/block-run-25d/?v=100&fresh=nuke&play=1)
 
 Cold open (root + home-screen) lands on this **drone title**. Quiet **Play / More / Back** sit low so the flyover stays visible. Back → root `?menu=1` (2D / 2.5D). Versions Back returns here. Pause only has **TITLE**.
 
-When the build number changes, the page nukes Cache Storage / service workers and reloads once. The HUD corner shows a gold **v99** badge — if you see an older number (or no badge), you’re on a stale home-screen / Safari cache. Use the live link above, or delete and re-add the home-screen icon.
+Home-screen freshness: fetch `build.json` with `cache: "no-store"` and register network-first `sw.js`. That stops a cached shell from rewriting `?v=` back to an old build. Gold **v100** badge — if you still see v98/v99 after merge, force-close the home-screen app and reopen once (or delete/re-add the icon).
 
 Sidewalk on both sides; bright near-camera grass/bushes under the see-through pad. Sidewalk peds stay sparse. Refs dump in [`../media/`](../media/).
 
-Hero stays on painted `sprites/hero-*.png` art. Title hides the pad (Play/More/Back only). Pad is a tight no-gap row. Turnarounds hold facing until the turn ends; car-enter camera lerps separately from the board clip. Street lamps on both curbs + neon/window spill. Corner says v99. Inline `BUILD` must match `?v=` so home-screen PWAs actually nuke.
+Cobra-head street lamps both curbs (downward spots + ground pools + near-camera shadows). Night ambient stays low so pools read. Title hides the pad. Corner says v100.
 
 ## Cache bust
 
-GitHub Pages sends `Cache-Control: max-age=600`, so iPhone Safari can keep an old copy for ten minutes after a deploy.
+GitHub Pages sends `Cache-Control: max-age=600`. Also bump `build.json` `"v"` and `sw.js` `BUILD` with the same number.
 
 On each change, bump the version query `?v=` (keep every copy identical) in:
 
