@@ -3,7 +3,7 @@
   "short_name": "BLOCK RUN",
   "id": "../",
   "scope": "../",
-  "start_url": "./?v=97&fresh=clear&play=1",
+  "start_url": "./?v=98&fresh=clear&play=1",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#07060c",
