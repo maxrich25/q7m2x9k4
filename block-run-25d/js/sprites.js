@@ -1,9 +1,9 @@
 import * as THREE from "three";
 import {
-  pixelCanvas, derivePose, plantStride, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
+  pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, WALK_CYCLE_POSES, RUN_CYCLE_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
-  STRIDE_POSES, paintClassicHeroSet, classicWithoutHat,
-} from "./paint.js?v=95";
+  paintClassicHeroSet, classicWithoutHat,
+} from "./paint.js?v=96";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -58,28 +58,46 @@ function texturizeSoft(source) {
 
 const HERO_VIEW_NAMES = ["side", "front34", "front", "back34", "back"];
 
-/** Planted left/right foot poses from the painted side still (scaled for tall hero art). */
-const PAINTED_WALK_STRIDES = STRIDE_POSES;
-const PAINTED_RUN_STRIDES = [
-  { leftDx: 8, leftDy: 0, rightDx: -6, rightDy: -3, bob: 0, arm: 5 },
-  { leftDx: 5, leftDy: 0, rightDx: -4, rightDy: -2, bob: 1, arm: 3 },
-  { leftDx: 0, leftDy: 0, rightDx: 0, rightDy: 0, bob: 0, arm: 0 },
-  { leftDx: -6, leftDy: -3, rightDx: 8, rightDy: 0, bob: 0, arm: -5 },
-  { leftDx: -4, leftDy: -2, rightDx: 5, rightDy: 0, bob: 1, arm: -3 },
-  { leftDx: 0, leftDy: 0, rightDx: 0, rightDy: 0, bob: 0, arm: 0 },
+/**
+ * Whole-figure bob + lean only. Band-shearing (derivePose / plantStride)
+ * leaves a transparent chop through painted side art — never do that here.
+ */
+const PAINTED_WALK_POSES = [
+  { bob: 0, lean: 2 },
+  { bob: 3, lean: 1 },
+  { bob: 1, lean: 0 },
+  { bob: 3, lean: -1 },
+  { bob: 0, lean: -2 },
+  { bob: 3, lean: -1 },
+  { bob: 1, lean: 0 },
+  { bob: 3, lean: 1 },
 ];
+const PAINTED_RUN_POSES = [
+  { bob: 0, lean: 3 },
+  { bob: 4, lean: 1 },
+  { bob: 1, lean: -1 },
+  { bob: 4, lean: -3 },
+  { bob: 1, lean: -1 },
+  { bob: 4, lean: 1 },
+];
+
+function softLocoPose(src, { bob = 0, lean = 0 } = {}) {
+  const w = src.width || src.naturalWidth || 40;
+  const h = src.height || src.naturalHeight || 40;
+  return pixelCanvas(w, h + Math.ceil(Math.abs(bob)) + 2, (g) => {
+    g.imageSmoothingEnabled = true;
+    const y = Math.max(0, bob);
+    g.drawImage(src, lean, y);
+  });
+}
 
 function paintedLocoFromSide(sideImg, poses) {
   if (!sideImg) return [];
   const src = toCanvas(sideImg);
-  const scale = Math.max(1.2, (src.height || 40) / 40);
-  return poses.map((pose) => texturizeSoft(plantStride(src, {
-    leftDx: (pose.leftDx || 0) * scale * 0.9,
-    rightDx: (pose.rightDx || 0) * scale * 0.9,
-    leftDy: (pose.leftDy || 0) * scale,
-    rightDy: (pose.rightDy || 0) * scale,
+  const scale = Math.max(1, Math.min(2.2, (src.width || 40) / 40));
+  return poses.map((pose) => texturizeSoft(softLocoPose(src, {
     bob: (pose.bob || 0) * scale,
-    arm: (pose.arm || 0) * scale * 0.75,
+    lean: (pose.lean || 0) * scale,
   })));
 }
 
@@ -95,8 +113,8 @@ async function loadHeroViews() {
     }
   }));
   if (!out.side || !out.front || !out.back) return null;
-  out.walk = paintedLocoFromSide(raw.side, PAINTED_WALK_STRIDES);
-  out.run = paintedLocoFromSide(raw.side, PAINTED_RUN_STRIDES);
+  out.walk = paintedLocoFromSide(raw.side, PAINTED_WALK_POSES);
+  out.run = paintedLocoFromSide(raw.side, PAINTED_RUN_POSES);
   return out;
 }
 

@@ -13,6 +13,14 @@
   <link rel="manifest" href="./manifest.json" />
   <link rel="apple-touch-icon" href="./block-run-25d/apple-touch-icon.png" />
   <link rel="icon" type="image/svg+xml" href="./block-run/favicon.svg?v=9" />
+  <!-- Cold open → 2.5D drone title. ?menu=1 keeps this 2D / 2.5D picker. -->
+  <script>
+    (function () {
+      var params = new URLSearchParams(location.search);
+      if (params.has("menu")) return;
+      location.replace("./block-run-25d/?v=96&fresh=clear&play=1");
+    })();
+  </script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <style>
     :root {
@@ -49,103 +57,23 @@
       width: min(420px, 100%);
       text-align: center;
     }
-    .tag {
-      color: var(--cyan);
-      font-size: 8px;
-      letter-spacing: 3px;
-      margin: 0 0 16px;
-    }
-    h1 {
-      margin: 0 0 8px;
-      font-size: 28px;
-      line-height: 1.2;
-      letter-spacing: 3px;
-    }
+    .tag { color: var(--cyan); font-size: 8px; letter-spacing: 3px; margin: 0 0 14px; }
+    h1 { margin: 0; font-size: 28px; line-height: 1.2; letter-spacing: 2px; }
     h1 span { color: var(--pink); }
-    .cali {
-      color: var(--gold);
-      font-size: 10px;
-      letter-spacing: 6px;
-      margin: 0 0 28px;
-      text-shadow: 0 0 12px rgba(240, 196, 48, 0.55);
+    .cali { color: var(--gold); font-size: 10px; margin: 10px 0 28px; letter-spacing: 4px; }
+    .picks { display: flex; flex-direction: column; gap: 12px; }
+    .pick {
+      display: block; text-decoration: none; color: var(--cream);
+      border: 3px solid #3a3644; background: #121018; padding: 16px 12px;
+      font-family: inherit; cursor: pointer; width: 100%;
     }
-    .picks {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    a.pick, button.pick {
-      display: block;
-      width: 100%;
-      text-decoration: none;
-      color: var(--cream);
-      border: 3px solid #3a3644;
-      background: #121018;
-      padding: 18px 14px 16px;
-      min-height: 84px;
-      font-family: inherit;
-      cursor: pointer;
-    }
-    /* Play is the main action; More / Back stay secondary. */
-    a.pick.latest, button.pick.latest {
-      min-height: 118px;
-      padding: 26px 16px 22px;
-      border-color: #4a6270;
-    }
-    a.pick.latest strong, button.pick.latest strong {
-      font-size: 18px;
-      margin-bottom: 10px;
-    }
-    a.pick.more, button.pick.more,
-    a.pick.back, button.pick.back {
-      min-height: 72px;
-      padding: 14px 14px 12px;
-    }
-    a.pick.more strong, button.pick.more strong,
-    a.pick.back strong, button.pick.back strong {
-      font-size: 12px;
-      margin-bottom: 6px;
-    }
-    a.pick:hover, a.pick:focus-visible, button.pick:hover, button.pick:focus-visible {
-      border-color: var(--cyan);
-      box-shadow: 0 0 18px rgba(61, 224, 255, 0.28);
-      outline: none;
-    }
-    a.pick.shoot:hover, a.pick.shoot:focus-visible,
-    button.pick.shoot:hover, button.pick.shoot:focus-visible {
-      border-color: var(--pink);
-      box-shadow: 0 0 18px rgba(226, 27, 122, 0.3);
-    }
-    a.pick.more:hover, a.pick.more:focus-visible,
-    button.pick.more:hover, button.pick.more:focus-visible {
-      border-color: var(--gold);
-      box-shadow: 0 0 18px rgba(240, 196, 48, 0.28);
-    }
-    a.pick.back:hover, a.pick.back:focus-visible,
-    button.pick.back:hover, button.pick.back:focus-visible {
-      border-color: #6a6674;
-      box-shadow: none;
-    }
-    a.pick strong, button.pick strong {
-      display: block;
-      font-size: 14px;
-      line-height: 1.45;
-      margin-bottom: 8px;
-      letter-spacing: 1px;
-    }
-    a.pick em, button.pick em {
-      display: block;
-      font-style: normal;
-      font-size: 7px;
-      color: #8a8696;
-      line-height: 1.5;
-    }
-    a.pick.latest strong, button.pick.latest strong,
-    button.pick.line strong { color: var(--cyan); }
-    a.pick.shoot strong, button.pick.shoot strong { color: var(--pink); }
-    a.pick.safe strong, button.pick.safe strong { color: var(--mint); }
-    a.pick.more strong, button.pick.more strong { color: var(--gold); }
-    a.pick.back strong, button.pick.back strong { color: #a8a4b4; }
+    .pick strong { display: block; font-size: 14px; margin-bottom: 6px; }
+    .pick em { display: block; font-style: normal; font-size: 7px; color: #8a8696; line-height: 1.5; }
+    .pick.line strong { color: var(--cyan); }
+    .pick.shoot strong { color: var(--pink); }
+    .pick.safe strong { color: var(--mint); }
+    .pick.back strong { color: #8a8696; }
+    .pick:hover, .pick:focus-visible { border-color: var(--gold); outline: none; }
     footer {
       margin-top: 26px;
       font-size: 7px;
@@ -159,13 +87,12 @@
     <p class="tag">NIGHT ARCADE</p>
     <h1>BLOCK<br><span>RUN</span></h1>
     <p class="cali">CALI</p>
-    <!-- Cold open: pick 2D or 2.5D. 2.5D opens the drone title (Play/More/Back live there). -->
     <div class="picks" id="menu-line">
       <button type="button" class="pick line" data-go="2d-mode">
         <strong>2D</strong>
         <em>ON-FOOT BLOCK</em>
       </button>
-      <a class="pick line" href="./block-run-25d/?v=95&fresh=clear&play=1">
+      <a class="pick line" href="./block-run-25d/?v=96&fresh=clear&play=1">
         <strong>2.5D</strong>
         <em>NIGHT STREET TITLE</em>
       </a>

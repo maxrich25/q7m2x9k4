@@ -4,9 +4,9 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=95";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=95";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=95";
+} from "./config.js?v=96";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=96";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=96";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -1615,35 +1615,35 @@ export function createWorld(canvas, sprites) {
   curbNearShadow.position.z = 11.92;
   city.add(curbNearShadow);
 
-  // Near-camera sidewalk + grass in the band between curb and camera (bottom of portrait view).
+  // Near-camera sidewalk + bright grass just past the near curb (bottom of portrait view).
   const walkNear = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 2.4),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 2.0),
     new THREE.MeshLambertMaterial({ map: sidewalkTex() }),
   );
   walkNear.rotation.x = -Math.PI / 2;
-  walkNear.position.set(STREET_LEN / 2, 0.03, 13.45);
+  walkNear.position.set(STREET_LEN / 2, 0.04, 13.2);
   walkNear.material.map.repeat.set(160, 1);
   city.add(walkNear);
   const grassNear = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 2.8),
-    new THREE.MeshLambertMaterial({ color: 0x1a3a24 }),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 3.6),
+    new THREE.MeshBasicMaterial({ color: 0x2a6a38 }),
   );
   grassNear.rotation.x = -Math.PI / 2;
-  grassNear.position.set(STREET_LEN / 2, 0.02, 15.1);
+  grassNear.position.set(STREET_LEN / 2, 0.05, 15.0);
   city.add(grassNear);
-  const bushColors = [0x163820, 0x1e4428, 0x12401c, 0x204828];
-  for (let i = 0; i < 36; i++) {
-    const bw = 1.0 + (i % 4) * 0.3;
-    const bd = 0.7 + (i % 3) * 0.2;
-    const bh = 0.4 + (i % 5) * 0.16;
+  const bushColors = [0x245a30, 0x2e6a38, 0x1e5028, 0x347844];
+  for (let i = 0; i < 40; i++) {
+    const bw = 1.2 + (i % 4) * 0.35;
+    const bd = 0.85 + (i % 3) * 0.25;
+    const bh = 0.55 + (i % 5) * 0.22;
     const bush = new THREE.Mesh(
       new THREE.BoxGeometry(bw, bh, bd),
-      new THREE.MeshLambertMaterial({ color: bushColors[i % bushColors.length] }),
+      new THREE.MeshBasicMaterial({ color: bushColors[i % bushColors.length] }),
     );
     bush.position.set(
-      (i + 0.35) * (STREET_LEN / 36) + (i % 2) * 0.4,
+      (i + 0.35) * (STREET_LEN / 40) + (i % 2) * 0.35,
       bh * 0.5,
-      14.55 + (i % 3) * 0.35,
+      13.9 + (i % 3) * 0.45,
     );
     city.add(bush);
   }
@@ -1652,9 +1652,9 @@ export function createWorld(canvas, sprites) {
     nearPalm.position.set(
       (i + 0.5) * (STREET_LEN / 12) + (i % 2) * 1.1,
       0,
-      14.9 + (i % 2) * 0.35,
+      14.4 + (i % 2) * 0.4,
     );
-    nearPalm.scale.setScalar(0.95 + (i % 3) * 0.08);
+    nearPalm.scale.setScalar(1.05 + (i % 3) * 0.1);
     city.add(nearPalm);
   }
 
