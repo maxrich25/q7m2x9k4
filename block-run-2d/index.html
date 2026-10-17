@@ -10,17 +10,17 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="description" content="BLOCK RUN. NES-style night block. Buy from the plug, drive deals, stash at the crib." />
-  <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg?v=21" />
+  <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg?v=22" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
-  <link rel="stylesheet" href="style.css?v=21" />
+  <link rel="stylesheet" href="style.css?v=22" />
 </head>
 <body>
   <div id="app">
     <div id="chrome">
+      <a id="btn-quit" href="../?menu=1">QUIT</a>
       <button type="button" id="btn-mute" class="icon-btn" aria-label="sound on" title="sound">
         <span class="spk" aria-hidden="true">♪</span>
       </button>
-      <a href="../?menu=1">QUIT</a>
     </div>
     <div id="view">
       <canvas id="game" width="256" height="224" aria-label="BLOCK RUN street"></canvas>
@@ -47,44 +47,56 @@
         </div>
       </div>
     </div>
-    <div id="pad">
-      <div id="pad-foot">
-        <div id="gb-dpad">
-          <button type="button" class="pad-btn gb-dir" data-role="left" aria-label="left">◀</button>
-          <button type="button" class="pad-btn gb-dir" data-role="right" aria-label="right">▶</button>
-        </div>
-        <div id="gb-face-grid" class="face-grid">
-          <button type="button" class="face-btn face-tl" data-role="car" id="btn-car"><span id="btn-car-label">CAR</span></button>
-          <button type="button" class="face-btn face-tr" data-role="phone"><span>PHONE</span></button>
-          <button type="button" class="face-btn face-bl" data-role="run"><span>RUN</span></button>
-          <button type="button" class="face-btn face-br accent" data-role="act" id="btn-action"><span id="btn-action-label">ACT</span></button>
-        </div>
-      </div>
-      <div id="pad-car" class="hidden">
-        <button type="button" class="pad-btn brake pad-pedal" data-role="brake">BRAKE</button>
-        <button type="button" class="pad-btn gas pad-pedal" data-role="gas">GAS</button>
-        <div id="shifter" data-role="shifter">
-          <div id="shift-track">
-            <button type="button" class="gear" data-role="gear" data-gear="P">P</button>
-            <button type="button" class="gear" data-role="gear" data-gear="R">R</button>
-            <button type="button" class="gear" data-role="gear" data-gear="N">N</button>
-            <button type="button" class="gear" data-role="gear" data-gear="D">D</button>
+    <!-- Layout mirrored from block-run-25d: dpad/pedals left, face grid right. -->
+    <div id="pad" class="gb sa">
+      <div id="gb-grill" aria-hidden="true"></div>
+      <div id="gb-face">
+        <div id="pad-foot">
+          <div id="gb-dpad">
+            <button type="button" class="pad-btn gb-dir" data-role="left" aria-label="left">◀</button>
+            <button type="button" class="pad-btn gb-dir" data-role="right" aria-label="right">▶</button>
           </div>
-          <div id="shift-hint">HOLD BRAKE</div>
         </div>
-        <div id="drive-row">
-          <button type="button" class="pad-btn accent" data-role="car" id="btn-exit"><span id="btn-exit-label">EXIT</span></button>
-          <button type="button" class="pad-btn" data-role="phone">PHONE</button>
-          <button type="button" class="pad-btn" data-role="uturn" id="btn-uturn">U-TN</button>
+        <div id="pad-car" class="hidden">
+          <button type="button" class="pad-btn pad-pedal pad-brake" data-role="brake">BRAKE</button>
+          <button type="button" class="pad-btn pad-pedal pad-gas" data-role="gas">GAS</button>
+          <div id="shifter" data-role="shifter">
+            <div id="shift-track">
+              <div id="shift-gears">
+                <button type="button" class="gear" data-role="gear" data-gear="P">P</button>
+                <button type="button" class="gear" data-role="gear" data-gear="R">R</button>
+                <button type="button" class="gear" data-role="gear" data-gear="N">N</button>
+                <button type="button" class="gear" data-role="gear" data-gear="D">D</button>
+              </div>
+              <div id="shift-rail" aria-hidden="true"><i id="shift-knob"></i></div>
+            </div>
+            <div id="shift-hint" class="hidden">HOLD BRAKE</div>
+          </div>
+        </div>
+        <div id="gb-btns">
+          <div id="gb-face-grid" class="face-grid">
+            <button type="button" id="btn-car" class="face-btn face-tl" data-role="car">
+              <span id="btn-car-label">CAR</span>
+            </button>
+            <button type="button" id="btn-x" class="face-btn face-tr" data-role="phone">
+              <span id="btn-x-label">PHONE</span>
+            </button>
+            <button type="button" id="btn-b" class="face-btn face-bl" data-role="run">
+              <span id="btn-b-label">RUN</span>
+            </button>
+            <button type="button" id="btn-action" class="face-btn face-br" data-role="act">
+              <span id="btn-action-label">ACT</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
   </div>
-  <script src="../art/rims/alternates/rims.js?v=21"></script>
-  <script src="audio.js?v=21"></script>
-  <script src="sprites/walk14.js?v=21"></script>
-  <script src="sprites/chain24.js?v=21"></script>
-  <script src="sprites/driver-overlay.js?v=21"></script>
-  <script src="game.js?v=21"></script>
+  <script src="../art/rims/alternates/rims.js?v=22"></script>
+  <script src="audio.js?v=22"></script>
+  <script src="sprites/walk14.js?v=22"></script>
+  <script src="sprites/chain24.js?v=22"></script>
+  <script src="sprites/driver-overlay.js?v=22"></script>
+  <script src="game.js?v=22"></script>
 </body>
 </html>

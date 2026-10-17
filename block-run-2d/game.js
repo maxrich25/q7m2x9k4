@@ -1,11 +1,16 @@
 /* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
-const ASSET_V = "21";
-const BUILD_LABEL = "v21";
+const ASSET_V = "22";
+const BUILD_LABEL = "v22";
 /** Sidewalk belt only — no up/down depth walk this pass. */
 const SIDEWALK_Z = 0.28;
 const RUN_MULT = 1.55;
 const RIM_SET = "5spoke-option1-MAIN/silver";
 const RIM_DIST = 4.6;
+/** Parked nose sits just off the curb — soft lerp, no sidewalk snap. */
+const Z_CAR_PARK = 0.68;
+const Z_CAR_DRIVE = 0.74;
+/** Classic car.png / rim sheets face LEFT; draw with this flip vs logical facing. */
+const CAR_ART_FACE = -1;
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v3";
 const HERO_SRC_W = 40;
@@ -44,7 +49,7 @@ const MAX_G = 56;
 const SALES = [20, 40, 60];
 const CAR_ACCEL = 140;
 const CAR_MAX = 120;
-const CAR_CREEP = 22;
+const CAR_CREEP = 0; /* no ghost throttle in D/R */
 const CAR_STOP = 8;
 const NAMES = ["DEZ", "MARI", "KILO", "NIA", "JUNO"];
 const MEETS = [
@@ -59,8 +64,6 @@ const Z_WALK_MIN = 0.20;
 const Z_WALK_MAX = 0.40;
 const Z_STREET_MIN = 0.52;
 const Z_STREET_MAX = 0.92;
-const Z_CAR_PARK = 0.58;
-const Z_CAR_DRIVE = 0.74;
 const TURN_SPEED = 26;
 const INTERSECT_REACH = 44;
 const AXIS_LEN = 720;
@@ -151,8 +154,11 @@ const keys = new Set();
 const holds = new Set();
 let pulses = { act: false, jump: false, start: false, car: false, phone: false, crib: false, pullover: false, uturn: false, accept: false, stall: false, save: false, stash: false, gear: null, turn: null };
 let rimFrames = [];
-let trafficSheets = [];
 let carOdo = 0;
+/** Unwrapped scroll so moon/skyline don't jump when the block loops. */
+let camScroll = 0;
+/** Live shifter position while the thumb slides (visual only until commit). */
+let shiftPreview = null;
 let testGas = false;
 let testBrake = false;
 
@@ -399,9 +405,12 @@ function carComingNear(x) {
   return false;
 }
 function carBlocksPed(x) {
-  if (car.street === streetId && alongDist(car.x, x) < 48) return true;
+  /* Parked player whip is not a wall — only moving traffic slows peds. */
   for (const t of traffic) {
-    if (alongDist(t.x, x) < 48) return true;
+    if (Math.abs(t.vx) > 8 && alongDist(t.x, x) < 40) return true;
+  }
+  if (car.street === streetId && !carIsParked() && Math.abs(car.vx) > 8 && alongDist(car.x, x) < 40) {
+    return true;
   }
   return false;
 }
@@ -409,7 +418,7 @@ function updatePeds(dt) {
   for (const ped of peds) {
     ped.anim += dt;
     ped.z = SIDEWALK_Z;
-    /* No curb-crossing this pass — belt walkers only. Pass through each other. */
+    /* Pass through each other + parked whip. Only yield to moving cars. */
     if (carComingNear(ped.x) || carBlocksPed(ped.x)) {
       ped.mode = "wait";
       continue;
@@ -428,33 +437,46 @@ function carClearOf(x, ignore) {
   }
   return true;
 }
+function trafficDir() {
+  /* Cruise with the player's nose — never spawn head-on ambushes. */
+  return car.facing >= 0 ? 1 : -1;
+}
 function updateTraffic(dt) {
+  const dir = trafficDir();
   for (const t of traffic) {
     t.justTurned = Math.max(0, (t.justTurned || 0) - dt);
+    /* Keep them flowing with us; no reverse-runaway when boxed in. */
+    if (t.facing !== dir) {
+      t.facing = dir;
+      t.vx = Math.abs(t.vx) * dir || dir * 36;
+    }
+    const want = dir * Math.max(28, Math.min(52, Math.abs(t.cruise || t.vx) || 36));
+    t.vx += (want - t.vx) * Math.min(1, dt * 1.8);
     const nx = t.x + t.vx * dt;
     if (!carClearOf(nx, t)) {
-      t.vx *= Math.exp(-2.4 * dt);
+      t.vx *= Math.exp(-1.6 * dt);
       continue;
     }
     t.x = clampAlong(nx);
     t.odo = (t.odo || 0) + Math.abs(t.vx) * dt;
   }
-  if (traffic.length > 2) traffic.length = 2;
+  if (traffic.length > 1) traffic.length = 1;
   crossSpawnT -= dt;
   if (crossSpawnT <= 0) {
-    crossSpawnT = 12 + Math.random() * 10;
-    if (traffic.length < 2) {
-      const dir = heading === "W" || heading === "S" ? -1 : 1;
-      const x = clampAlong(car.x + dir * (220 + Math.random() * 80));
-      if (carClearOf(x)) {
+    crossSpawnT = 18 + Math.random() * 14;
+    if (traffic.length < 1 && inCar && !carIsParked()) {
+      /* Spawn well behind so they don't pop in the windshield. */
+      const x = clampAlong(car.x - dir * (320 + Math.random() * 160));
+      if (carClearOf(x) && alongDist(x, car.x) > 200) {
+        const spd = dir * (32 + Math.random() * 12);
         traffic.push({
           x,
           z: Z_CAR_DRIVE,
           facing: dir,
-          vx: dir * (34 + Math.random() * 14),
+          vx: spd,
+          cruise: spd,
           justTurned: 0,
           odo: Math.random() * 40,
-          tint: traffic.length % Math.max(1, trafficSheets.length),
         });
       }
     }
@@ -462,17 +484,18 @@ function updateTraffic(dt) {
 }
 function spawnTraffic() {
   traffic = [];
-  const dir = heading === "W" || heading === "S" ? -1 : 1;
-  const mid = clampAlong(car.x + dir * 180);
-  if (carClearOf(mid)) {
+  const dir = trafficDir();
+  const behind = clampAlong(car.x - dir * 260);
+  if (carClearOf(behind)) {
+    const spd = dir * 38;
     traffic.push({
-      x: mid,
+      x: behind,
       z: Z_CAR_DRIVE,
       facing: dir,
-      vx: dir * 40,
+      vx: spd,
+      cruise: spd,
       justTurned: 0,
       odo: 0,
-      tint: 0,
     });
   }
 }
@@ -667,11 +690,10 @@ function tryShift(to, brakeOn) {
   car.shiftHint = 0;
   if (to !== "P") {
     car.parked = false;
-    car.z = Z_CAR_DRIVE;
   } else if (Math.abs(car.vx) < CAR_STOP) {
     car.parked = true;
-    car.z = Z_CAR_PARK;
   }
+  /* Depth eases via wantZ lerp — no curb snap on shift. */
   BRAudio.sfx.shift();
   return true;
 }
@@ -778,7 +800,8 @@ function clampWalkZ(z) {
   return Math.max(Z_WALK_MIN, Math.min(Z_WALK_MAX, Number(z) || Z_WALK_MIN));
 }
 function worldToScreen(wx) {
-  return wrap(wx - cam, Math.max(1, WORLD));
+  /* Signed offset from camera left-edge, wrapped to nearest copy. */
+  return wrapDelta(cam, wx, Math.max(1, WORLD));
 }
 
 const footPadCache = new WeakMap();
@@ -845,17 +868,56 @@ function drawSprite(img, wx, z, w, h, facing, footPad = 0, yLock) {
     blitFacing(img, x, sy, dw, dh, facing);
   }
 }
-function rimIndex(dist) {
+function rimIndex(dist, facing) {
   if (!rimFrames.length) return 0;
-  const u = Math.abs(dist) / RIM_DIST;
-  return Math.floor(u) % rimFrames.length;
+  let u = Math.floor(Math.abs(dist) / RIM_DIST) % rimFrames.length;
+  /* Sheets authored for left-moving cars; reverse sequence when nose is right. */
+  if (facing > 0) u = (rimFrames.length - 1 - u + rimFrames.length) % rimFrames.length;
+  return u;
+}
+function carDrawFace(facing) {
+  return (facing >= 0 ? 1 : -1) * CAR_ART_FACE;
 }
 function drawCarWithRims(base, wx, z, w, h, facing, yLock, odo) {
-  drawSprite(base, wx, z, w, h, facing, 0, yLock);
+  const artFace = carDrawFace(facing);
+  drawSprite(base, wx, z, w, h, artFace, 0, yLock);
   if (!rimFrames.length) return;
-  const frame = rimFrames[rimIndex(odo)];
+  const frame = rimFrames[rimIndex(odo, facing)];
   if (!frame) return;
-  drawSprite(frame, wx, z, w, h, facing, 0, yLock);
+  drawSprite(frame, wx, z, w, h, artFace, 0, yLock);
+}
+/** Drop near-black junk outside the wheel hubs so overlays can't read as hood smog. */
+function cleanRimFrame(img) {
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+  if (!w || !h) return img;
+  const { c, g } = mkCanvas(w, h);
+  g.drawImage(img, 0, 0);
+  let id;
+  try { id = g.getImageData(0, 0, w, h); } catch { return img; }
+  const d = id.data;
+  const hubs = [[14, 22], [69, 22]];
+  const r2 = 11 * 11;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      if (d[i + 3] < 8) continue;
+      let inHub = false;
+      for (const [hx, hy] of hubs) {
+        const dx = x - hx;
+        const dy = y - hy;
+        if (dx * dx + dy * dy <= r2) { inHub = true; break; }
+      }
+      if (!inHub) {
+        d[i + 3] = 0;
+        continue;
+      }
+      /* Tire-well black stays; pure void above the hubs is already cleared. */
+      if (y < 16 && d[i] + d[i + 1] + d[i + 2] < 48) d[i + 3] = 0;
+    }
+  }
+  g.putImageData(id, 0, 0);
+  return c;
 }
 function drawPerson(img, wx, z, facing) {
   if (!img) return;
@@ -933,11 +995,12 @@ function blitClassic(g, src, e, sy, sh, dy) {
   const srcH = sh == null ? src.height : sh;
   const destY = dy == null ? streetDestY(srcY) : dy;
   const destH = Math.max(1, Math.round(srcH * worldZoom));
-  const x = Math.max(0, Math.min(Math.max(0, o - dw), Math.round(e)));
-  g.drawImage(src, x, srcY, dw, srcH, 0, destY, dw, destH);
-  if (x + dw > o) {
-    const t = x + dw - o;
-    g.drawImage(src, 0, srcY, t, srcH, dw - t, destY, t, destH);
+  let x = Math.round(e);
+  x = ((x % o) + o) % o;
+  const first = Math.min(dw, o - x);
+  g.drawImage(src, x, srcY, first, srcH, 0, destY, first, destH);
+  if (first < dw) {
+    g.drawImage(src, 0, srcY, dw - first, srcH, first, destY, dw - first, destH);
   }
 }
 function drawNightSky() {
@@ -948,7 +1011,7 @@ function drawNightSky() {
     nctx.fillRect(0, 0, nesW, Math.max(1, top));
     return;
   }
-  blitClassic(nctx, src, Math.round(cam * 0.14), worldY0, 56 - worldY0);
+  blitClassic(nctx, src, Math.round(camScroll * 0.14), worldY0, 56 - worldY0);
 }
 function drawClassicSkylineBand(scroll) {
   const src = art?.street;
@@ -957,11 +1020,11 @@ function drawClassicSkylineBand(scroll) {
 }
 function drawDowntownSkyline() {
   const src = art?.street;
-  drawClassicSkylineBand(Math.round(cam * 0.2) + 18);
+  drawClassicSkylineBand(Math.round(camScroll * 0.2) + 18);
   if (!src) return;
   const towers = [[18, 7, 22], [74, 6, 18], [140, 9, 16], [210, 5, 20], [300, 8, 14]];
   for (const [sx, tw, lift] of towers) {
-    const dx = (sx * 2 + 36 + Math.round(cam * 0.2)) % Math.max(1, nesW);
+    const dx = (sx * 2 + 36 + Math.round(camScroll * 0.2)) % Math.max(1, nesW);
     const dy = streetDestY(Math.max(18, 48 - lift));
     const dh = Math.round((38 + Math.min(14, lift)) * worldZoom);
     nctx.drawImage(src, sx, 48, tw, 38, dx, dy, tw, dh);
@@ -992,7 +1055,7 @@ function drawHillLayer(base, seed, baseH, amp1, amp2, fill, shade, ridge) {
 }
 function drawHillsSkyline() {
   const base = streetDestY(FACADE_Y);
-  const scroll = Math.round(cam * 0.08);
+  const scroll = Math.round(camScroll * 0.08);
   drawHillLayer(base, scroll + 90, 26, 9, 4, "#160828", "#0c0418", "#2a1848");
   drawHillLayer(base, scroll + 40, 38, 12, 5, "#1c0a38", "#140828", "#3a2870");
   drawHillLayer(base, scroll + 8, 48, 14, 6, "#241040", "#1a0a34", "#5a4478");
@@ -1009,10 +1072,10 @@ function drawHillsSkyline() {
   }
 }
 function drawWestSkyline() {
-  drawClassicSkylineBand(Math.round(cam * 0.16) + 220);
+  drawClassicSkylineBand(Math.round(camScroll * 0.16) + 220);
 }
 function drawSouthSkyline() {
-  drawClassicSkylineBand(Math.round(cam * 0.18) + 90);
+  drawClassicSkylineBand(Math.round(camScroll * 0.18) + 90);
   const y0 = streetDestY(58);
   nctx.fillStyle = "rgba(10,2,32,0.28)";
   nctx.fillRect(0, y0, nesW, Math.max(1, streetDestY(FACADE_Y) - y0));
@@ -1022,7 +1085,7 @@ function drawHeadingSky() {
     const src = art?.street;
     nctx.fillStyle = "#0c011f";
     nctx.fillRect(0, 0, nesW, streetDestY(FACADE_Y));
-    if (src) blitClassic(nctx, src, Math.round(cam * 0.1), 0, 36);
+    if (src) blitClassic(nctx, src, Math.round(camScroll * 0.1), 0, 36);
     drawHillsSkyline();
   } else {
     drawNightSky();
@@ -1038,13 +1101,16 @@ function streetTint(style) {
   return [1, 1, 1];
 }
 function streetPattern(def) {
-  /* Longer strip + start/end on the same slice so the loop seam is less ugly. */
-  if (def.id === "sunset") return [1, 2, 3, 1, 2, 0, 3, 1, 2, 3, 1, 2, 0, 3, 1];
-  if (def.id === "santa_monica") return [1, 3, 0, 2, 3, 1, 0, 2, 1, 3, 0, 2, 1];
-  if (def.id === "melrose") return [2, 0, 3, 1, 2, 3, 0, 1, 2, 0, 3, 1, 2];
-  if (def.id === "western") return [3, 1, 0, 3, 1, 2, 3, 1, 0, 3, 1];
-  if (def.id === "normandie") return [0, 3, 1, 2, 0, 3, 1, 2, 0, 3, 0];
-  return [1, 0, 3, 2, 1, 0, 3, 2, 1];
+  /* ~4× longer block so the loop isn't obvious. Start/end on same slice. */
+  const base = {
+    sunset: [1, 2, 3, 1, 2, 0, 3, 1, 2, 3],
+    santa_monica: [1, 3, 0, 2, 3, 1, 0, 2, 1, 3],
+    melrose: [2, 0, 3, 1, 2, 3, 0, 1, 2, 0],
+    western: [3, 1, 0, 3, 1, 2, 3, 1, 0, 3],
+    normandie: [0, 3, 1, 2, 0, 3, 1, 2, 0, 3],
+  };
+  const one = base[def.id] || [1, 0, 3, 2, 1, 0, 3, 2, 1, 0];
+  return [...one, ...one, ...one, ...one, one[0]];
 }
 function buildStreetStrip(def, streetImg) {
   const pattern = streetPattern(def);
@@ -1083,7 +1149,7 @@ function drawCurrentStreet() {
   nctx.fillStyle = "#0c011f";
   nctx.fillRect(0, 0, nesW, nesH);
   if (!src) return;
-  const e = Math.max(0, Math.min(Math.max(0, src.width - nesW), Math.round(cam)));
+  const e = Math.round(cam);
   if (heading === "E" && streetId === "sunset") {
     blitClassic(nctx, src, e, worldY0, STREET_SRC_H - worldY0);
   } else {
@@ -1186,10 +1252,9 @@ function drawActors() {
     const carW = (ride?.naturalWidth || ride?.width || 95) * spriteScale;
     const carH = (ride?.naturalHeight || ride?.height || 29) * spriteScale;
     for (const t of traffic) {
-      const body = trafficSheets[t.tint|0] || ride;
       actors.push({
         z: 0.9,
-        draw: () => drawCarWithRims(body, t.x, t.z, carW, carH, t.facing, streetDestY(ROAD_Y), t.odo || 0),
+        draw: () => drawCarWithRims(ride, t.x, t.z, carW, carH, t.facing, streetDestY(ROAD_Y), t.odo || 0),
       });
     }
     if (car.street === streetId) {
@@ -1197,7 +1262,9 @@ function drawActors() {
         z: 0.85,
         draw: () => {
           drawCarWithRims(ride, car.x, car.z, carW, carH, car.facing, carGroundY(), carOdo);
-          if (inCar && art.driver) drawSprite(art.driver, car.x, car.z, carW, carH, car.facing, 0, carGroundY());
+          if (inCar && art.driver) {
+            drawSprite(art.driver, car.x, car.z, carW, carH, carDrawFace(car.facing), 0, carGroundY());
+          }
         },
       });
     }
@@ -1227,23 +1294,58 @@ function drawActors() {
 }
 
 function syncHud() {
-  padFoot.classList.toggle("hidden", mode === "play" && inCar);
-  padCar.classList.toggle("hidden", !(mode === "play" && inCar));
+  const driving = mode === "play" && inCar;
+  document.getElementById("pad")?.classList.toggle("driving", driving);
+  padFoot.classList.toggle("hidden", driving);
+  padCar.classList.toggle("hidden", !driving);
   phoneEl.classList.toggle("hidden", ui !== "phone");
   cribEl.classList.toggle("hidden", ui !== "crib");
   muteBtn.classList.toggle("off", BRAudio.isMuted());
   muteBtn.setAttribute("aria-label", BRAudio.isMuted() ? "sound off" : "sound on");
-  document.querySelectorAll(".gear").forEach((el) => el.classList.toggle("on", el.dataset.gear === car.gear));
-  shiftHint.classList.toggle("show", inCar && car.shiftHint > 0);
+  const showGear = (driving && shiftPreview) || car.gear;
+  document.querySelectorAll(".gear").forEach((el) => el.classList.toggle("on", el.dataset.gear === showGear));
+  if (shiftHint) {
+    shiftHint.classList.toggle("hidden", !(driving && car.shiftHint > 0));
+    shiftHint.classList.toggle("show", driving && car.shiftHint > 0);
+  }
   const carLabel = document.getElementById("btn-car-label");
-  if (carLabel) carLabel.textContent = nearCar() ? "CAR" : "CAR";
-  const exitLabel = document.getElementById("btn-exit-label");
-  if (exitLabel) exitLabel.textContent = carIsParked() ? "EXIT" : "PULL";
-  const uturnBtn = document.getElementById("btn-uturn");
-  const uturnOk = !!(inCar && car.gear === "D" && Math.abs(car.vx) < 28 && car.pullOverT <= 0);
-  if (uturnBtn) {
-    uturnBtn.classList.toggle("off", !uturnOk);
-    uturnBtn.disabled = !uturnOk;
+  const actLabel = document.getElementById("btn-action-label");
+  const bLabel = document.getElementById("btn-b-label");
+  const actBtn = document.getElementById("btn-action");
+  const bBtn = document.getElementById("btn-b");
+  const uturnOk = !!(driving && car.gear === "D" && Math.abs(car.vx) < 28 && car.pullOverT <= 0);
+  if (driving) {
+    if (carLabel) carLabel.textContent = carIsParked() ? "EXIT" : "PULL";
+    if (bLabel) bLabel.textContent = "";
+    if (bBtn) {
+      bBtn.classList.add("off");
+      bBtn.dataset.role = "run";
+    }
+    if (actLabel) actLabel.textContent = uturnOk ? "U-TN" : "";
+    if (actBtn) {
+      actBtn.dataset.role = "uturn";
+      actBtn.classList.toggle("off", !uturnOk);
+    }
+  } else {
+    if (carLabel) carLabel.textContent = "CAR";
+    if (bLabel) bLabel.textContent = "RUN";
+    if (bBtn) {
+      bBtn.classList.remove("off");
+      bBtn.dataset.role = "run";
+    }
+    if (actLabel) actLabel.textContent = "ACT";
+    if (actBtn) {
+      actBtn.dataset.role = "act";
+      actBtn.classList.remove("off");
+    }
+  }
+  const knob = document.getElementById("shift-knob");
+  const rail = document.getElementById("shift-rail");
+  if (knob && rail) {
+    const idx = Math.max(0, GEARS.indexOf(showGear));
+    const rh = Math.max(1, rail.clientHeight - 12);
+    knob.style.top = `${(idx / Math.max(1, GEARS.length - 1)) * rh}px`;
+    knob.classList.toggle("preview", !!(driving && shiftPreview && shiftPreview !== car.gear));
   }
   document.getElementById("phone-cash").textContent = "CASH $" + String(Math.floor(cash)).padStart(4, "0");
   document.getElementById("phone-inv").textContent = "GRN " + fmtG(grams) + "   STASH $" + Math.floor(stash);
@@ -1257,11 +1359,11 @@ function syncHud() {
     !(order && (order.phase === "offer" || order.phase === "stalling")),
   );
   const held = holds;
-  padFoot.querySelectorAll("[data-role]").forEach((el) => {
-    el.classList.toggle("on", held.has(el.dataset.role) || keysHasRole(el.dataset.role));
-  });
-  padCar.querySelectorAll("[data-role='gas'],[data-role='brake']").forEach((el) => {
-    el.classList.toggle("on", el.dataset.role === "gas" ? gasHeld() : brakeHeld());
+  document.querySelectorAll("#pad [data-role]").forEach((el) => {
+    const role = el.dataset.role;
+    if (role === "gas") el.classList.toggle("on", gasHeld());
+    else if (role === "brake") el.classList.toggle("on", brakeHeld());
+    else el.classList.toggle("on", held.has(role) || keysHasRole(role));
   });
 }
 function keysHasRole(role) {
@@ -1339,7 +1441,6 @@ function update(dt) {
         car.vx = 0;
         car.gear = "P";
         car.parked = true;
-        car.z = Z_CAR_PARK;
         car.pullOverT = 0;
         addPop(car.x, car.z, "PARKED");
       }
@@ -1350,29 +1451,24 @@ function update(dt) {
     } else if (car.gear === "N") {
       car.vx *= Math.exp(-1.2 * dt);
       if (brake) car.vx *= Math.exp(-4 * dt);
-    } else if (car.gear === "D") {
-      const dir = car.facing;
-      if (gas) car.vx += dir * CAR_ACCEL * dt;
-      else if (!brake) {
-        const creep = dir * CAR_CREEP;
-        if (Math.abs(car.vx) < Math.abs(creep)) car.vx += (creep - car.vx) * Math.min(1, dt * 4);
-      }
+    } else if (car.gear === "D" || car.gear === "R") {
+      /* Nose direction = facing. D = forward along nose, R = opposite. */
+      const forward = car.facing >= 0 ? 1 : -1;
+      const dir = car.gear === "D" ? forward : -forward;
+      if (gas) car.vx += dir * CAR_ACCEL * (car.gear === "R" ? 0.72 : 1) * dt;
+      else if (!brake) car.vx *= Math.exp(-0.9 * dt); /* coast — no creep */
       if (brake) car.vx *= Math.exp(-4 * dt);
-    } else if (car.gear === "R") {
-      const dir = -car.facing;
-      if (gas) car.vx += dir * CAR_ACCEL * 0.72 * dt;
-      else if (!brake) {
-        const creep = dir * CAR_CREEP * 0.7;
-        if (Math.abs(car.vx) < Math.abs(creep)) car.vx += (creep - car.vx) * Math.min(1, dt * 4);
-      }
-      if (brake) car.vx *= Math.exp(-4 * dt);
+      /* Kill wrong-way ghost velocity so D never looks like reverse. */
+      if (gas && car.vx * dir < 0) car.vx = 0;
     }
     car.vx = Math.max(-CAR_MAX, Math.min(CAR_MAX, car.vx));
     if (brake && Math.abs(car.vx) < CAR_STOP) car.vx = 0;
+    if (!gas && !brake && Math.abs(car.vx) < CAR_STOP) car.vx = 0;
     const prevX = car.x;
     car.x = clampAlong(car.x + car.vx * dt);
     carOdo += alongDist(prevX, car.x);
-    if (!car.parked && car.gear !== "P") car.z = Z_CAR_DRIVE;
+    const wantZ = (!car.parked && car.gear !== "P") ? Z_CAR_DRIVE : Z_CAR_PARK;
+    car.z += (wantZ - car.z) * Math.min(1, dt * 5.5);
     player.x = car.x;
     player.z = SIDEWALK_Z;
     player.vx = car.vx;
@@ -1387,13 +1483,8 @@ function update(dt) {
     player.vx = ax.x * spd;
     player.vz = 0;
     player.moveDir = "side";
-    let nx = clampAlong(player.x + player.vx * dt);
-    /* Soft body vs parked whip — slide past, don't eat the sprite. */
-    if (car.street === streetId && carIsParked() && alongDist(nx, car.x) < 34) {
-      const side = Math.sign(wrapDelta(car.x, nx, WORLD) || player.facing || 1);
-      nx = clampAlong(car.x + side * 34);
-    }
-    player.x = nx;
+    /* Walk freely past the parked whip — it is not a wall. */
+    player.x = clampAlong(player.x + player.vx * dt);
     player.z = SIDEWALK_Z;
     if (Math.abs(ax.x) > 0) player.anim += dt * (runHeld() ? RUN_MULT : 1);
     else player.anim = 0;
@@ -1410,7 +1501,9 @@ function update(dt) {
   if (toast.life <= 0) toast.text = "";
   const follow = inCar ? car.x : player.x;
   const target = clampAlong(follow - nesW * 0.42);
-  cam = clampAlong(cam + wrapDelta(cam, target, WORLD) * (1 - Math.exp(-7 * dt)));
+  const step = wrapDelta(cam, target, WORLD) * (1 - Math.exp(-7 * dt));
+  cam = clampAlong(cam + step);
+  camScroll += step;
 }
 
 function renderNes() {
@@ -1420,10 +1513,11 @@ function renderNes() {
   if (mode === "play") drawActors();
   nctx.font = "8px 'Press Start 2P', monospace";
   if (mode === "play") {
-    text(nctx, "$" + String(Math.floor(cash)).padStart(4, "0"), 8, 6, "#f0c430");
-    text(nctx, fmtG(grams) + "G", Math.round(nesW * 0.36), 6, grams > 0 ? "#38f070" : "#8a8696");
-    text(nctx, BUILD_LABEL, Math.round(nesW * 0.52), 6, "#8a8696");
-    text(nctx, "R" + rep, nesW - 22, 6, "#f8f8f8");
+    /* Gutter under QUIT (left) + mute (right). GRN sits in the open mid band. */
+    text(nctx, "$" + String(Math.floor(cash)).padStart(4, "0"), 52, 6, "#f0c430");
+    text(nctx, "GRN " + fmtG(grams), Math.round(nesW * 0.42), 6, grams > 0 ? "#38f070" : "#8a8696");
+    text(nctx, BUILD_LABEL, Math.round(nesW * 0.68), 6, "#8a8696");
+    text(nctx, "R" + rep, nesW - 28, 6, "#f8f8f8");
   }
   if (toast.life > 0 && toast.text) {
     const msg = toast.text;
@@ -1526,7 +1620,8 @@ document.getElementById("app").addEventListener("pointerdown", (e) => {
     gear = gearFromClientY(e.clientY) || gear;
     holdPointers.set(e.pointerId, "shifter");
     shifterDrag.set(e.pointerId, { gear, moved: false, startY: e.clientY });
-    /* Tap a letter = commit now; slide commits on release. */
+    if (gear) shiftPreview = gear;
+    /* Tap a letter = commit now; slide commits on release (knob follows while dragging). */
     if (role === "gear" && gear) pulses.gear = gear;
   } else {
     holdPointers.set(e.pointerId, role);
@@ -1541,6 +1636,7 @@ document.getElementById("app").addEventListener("pointermove", (e) => {
   if (!drag) return;
   if (Math.abs(e.clientY - drag.startY) > 6) drag.moved = true;
   drag.gear = gearFromClientY(e.clientY) || drag.gear;
+  if (drag.gear) shiftPreview = drag.gear;
 });
 function endPointer(e) {
   const drag = shifterDrag.get(e.pointerId);
@@ -1548,6 +1644,7 @@ function endPointer(e) {
     const gear = gearFromClientY(e.clientY) || drag.gear;
     if (drag.moved && gear) pulses.gear = gear;
     shifterDrag.delete(e.pointerId);
+    if (!shifterDrag.size) shiftPreview = null;
   }
   holdPointers.delete(e.pointerId);
   rebuildHolds();
@@ -1608,6 +1705,10 @@ window.__br = {
     canTurn: !!(nearIntersection() && speedNow() <= TURN_SPEED && turnLock <= 0),
     hasStreet: !!currentStreet()?.strip,
     hasCar: !!art?.car,
+    trafficN: traffic.length,
+    rims: rimFrames.length,
+    camScroll,
+    carDrawFace: carDrawFace(car.facing),
   }),
   start: () => beginPlay(false),
   finishIntro: () => { if (mode === "title") beginPlay(false); },
@@ -1654,25 +1755,12 @@ window.__br = {
   ready: false,
 };
 
-function tintCar(img, color) {
-  const c = document.createElement("canvas");
-  c.width = img.naturalWidth || img.width;
-  c.height = img.naturalHeight || img.height;
-  const g = c.getContext("2d");
-  g.imageSmoothingEnabled = false;
-  g.drawImage(img, 0, 0);
-  g.globalCompositeOperation = "source-atop";
-  g.fillStyle = color;
-  g.fillRect(0, 0, c.width, c.height);
-  g.globalCompositeOperation = "source-over";
-  return c;
-}
 async function loadRimFrames() {
   const sets = window.RIM_ALTERNATES?.sets || {};
   const list = sets[RIM_SET] || sets.current || Object.values(sets)[0];
   if (!list?.length) return [];
   const frames = await Promise.all(list.map((src) => loadImage(src)));
-  return frames.filter(Boolean);
+  return frames.filter(Boolean).map(cleanRimFrame);
 }
 
 Promise.all([
@@ -1696,12 +1784,6 @@ Promise.all([
   longStreet = streets.sunset.strip;
   WORLD = streets.sunset.length;
   rimFrames = rims || [];
-  trafficSheets = [
-    tintCar(carImg, "rgba(40, 90, 140, 0.45)"),
-    tintCar(carImg, "rgba(140, 50, 40, 0.42)"),
-    tintCar(carImg, "rgba(40, 110, 70, 0.40)"),
-    tintCar(carImg, "rgba(120, 120, 40, 0.38)"),
-  ];
   art = {
     idle, walk: walkNew || walk, walkNew: walkNew || walk, thug, runner, pack,
     walkFront, walkBack,
