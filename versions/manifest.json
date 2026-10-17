@@ -1,6 +1,13 @@
 {
   "versions": [
     {
+      "pr": 76,
+      "date": "2026-10-17",
+      "note": "v102: asphalt grit, dark Lambert grass, doors, 2× lamps",
+      "path": "v102/",
+      "sha": "e36b158"
+    },
+    {
       "pr": 75,
       "date": "2026-10-17",
       "note": "v101: iPhone freeze fix — shared PointLights, no shadow maps",
@@ -13,6 +20,20 @@
       "note": "v100: home-screen build.json unlock, cobra lamps, night pools",
       "path": "v100/",
       "sha": "a7d61c710a59"
+    },
+    {
+      "pr": 73,
+      "date": "2026-10-17",
+      "note": "v99: home-screen BUILD fix, tight pad, lamps, smoother board/turn",
+      "path": "v99/",
+      "sha": "96756dbc9ee8"
+    },
+    {
+      "pr": 72,
+      "date": "2026-10-16",
+      "note": "v98: pad polish, board cam, walk turn plant, curb strip",
+      "path": "v98/",
+      "sha": "62daef88b913"
     },
     {
       "pr": 48,

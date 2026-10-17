@@ -4,9 +4,9 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=102";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=102";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=102";
+} from "./config.js?v=103";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=103";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=103";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -64,16 +64,16 @@ function stuccoTex(color) {
 function asphaltTex() {
   return canvasTex(128, 128, (g, w, h) => {
     // Rough night asphalt — grit only, no lane pinstripes (dashes are separate meshes).
-    g.fillStyle = "#2a2830";
+    g.fillStyle = "#32303a";
     g.fillRect(0, 0, w, h);
-    g.fillStyle = "#323038";
-    for (let i = 0; i < 280; i++) g.fillRect((i * 37) % w, (i * 53) % h, 2, 2);
-    g.fillStyle = "#1e1c24";
-    for (let i = 0; i < 140; i++) g.fillRect((i * 19) % w, (i * 29) % h, 2, 1);
-    g.fillStyle = "rgba(255,255,255,0.04)";
-    for (let i = 0; i < 60; i++) g.fillRect((i * 41) % w, (i * 17) % h, 1, 1);
+    g.fillStyle = "#3c3a44";
+    for (let i = 0; i < 300; i++) g.fillRect((i * 37) % w, (i * 53) % h, 2, 2);
+    g.fillStyle = "#24222c";
+    for (let i = 0; i < 160; i++) g.fillRect((i * 19) % w, (i * 29) % h, 2, 1);
+    g.fillStyle = "rgba(255,255,255,0.06)";
+    for (let i = 0; i < 80; i++) g.fillRect((i * 41) % w, (i * 17) % h, 1, 1);
     // Soft tire wear patches, not stripes.
-    g.fillStyle = "rgba(0,0,0,0.22)";
+    g.fillStyle = "rgba(0,0,0,0.26)";
     for (let i = 0; i < 10; i++) {
       g.beginPath();
       g.ellipse((i * 23) % w, (i * 31) % h, 18, 4, 0.2, 0, Math.PI * 2);
@@ -84,12 +84,14 @@ function asphaltTex() {
 
 function sidewalkTex() {
   return canvasTex(64, 32, (g, w, h) => {
-    g.fillStyle = "#8a8694";
+    g.fillStyle = "#9a96a2";
     g.fillRect(0, 0, w, h);
+    g.fillStyle = "#8a8694";
+    for (let i = 0; i < 40; i++) g.fillRect((i * 13) % w, (i * 7) % h, 2, 1);
     g.strokeStyle = "#5a5664";
     g.lineWidth = 2;
     for (let x = 0; x < w; x += 16) g.strokeRect(x + 0.5, 1, 15, h - 2);
-    g.fillStyle = "#b8b4c0";
+    g.fillStyle = "#c4c0cc";
     g.fillRect(0, 0, w, 3);
     g.fillStyle = "#6a6674";
     g.fillRect(0, h - 3, w, 3);
@@ -98,19 +100,19 @@ function sidewalkTex() {
 
 function grassTex() {
   return canvasTex(64, 64, (g, w, h) => {
-    // Dark night turf — Lambert lighting lifts it under lamps.
-    g.fillStyle = "#142818";
+    // Dark green night turf (readable, not black) — Lambert lifts under lamps.
+    g.fillStyle = "#2a4a30";
     g.fillRect(0, 0, w, h);
-    g.fillStyle = "#1a3220";
-    for (let i = 0; i < 100; i++) {
+    g.fillStyle = "#356840";
+    for (let i = 0; i < 120; i++) {
       g.fillRect((i * 17 + 5) % w, (i * 23 + 3) % h, 2, 3);
     }
-    g.fillStyle = "#0e1e12";
-    for (let i = 0; i < 80; i++) {
+    g.fillStyle = "#1e3a24";
+    for (let i = 0; i < 90; i++) {
       g.fillRect((i * 29 + 11) % w, (i * 13 + 7) % h, 1, 2);
     }
-    g.fillStyle = "#243c28";
-    for (let i = 0; i < 40; i++) {
+    g.fillStyle = "#4a7850";
+    for (let i = 0; i < 55; i++) {
       g.fillRect((i * 41) % w, (i * 19) % h, 1, 1);
     }
   });
@@ -120,15 +122,15 @@ function bushTex(hex) {
   return canvasTex(32, 32, (g, w, h) => {
     g.fillStyle = hex;
     g.fillRect(0, 0, w, h);
-    g.fillStyle = "rgba(0,0,0,0.35)";
+    g.fillStyle = "rgba(0,0,0,0.28)";
     for (let i = 0; i < 28; i++) {
       g.fillRect((i * 11) % w, (i * 17) % h, 2, 2);
     }
-    g.fillStyle = "rgba(80,140,70,0.18)";
+    g.fillStyle = "rgba(90,160,80,0.22)";
     for (let i = 0; i < 18; i++) {
       g.fillRect((i * 13 + 4) % w, (i * 7 + 2) % h, 1, 1);
     }
-    g.fillStyle = "rgba(0,20,0,0.4)";
+    g.fillStyle = "rgba(0,30,0,0.35)";
     g.fillRect(0, h - 4, w, 4);
   });
 }
@@ -1181,16 +1183,17 @@ function makeLamp(overZ = 1.1) {
   g.add(head);
   const glow = new THREE.Sprite(lampGlowMat);
   glow.name = "lampGlow";
-  glow.scale.set(1.6, 1.1, 1);
+  // Keep glow tight — oversized sprites read as stadium floods.
+  glow.scale.set(0.95, 0.65, 1);
   glow.position.set(0, 3.28, overZ);
   g.add(glow);
   // Soft ground pool disc (visible even when shadow maps are off).
   const pool = new THREE.Mesh(
-    new THREE.CircleGeometry(2.6, 12),
+    new THREE.CircleGeometry(2.15, 12),
     new THREE.MeshBasicMaterial({
       color: 0xffe08a,
       transparent: true,
-      opacity: 0.2,
+      opacity: 0.16,
       depthWrite: false,
     }),
   );
@@ -1708,12 +1711,22 @@ export function createWorld(canvas, sprites) {
   lots.rotation.x = -Math.PI / 2;
   lots.position.set(STREET_LEN / 2, 0.01, -6.4);
   city.add(lots);
+  // Planting strip / dark green turf between facades and the player sidewalk.
+  const grassFarMap = grassTex();
+  grassFarMap.repeat.set(48, 2);
+  const grassFar = new THREE.Mesh(
+    new THREE.PlaneGeometry(STREET_LEN + 4, 2.8),
+    new THREE.MeshLambertMaterial({ map: grassFarMap }),
+  );
+  grassFar.rotation.x = -Math.PI / 2;
+  grassFar.position.set(STREET_LEN / 2, 0.035, -0.7);
+  city.add(grassFar);
   const alley = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 2.4),
-    new THREE.MeshLambertMaterial({ color: 0x161018 }),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 1.1),
+    new THREE.MeshLambertMaterial({ color: 0x1a1820 }),
   );
   alley.rotation.x = -Math.PI / 2;
-  alley.position.set(STREET_LEN / 2, 0.02, -1.15);
+  alley.position.set(STREET_LEN / 2, 0.03, -1.85);
   city.add(alley);
 
   const curb = new THREE.Mesh(
@@ -1755,8 +1768,8 @@ export function createWorld(canvas, sprites) {
   grassNear.rotation.x = -Math.PI / 2;
   grassNear.position.set(STREET_LEN / 2, 0.05, 14.85);
   city.add(grassNear);
-  // Dark hedges — MeshLambert so lamp pools read on them.
-  const bushHex = ["#0e2214", "#142818", "#0c1c12", "#1a2e1c"];
+  // Dark-green hedges — MeshLambert so lamp pools read on them.
+  const bushHex = ["#1a3220", "#243c28", "#16301c", "#2a4430"];
   const bushMats = bushHex.map((hex) => new THREE.MeshLambertMaterial({ map: bushTex(hex) }));
   for (let i = 0; i < 40; i++) {
     const bw = 1.2 + (i % 4) * 0.35;
@@ -1769,7 +1782,7 @@ export function createWorld(canvas, sprites) {
     bush.position.set(
       (i + 0.35) * (STREET_LEN / 40) + (i % 2) * 0.35,
       bh * 0.5,
-      13.55 + (i % 3) * 0.4,
+      14.35 + (i % 3) * 0.35,
     );
     city.add(bush);
   }
@@ -1778,7 +1791,8 @@ export function createWorld(canvas, sprites) {
     nearPalm.position.set(
       (i + 0.5) * (STREET_LEN / 12) + (i % 2) * 1.1,
       0,
-      14.2 + (i % 2) * 0.35,
+      // On the grass strip past the near sidewalk — not planted in the walk.
+      15.15 + (i % 2) * 0.25,
     );
     nearPalm.scale.setScalar(1.05 + (i % 3) * 0.1);
     city.add(nearPalm);
@@ -2013,9 +2027,9 @@ export function createWorld(canvas, sprites) {
       graffiti.position.set(26 + xOff, 1.7, -1.1);
       city.add(graffiti);
     }
-    // Curb/sidewalk only — clear of facade volumes, gas canopies, and the crib.
+    // Planting strip behind the sidewalk (not mid-walk concrete).
     const homeWX = gameToWorldX(HOME_X);
-    const palms = [[5.2, 0.92], [12.4, 0.88], [19.6, 0.92], [33.8, 0.88], [42.2, 0.92]];
+    const palms = [[5.2, -0.35], [12.4, -0.28], [19.6, -0.35], [33.8, -0.28], [42.2, -0.35]];
     for (const [x, z] of palms) {
       const px = x + xOff;
       if (Math.abs(px - homeWX) < 9.5) continue;
@@ -2032,9 +2046,17 @@ export function createWorld(canvas, sprites) {
   }
   // ~2× poles, even both curbs; still only 4 shared PointLights (perf-safe).
   const lampStep = BLOCK_LEN / 2;
+  const homeWXLamps = gameToWorldX(HOME_X);
   for (let i = 0; i < blockCount * 2; i++) {
-    addStreetLamp(city, (i + 0.2) * lampStep, 1.05, 1.35, lampAnchors, 1.55);
-    addStreetLamp(city, (i + 0.7) * lampStep, 12.35, -1.2, lampAnchors, 1.35);
+    const xFar = (i + 0.2) * lampStep;
+    const xNear = (i + 0.7) * lampStep;
+    // Keep poles off the crib door / stoop.
+    if (Math.abs(xFar - homeWXLamps) > 7.5) {
+      addStreetLamp(city, xFar, 1.05, 1.35, lampAnchors, 1.35);
+    }
+    if (Math.abs(xNear - homeWXLamps) > 7.5) {
+      addStreetLamp(city, xNear, 12.35, -1.2, lampAnchors, 1.2);
+    }
   }
   const homeWXCurb = gameToWorldX(HOME_X);
   for (let i = 0; i < blockCount * 2; i++) {
@@ -2042,7 +2064,7 @@ export function createWorld(canvas, sprites) {
     // Keep palm fronds clear of the crib facade.
     if (Math.abs(px - homeWXCurb) < 10) continue;
     const curbPalm = makePalm();
-    curbPalm.position.set(px, 0, 0.55);
+    curbPalm.position.set(px, 0, -0.32);
     curbPalm.scale.setScalar(1.45 + (i % 3) * 0.05);
     city.add(curbPalm);
   }
@@ -2050,8 +2072,11 @@ export function createWorld(canvas, sprites) {
   // Keep the box inside the lane asphalt — do not eat the far/near sidewalk curbs.
   const INTER_Z = 7.55;
   const INTER_DEPTH = 5.8;
-  const interMat = new THREE.MeshLambertMaterial({ color: 0x16141c });
+  const interMat = new THREE.MeshLambertMaterial({ map: asphaltTex() });
+  interMat.map.repeat.set(4, 3);
   const stopMat = new THREE.MeshBasicMaterial({ color: 0xf4f0e8 });
+  const crossMat = new THREE.MeshLambertMaterial({ map: asphaltTex() });
+  crossMat.map.repeat.set(2, 6);
   for (let i = 0; i < blockCount; i++) {
     const x = i * BLOCK_LEN;
     const box = new THREE.Mesh(
@@ -2060,6 +2085,13 @@ export function createWorld(canvas, sprites) {
     );
     box.position.set(x, 0.07, INTER_Z);
     city.add(box);
+    // Visual cross-street stub (four-way read; freemove turns still later).
+    const cross = new THREE.Mesh(
+      new THREE.BoxGeometry(INTER_METERS * 0.72, 0.045, 13.6),
+      crossMat,
+    );
+    cross.position.set(x, 0.055, INTER_Z);
+    city.add(cross);
     const stopL = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.05, INTER_DEPTH - 0.3), stopMat);
     stopL.position.set(x - INTER_METERS / 2, 0.1, INTER_Z);
     city.add(stopL);
@@ -2072,65 +2104,77 @@ export function createWorld(canvas, sprites) {
     const edgeNear = edgeFar.clone();
     edgeNear.position.z = INTER_Z + INTER_DEPTH / 2;
     city.add(edgeNear);
+    // Crosswalk bars on the near approach.
+    for (let k = 0; k < 5; k++) {
+      const bar = new THREE.Mesh(
+        new THREE.BoxGeometry(0.55, 0.055, 2.4),
+        stopMat,
+      );
+      bar.position.set(x - 1.4 + k * 0.7, 0.11, INTER_Z + INTER_DEPTH * 0.28);
+      city.add(bar);
+    }
   }
   function makeSafeHouse() {
-    // On-screen vs player (3.05 @ sidewalk): door ~1.3×+, house ~2.5×+.
-    // Built oversized in world space and pulled toward the curb so perspective
-    // doesn't shrink it next to the closer billboard.
+    // Warm stucco crib set back from the curb — not a cyan slab eating the sidewalk.
     const g = new THREE.Group();
-    const houseH = 10.8;
-    const doorH = 3.7;
+    const houseH = 9.4;
+    const doorH = 2.85;
+    const face = stuccoTex("#7a6a58");
     const body = new THREE.Mesh(
-      new THREE.BoxGeometry(5.6, houseH, 3.4),
-      new THREE.MeshLambertMaterial({ color: 0x3a3048 }),
+      new THREE.BoxGeometry(5.2, houseH, 3.0),
+      new THREE.MeshLambertMaterial({ map: face }),
     );
     body.position.y = houseH / 2;
     g.add(body);
     const roof = new THREE.Mesh(
-      new THREE.BoxGeometry(6.2, 0.42, 3.9),
-      new THREE.MeshLambertMaterial({ color: 0x1a1424 }),
+      new THREE.BoxGeometry(5.8, 0.38, 3.45),
+      new THREE.MeshLambertMaterial({ color: 0x2a2220 }),
     );
-    roof.position.y = houseH + 0.2;
+    roof.position.y = houseH + 0.18;
     g.add(roof);
     const doorFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(2.05, doorH + 0.4, 0.14),
-      new THREE.MeshLambertMaterial({ color: 0x1a2430 }),
+      new THREE.BoxGeometry(1.55, doorH + 0.22, 0.12),
+      new THREE.MeshLambertMaterial({ color: 0x3a2a22 }),
     );
-    doorFrame.position.set(0, doorH / 2 + 0.05, 1.72);
+    doorFrame.position.set(0, doorH / 2 + 0.04, 1.52);
     g.add(doorFrame);
     const door = new THREE.Mesh(
-      new THREE.BoxGeometry(1.7, doorH, 0.1),
-      new THREE.MeshBasicMaterial({ color: 0x2a5060 }),
+      new THREE.BoxGeometry(1.28, doorH, 0.08),
+      new THREE.MeshLambertMaterial({ color: 0x4a3228 }),
     );
-    door.position.set(0, doorH / 2, 1.78);
+    door.position.set(0, doorH / 2, 1.58);
     g.add(door);
-    const doorTrim = new THREE.Mesh(
-      new THREE.BoxGeometry(1.7, doorH, 0.02),
-      new THREE.MeshBasicMaterial({ color: 0x3de0ff }),
+    const knob = new THREE.Mesh(
+      new THREE.BoxGeometry(0.08, 0.08, 0.08),
+      new THREE.MeshLambertMaterial({ color: 0xc8a060 }),
     );
-    doorTrim.position.set(0, doorH / 2, 1.84);
-    g.add(doorTrim);
+    knob.position.set(0.42, doorH * 0.5, 1.64);
+    g.add(knob);
     const pane = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.45, 1.25),
+      new THREE.PlaneGeometry(1.2, 1.05),
       new THREE.MeshBasicMaterial({ color: 0xf0c430, side: THREE.DoubleSide }),
     );
     pane.name = "homePane";
-    pane.position.set(1.85, 7.2, 1.74);
+    pane.position.set(1.55, 6.4, 1.52);
     g.add(pane);
+    const pane2 = pane.clone();
+    pane2.name = "homePane2";
+    pane2.position.set(-1.55, 6.4, 1.52);
+    g.add(pane2);
     const stoop = new THREE.Mesh(
-      new THREE.BoxGeometry(2.4, 0.18, 1.15),
-      new THREE.MeshLambertMaterial({ color: 0x2a2438 }),
+      new THREE.BoxGeometry(2.1, 0.16, 0.85),
+      new THREE.MeshLambertMaterial({ color: 0x4a4238 }),
     );
-    stoop.position.set(0, 0.09, 2.2);
+    stoop.position.set(0, 0.08, 1.95);
     g.add(stoop);
     return g;
   }
   const homeHouse = makeSafeHouse();
-  // Stay behind the sidewalk billboard (player z≈1.15) so the door never occludes him.
-  // Height is oversized so perspective still reads door≳1.3× / house≳2.5× on screen.
-  homeHouse.position.set(gameToWorldX(HOME_X), 0, -0.85);
+  // Behind planting strip / alley so the facade doesn't poke over the sidewalk.
+  homeHouse.position.set(gameToWorldX(HOME_X), 0, -2.55);
   city.add(homeHouse);
-  addNeon("HOME", "#3de0ff", gameToWorldX(HOME_X), 12.6, 1.15, true, { w: 5.4, h: 1.35 });
+  // Small roof sign — not a floating cyan flood in front of the door.
+  addNeon("HOME", "#f0c430", gameToWorldX(HOME_X), 9.85, -1.05, true, { w: 2.8, h: 0.55 });
   addNeon("PLUG", "#e21b7a", gameToWorldX(PLUG_X), 2.55, 0.15, true);
   const caliX = gameToWorldX(HOME_X + 340);
   const caliPole = new THREE.Mesh(
@@ -2171,9 +2215,10 @@ export function createWorld(canvas, sprites) {
   strip.add(right);
   scene.add(strip);
   // At most 4 warm fills — repositioned to nearest lamp anchors each frame.
+  // Short range + soft falloff so they read as cobra pools, not stadium floods.
   const lampLights = [];
   for (let i = 0; i < 4; i++) {
-    const pl = new THREE.PointLight(0xffe2a0, 0, 14, 1.6);
+    const pl = new THREE.PointLight(0xffe2a0, 0, 9.5, 2.1);
     pl.userData.streetLamp = true;
     scene.add(pl);
     lampLights.push(pl);
@@ -2598,7 +2643,7 @@ export function createWorld(canvas, sprites) {
       winMatFar.map = litWin ? WIN_LIT : WIN_DIM;
       if (homePane) homePane.material.color.setHex(litWin ? 0xf0c430 : 0x1a1424);
       lampHeadMat.color.setHex(skyInfo.lamps > 0.35 ? 0xf0c430 : 0x2a2430);
-      lampGlowMat.opacity = skyInfo.lamps > 0.35 ? 0.28 + skyInfo.lamps * 0.55 : 0;
+      lampGlowMat.opacity = skyInfo.lamps > 0.35 ? 0.14 + skyInfo.lamps * 0.28 : 0;
       // Park 4 PointLights on the nearest anchors — never one light per pole.
       const onLamps = skyInfo.lamps > 0.35;
       if (onLamps && lampAnchors.length) {
@@ -2606,7 +2651,7 @@ export function createWorld(canvas, sprites) {
         for (let i = 0; i < lampAnchors.length; i++) {
           const a = lampAnchors[i];
           const d = Math.abs(wrapDelta(a.x, camX, STREET_LEN));
-          if (d > 42) continue;
+          if (d > 36) continue;
           if (best.length < lampLights.length) {
             best.push({ a, d });
             best.sort((u, v) => u.d - v.d);
@@ -2620,7 +2665,7 @@ export function createWorld(canvas, sprites) {
           const hit = best[i];
           if (!hit) { pl.intensity = 0; continue; }
           pl.position.set(hit.a.x, hit.a.y, hit.a.z);
-          pl.intensity = hit.a.base * (0.95 + skyInfo.lamps * 0.55);
+          pl.intensity = hit.a.base * (0.55 + skyInfo.lamps * 0.32);
         }
       } else {
         for (const pl of lampLights) pl.intensity = 0;
@@ -2969,8 +3014,9 @@ export function createWorld(canvas, sprites) {
     const plugX = state.plugMeet?.x ?? PLUG_X;
     place(plugLabel, plugX, 154, camX, 1.15);
     plugLabel.position.y = 2.85;
-    place(stashLabel, HOME_X, 154, camX, 1.15);
-    stashLabel.position.y = 2.95;
+    // Keep the STASH chip on the set-back crib facade, not mid-sidewalk.
+    place(stashLabel, HOME_X, 154, camX, -1.05);
+    stashLabel.position.y = 8.6;
     if (state.plugMeet) {
       plugSprite.visible = true;
       const pset = sprites.plug || sprites.buyers[0];

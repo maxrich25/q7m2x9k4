@@ -1533,6 +1533,17 @@ body.title-open #pad { display: none !important; }
     display: block;
     gap: 0;
   }
+  /* More-specific absolute rules were beating .hidden — arrows sat under brake/gas. */
+  #pad.gb.sa.driving #pad-foot,
+  #pad.gb.sa #pad-foot.hidden {
+    display: none !important;
+    pointer-events: none !important;
+  }
+  #pad.gb.sa:not(.driving) #pad-car,
+  #pad.gb.sa #pad-car.hidden {
+    display: none !important;
+    pointer-events: none !important;
+  }
   #pad.gb.sa #gb-dpad {
     display: grid;
     grid-template-columns: 1fr 1fr;
