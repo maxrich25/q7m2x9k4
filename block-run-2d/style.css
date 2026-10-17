@@ -47,19 +47,18 @@ html, body {
 
 #chrome {
   position: absolute;
-  top: auto;
-  bottom: calc(212px + 6px + var(--sab));
-  left: calc(6px + var(--sal));
-  right: auto;
+  top: calc(4px + var(--sat));
+  right: calc(6px + var(--sar));
+  left: auto;
+  bottom: auto;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   justify-content: flex-end;
-  align-items: stretch;
+  align-items: center;
   gap: 6px;
   padding: 0;
   z-index: 5;
   pointer-events: none;
-  width: 44px;
 }
 
 #btn-quit, #btn-mute {
@@ -68,19 +67,18 @@ html, body {
   font-size: 8px;
   color: var(--muted);
   text-decoration: none;
-  padding: 6px 4px;
+  padding: 5px 6px;
   background: rgba(18, 16, 24, 0.72);
   border: 2px solid var(--line);
   text-align: center;
 }
 
-/* Stacked above the pad — clear of the NES HUD cash / grams row. */
 #btn-quit { order: 1; }
 #btn-mute.icon-btn {
   order: 2;
   position: relative;
-  width: 100%;
-  height: 30px;
+  width: 30px;
+  height: 28px;
   padding: 0;
   margin: 0;
   display: grid;
@@ -118,24 +116,27 @@ html, body {
 
 #pad.gb {
   flex: 0 0 auto;
-  height: 212px;
-  min-height: 212px;
-  max-height: 212px;
+  height: 168px;
+  min-height: 168px;
+  max-height: 168px;
   background: var(--pad);
   border-top: 4px solid var(--line);
-  padding: 8px calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+  padding: 6px calc(10px + var(--sar)) calc(8px + var(--sab)) calc(10px + var(--sal));
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
-/* Match 2.5D: no controls on the title / PRESS START screen. */
+/*
+ * Title: hide controls but KEEP the pad height so the NES view doesn't
+ * stretch full-bleed on home-screen / standalone (that looked broken).
+ */
 #pad.title-hide,
-body.title-open #pad { display: none !important; }
-body.title-open #chrome {
-  bottom: calc(10px + var(--sab));
+body.title-open #pad {
+  visibility: hidden;
+  pointer-events: none;
 }
 #gb-grill {
-  height: 14px;
+  height: 10px;
   border-radius: 8px;
   background:
     radial-gradient(circle, #2a2630 55%, transparent 58%) 0 50% / 10px 10px repeat-x,
@@ -330,7 +331,7 @@ body.title-open #chrome {
   #app { flex-direction: row; }
   #view { flex: 1 1 auto; }
   #pad.gb {
-    width: 240px;
+    width: 200px;
     height: auto;
     min-height: 0;
     max-height: none;
@@ -338,7 +339,7 @@ body.title-open #chrome {
     border-left: 4px solid var(--line);
   }
   #chrome {
-    bottom: calc(8px + var(--sab));
-    left: calc(8px + var(--sal));
+    top: calc(4px + var(--sat));
+    right: calc(210px + var(--sar));
   }
 }
