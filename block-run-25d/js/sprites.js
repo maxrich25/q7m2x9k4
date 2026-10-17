@@ -3,7 +3,7 @@ import {
   pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, WALK_CYCLE_POSES, RUN_CYCLE_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
   paintClassicHeroSet, classicWithoutHat,
-} from "./paint.js?v=92";
+} from "./paint.js?v=93";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -58,14 +58,46 @@ function texturizeSoft(source) {
 
 const HERO_VIEW_NAMES = ["side", "front34", "front", "back34", "back"];
 
+/** Soft bob / leg shift poses derived from the painted side still (not classic pixels). */
+const PAINTED_WALK_POSES = [
+  { legDx: 9, armDx: -5, bob: 0 },
+  { legDx: 5, armDx: -3, bob: 2 },
+  { legDx: 0, armDx: 0, bob: 0 },
+  { legDx: -5, armDx: 3, bob: 2 },
+  { legDx: -9, armDx: 5, bob: 0 },
+  { legDx: -5, armDx: 3, bob: 2 },
+  { legDx: 0, armDx: 0, bob: 0 },
+  { legDx: 5, armDx: -3, bob: 2 },
+];
+const PAINTED_RUN_POSES = [
+  { legDx: 11, armDx: -6, bob: 0 },
+  { legDx: 4, armDx: -3, bob: 2 },
+  { legDx: -4, armDx: 3, bob: 0 },
+  { legDx: -11, armDx: 6, bob: 2 },
+  { legDx: -4, armDx: 3, bob: 0 },
+  { legDx: 4, armDx: -3, bob: 2 },
+];
+
+function paintedLocoFromSide(sideImg, poses) {
+  if (!sideImg) return [];
+  const src = toCanvas(sideImg);
+  return poses.map((pose) => texturizeSoft(derivePose(src, pose)));
+}
+
 async function loadHeroViews() {
   const base = new URL("../sprites/", import.meta.url);
   const out = {};
+  const raw = {};
   await Promise.all(HERO_VIEW_NAMES.map(async (name) => {
     const img = await loadImage(new URL(`hero-${name}.png`, base).href);
-    if (img) out[name] = texturizeSoft(img);
+    if (img) {
+      raw[name] = img;
+      out[name] = texturizeSoft(img);
+    }
   }));
   if (!out.side || !out.front || !out.back) return null;
+  out.walk = paintedLocoFromSide(raw.side, PAINTED_WALK_POSES);
+  out.run = paintedLocoFromSide(raw.side, PAINTED_RUN_POSES);
   return out;
 }
 
