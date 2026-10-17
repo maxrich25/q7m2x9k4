@@ -4,9 +4,9 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=100";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=100";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=100";
+} from "./config.js?v=101";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=101";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=101";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -1163,11 +1163,11 @@ function makeLamp(overZ = 1.1) {
   g.add(glow);
   // Soft ground pool disc (visible even when shadow maps are off).
   const pool = new THREE.Mesh(
-    new THREE.CircleGeometry(2.8, 22),
+    new THREE.CircleGeometry(2.6, 12),
     new THREE.MeshBasicMaterial({
       color: 0xffe08a,
       transparent: true,
-      opacity: 0.22,
+      opacity: 0.2,
       depthWrite: false,
     }),
   );
@@ -1178,18 +1178,14 @@ function makeLamp(overZ = 1.1) {
   return g;
 }
 
-function addStreetLamp(city, x, z, overZ, base = 1.6) {
+function addStreetLamp(city, x, z, overZ, lampAnchors, base = 1.6) {
+  // Visual pole + fake ground pool only — no per-pole GPU lights (kills iPhone).
   const lamp = makeLamp(overZ);
   lamp.position.set(x, 0, z);
   city.add(lamp);
-  // One SpotLight per pole (Point fill would blow the mobile light budget).
-  const spot = new THREE.SpotLight(0xffe2a0, base, 16, Math.PI / 4.2, 0.55, 1.4);
-  spot.position.set(x, 3.35, z + overZ);
-  spot.target.position.set(x, 0, z + overZ * 0.9);
-  spot.userData.streetLamp = true;
-  spot.userData.lampBase = base;
-  city.add(spot);
-  city.add(spot.target);
+  if (lampAnchors) {
+    lampAnchors.push({ x, y: 3.2, z: z + overZ * 0.85, base });
+  }
   return lamp;
 }
 
@@ -1467,12 +1463,11 @@ export function createWorld(canvas, sprites) {
     stencil: false,
     depth: true,
   });
-  // Match devicePixelRatio so the WebGL buffer isn't upscaled blurry in iOS standalone.
-  renderer.setPixelRatio(Math.max(1, Math.min(3, window.devicePixelRatio || 1)));
+  // Cap DPR at 2 — 3x + lots of lights froze iPhone standalone.
+  renderer.setPixelRatio(Math.max(1, Math.min(2, window.devicePixelRatio || 1)));
   renderer.setClearColor(0x0c1428, 1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.enabled = false;
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x101628, 0.014);
@@ -1482,21 +1477,13 @@ export function createWorld(canvas, sprites) {
   camera.far = 240;
   camera.position.set(0, 4.6, 11.5);
 
-  // Keep night ambient low so street-lamp pools actually read.
-  const amb = new THREE.AmbientLight(0x2a1838, 0.32);
+  // Slightly brighter ambient than v101 — pools are MeshBasic, not GPU lights.
+  const amb = new THREE.AmbientLight(0x2a1838, 0.48);
   scene.add(amb);
-  const hemi = new THREE.HemisphereLight(0x446688, 0x1a1018, 0.38);
+  const hemi = new THREE.HemisphereLight(0x446688, 0x1a1018, 0.48);
   scene.add(hemi);
-  const moonLight = new THREE.DirectionalLight(0xc8d8ff, 0.28);
+  const moonLight = new THREE.DirectionalLight(0xc8d8ff, 0.32);
   moonLight.position.set(-8, 18, 8);
-  moonLight.castShadow = true;
-  moonLight.shadow.mapSize.set(512, 512);
-  moonLight.shadow.camera.near = 2;
-  moonLight.shadow.camera.far = 60;
-  moonLight.shadow.camera.left = -22;
-  moonLight.shadow.camera.right = 22;
-  moonLight.shadow.camera.top = 22;
-  moonLight.shadow.camera.bottom = -22;
   scene.add(moonLight);
   const sunLight = new THREE.DirectionalLight(0xfff2d0, 0);
   sunLight.position.set(12, 20, 8);
@@ -1867,16 +1854,6 @@ export function createWorld(canvas, sprites) {
     const glow = glowSprite(color, Math.max(w * 1.05, h * 3.2));
     glow.position.set(x, y, z + 0.05);
     city.add(glow);
-    if (lit) {
-      const hex = color === "#3de0ff" ? 0x3de0ff : color === "#f0c430" ? 0xf0c430 : 0xe21b7a;
-      const light = new THREE.PointLight(hex, 2.8, 12, 1.7);
-      light.position.set(x, y, z + 0.6);
-      city.add(light);
-      // Soft facade spill so neon paints the sidewalk a bit.
-      const spill = new THREE.PointLight(hex, 0.55, 8, 2.2);
-      spill.position.set(x, Math.max(0.8, y - 1.2), z + 1.8);
-      city.add(spill);
-    }
   }
 
   const boxGeo = new Map();
@@ -2013,21 +1990,16 @@ export function createWorld(canvas, sprites) {
       palm.scale.setScalar(1.28 + (px % 3) * 0.04);
       city.add(palm);
     }
-    // Warm spill from lit windows onto the far sidewalk.
-    if (lit || (Math.round(xOff / BLOCK_LEN) % 2 === 0)) {
-      const winSpill = new THREE.PointLight(0xffe08a, 0.55, 9, 1.9);
-      winSpill.position.set(12 + xOff, 2.4, 1.6);
-      city.add(winSpill);
-    }
   }
   const blockCount = Math.round(STREET_LEN / BLOCK_LEN);
+  const lampAnchors = [];
   for (let i = 0; i < blockCount; i++) {
     stampTheme(THEMES[i % THEMES.length], i * BLOCK_LEN, i === 0);
   }
-  // Even cobra-head lamps both curbs — one per block side, staggered.
+  // Visual cobra-heads both curbs; shared PointLight pool follows the nearest poles.
   for (let i = 0; i < blockCount; i++) {
-    addStreetLamp(city, i * BLOCK_LEN + 14, 0.55, 1.15, 1.85);
-    addStreetLamp(city, i * BLOCK_LEN + 40, 12.55, -1.05, 1.55);
+    addStreetLamp(city, i * BLOCK_LEN + 14, 1.05, 1.35, lampAnchors, 1.6);
+    addStreetLamp(city, i * BLOCK_LEN + 40, 12.35, -1.2, lampAnchors, 1.4);
   }
   const homeWXCurb = gameToWorldX(HOME_X);
   for (let i = 0; i < blockCount * 2; i++) {
@@ -2146,8 +2118,10 @@ export function createWorld(canvas, sprites) {
 
   function stripLights(root) {
     const kill = [];
-    root.traverse((o) => { if (o.isPointLight) kill.push(o); });
-    for (const light of kill) light.parent.remove(light);
+    root.traverse((o) => {
+      if (o.isPointLight || o.isSpotLight) kill.push(o);
+    });
+    for (const light of kill) light.parent?.remove(light);
   }
 
   const strip = new THREE.Group();
@@ -2161,19 +2135,14 @@ export function createWorld(canvas, sprites) {
   strip.add(left);
   strip.add(right);
   scene.add(strip);
+  // At most 4 warm fills — repositioned to nearest lamp anchors each frame.
   const lampLights = [];
-  city.traverse((o) => {
-    if ((o.isPointLight || o.isSpotLight) && o.userData.streetLamp) lampLights.push(o);
-  });
-  // Ground + facades catch lamp light / moon shadows.
-  city.traverse((o) => {
-    if (!o.isMesh) return;
-    o.receiveShadow = true;
-    if (o.name === "lampHead" || o.name === "lampPool") return;
-    if (o.material && o.material.map && o.geometry?.type === "BoxGeometry") {
-      o.castShadow = true;
-    }
-  });
+  for (let i = 0; i < 4; i++) {
+    const pl = new THREE.PointLight(0xffe2a0, 0, 14, 1.6);
+    pl.userData.streetLamp = true;
+    scene.add(pl);
+    lampLights.push(pl);
+  }
   const homePane = homeHouse.getObjectByName("homePane");
 
   const dumpSprite = makeBillboard(sprites.dumpster, 1.15);
@@ -2357,8 +2326,8 @@ export function createWorld(canvas, sprites) {
     const vv = window.visualViewport;
     const w = Math.max(1, parent.clientWidth || Math.round(vv?.width || window.innerWidth));
     const h = Math.max(1, parent.clientHeight || Math.round(vv?.height || window.innerHeight));
-    // Use true devicePixelRatio (no floor) so 2x standalone isn't drawn at 1x then stretched.
-    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    // Cap at 2 — iPhone 3x + scene cost was freezing standalone after v101 lights.
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     renderer.setPixelRatio(dpr);
     renderer.setSize(w, h, false);
     canvas.style.width = w + "px";
@@ -2416,7 +2385,7 @@ export function createWorld(canvas, sprites) {
     strip.visible = !inCrib;
     cribRoom.visible = inCrib;
     if (scene.fog) scene.fog.density = inCrib ? 0.001 : 0.016;
-    amb.intensity = inCrib ? 1.25 : 0.32;
+    amb.intensity = inCrib ? 1.25 : 0.48;
     amb.color.setHex(inCrib ? 0xffe6c8 : 0x1a1028);
     hemi.intensity = inCrib ? 0.9 : 0.38;
     const camZ = ((portrait ? 15.8 : 14.2) + carCam * 0.55) * zoomMul;
@@ -2572,19 +2541,18 @@ export function createWorld(canvas, sprites) {
       sun.position.set(camX + 8.6, 12.8 + skyInfo.sun * 4.2, -28);
       sunGlow.position.copy(sun.position);
       sunGlow.material.opacity = 0.25 + skyInfo.sun * 0.6;
-      hemi.intensity = (skyInfo.sun > 0.35 ? 0.7 : 0.32) + skyInfo.light * 0.45;
+      hemi.intensity = (skyInfo.sun > 0.35 ? 0.7 : 0.42) + skyInfo.light * 0.45;
       hemi.color.setHex(skyInfo.sun > 0.35 ? 0xc8e0f8 : skyInfo.top);
-      moonLight.intensity = skyInfo.moon * 0.5;
+      moonLight.intensity = skyInfo.moon * 0.45;
       moonLight.color.setHex(0xe8f0ff);
       moonLight.position.set(camX - 8, 18, 8);
       sunLight.intensity = skyInfo.sun * 1.45;
       sunLight.color.setHex(skyInfo.sun > 0.7 ? 0xfff4d8 : 0xffa060);
       sunLight.position.set(camX + 12, 8 + skyInfo.sun * 14, 8);
-      // Night stays darker overall so lamp pools pop; day washes up.
       amb.intensity = skyInfo.sun > 0.35
         ? 0.7 + skyInfo.light * 0.55
-        : 0.22 + skyInfo.light * 0.2;
-      amb.color.setHex(skyInfo.sun > 0.4 ? 0xb0c8e0 : 0x1a1028);
+        : 0.4 + skyInfo.light * 0.18;
+      amb.color.setHex(skyInfo.sun > 0.4 ? 0xb0c8e0 : 0x2a1838);
       neonFill.intensity = 0.08 + skyInfo.star * 0.2;
       const litWin = skyInfo.windows > 0.32;
       winMat.map = litWin ? WIN_LIT : WIN_DIM;
@@ -2592,23 +2560,31 @@ export function createWorld(canvas, sprites) {
       if (homePane) homePane.material.color.setHex(litWin ? 0xf0c430 : 0x1a1424);
       lampHeadMat.color.setHex(skyInfo.lamps > 0.35 ? 0xf0c430 : 0x2a2430);
       lampGlowMat.opacity = skyInfo.lamps > 0.35 ? 0.28 + skyInfo.lamps * 0.55 : 0;
-      for (const pl of lampLights) {
-        const base = pl.userData.lampBase || 1.2;
-        const on = skyInfo.lamps > 0.35;
-        const dx = Math.abs(wrapDelta(pl.position.x, camX, STREET_LEN));
-        const near = dx < 36;
-        pl.visible = on && near;
-        pl.intensity = on && near ? base * (0.75 + skyInfo.lamps * 0.65) : 0;
-        // Only the closest lamps cast shadows (mobile budget).
-        if (pl.isSpotLight) {
-          pl.castShadow = on && dx < 22;
-          if (pl.castShadow) {
-            pl.shadow.mapSize.set(256, 256);
-            pl.shadow.camera.near = 0.5;
-            pl.shadow.camera.far = 16;
-            pl.shadow.bias = -0.002;
+      // Park 4 PointLights on the nearest anchors — never one light per pole.
+      const onLamps = skyInfo.lamps > 0.35;
+      if (onLamps && lampAnchors.length) {
+        const best = [];
+        for (let i = 0; i < lampAnchors.length; i++) {
+          const a = lampAnchors[i];
+          const d = Math.abs(wrapDelta(a.x, camX, STREET_LEN));
+          if (d > 42) continue;
+          if (best.length < lampLights.length) {
+            best.push({ a, d });
+            best.sort((u, v) => u.d - v.d);
+          } else if (d < best[best.length - 1].d) {
+            best[best.length - 1] = { a, d };
+            best.sort((u, v) => u.d - v.d);
           }
         }
+        for (let i = 0; i < lampLights.length; i++) {
+          const pl = lampLights[i];
+          const hit = best[i];
+          if (!hit) { pl.intensity = 0; continue; }
+          pl.position.set(hit.a.x, hit.a.y, hit.a.z);
+          pl.intensity = hit.a.base * (0.7 + skyInfo.lamps * 0.5);
+        }
+      } else {
+        for (const pl of lampLights) pl.intensity = 0;
       }
       skyline.material.color.setHex(skyInfo.windows > 0.4 ? 0xffffff : 0x8aa4bc);
       skyline.material.opacity = skyInfo.windows > 0.4 ? 1 : 0.78;
