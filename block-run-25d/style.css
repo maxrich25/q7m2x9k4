@@ -528,11 +528,27 @@ html, body {
 #overlay.pause-mode { background: rgba(7, 6, 12, 0.78); }
 #cart-picks.title-menu-link {
   display: flex;
-  justify-content: center;
-  margin: 0 0 12px;
+  justify-content: flex-start;
+  margin: 18px 0 0;
+  pointer-events: auto;
 }
-#cart-picks.title-menu-link .cart-pick {
-  min-width: 140px;
+#cart-picks.title-menu-link .cart-pick.menu-quiet {
+  min-width: 0;
+  min-height: 0;
+  padding: 6px 2px;
+  border: none;
+  background: transparent;
+  color: #6a6674;
+  font-size: 7px;
+  letter-spacing: 1px;
+  justify-content: flex-start;
+}
+#cart-picks.title-menu-link .cart-pick.menu-quiet:hover,
+#cart-picks.title-menu-link .cart-pick.menu-quiet:focus-visible {
+  color: var(--cyan);
+  border: none;
+  box-shadow: none;
+  outline: none;
 }
 #cart-picks {
   display: grid;

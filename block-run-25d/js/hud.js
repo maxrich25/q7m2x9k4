@@ -1,9 +1,9 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=90";
-import { paintClassicHero } from "./paint.js?v=90";
-import { isUnlocked } from "./audio.js?v=90";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=91";
+import { paintClassicHero } from "./paint.js?v=91";
+import { isUnlocked } from "./audio.js?v=91";
 
 export function createHud(opts = {}) {
-  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v90";
+  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v91";
   const cashEl = document.getElementById("hud-cash");
   const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");

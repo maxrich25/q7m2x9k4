@@ -4,8 +4,8 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=90";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=90";
+} from "./config.js?v=91";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=91";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -2105,8 +2105,8 @@ export function createWorld(canvas, sprites) {
 
   // Classic PNG billboard: origin at plane bottom. ~3px empty under soles in 40px sheet.
   const PLAYER_H = 2.85;
-  // Empty pad under soles + foreshortening bias so feet read planted on the sidewalk/crib floor.
-  const FOOT_PAD_FRAC = 7 / 40;
+  // Was 7/40 (too deep) — soles buried into the curb. Match the empty pad only.
+  const FOOT_PAD_FRAC = 3 / 40;
   const playerSprite = makeBillboard(sprites.idle[0], PLAYER_H);
   playerSprite.userData.footPad = PLAYER_H * FOOT_PAD_FRAC;
   playerSprite.material.depthTest = true;
@@ -2557,9 +2557,7 @@ export function createWorld(canvas, sprites) {
       playerSprite.position.x = carWx + face * (hingeX * 0.2 + 1.15 * out);
       playerSprite.position.y = groundY + (1 - rise) * 0.08;
     }
-    if (usePainted && walking) {
-      playerSprite.position.y += Math.sin((p.anim || 0) * 14) * 0.04;
-    }
+    // No vertical bob — that read as a floating ghost over the curb.
     const doorNear = playerCar.getObjectByName("doorNear");
     const doorFar = playerCar.getObjectByName("doorFar");
     if (doorFar) doorFar.rotation.y = -doorAmt * 1.15;

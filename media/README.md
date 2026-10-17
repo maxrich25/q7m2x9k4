@@ -2,4 +2,4 @@
 
 Dump for pictures and GIFs. Reference only. Nothing in here is wired into the game.
 
-Drop stills and GIFs in this folder so they stay in one place.
+Drop stills, GIFs, ped/hero mockups, and Grok exports here so anyone can browse them anytime.
