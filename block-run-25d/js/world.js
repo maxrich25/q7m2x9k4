@@ -4,8 +4,9 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=94";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=94";
+} from "./config.js?v=95";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=95";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=95";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -1613,21 +1614,57 @@ export function createWorld(canvas, sprites) {
   const curbNearShadow = curbShadow.clone();
   curbNearShadow.position.z = 11.92;
   city.add(curbNearShadow);
-  const shoulder = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 3.4),
-    new THREE.MeshLambertMaterial({ color: 0x241e2c }),
-  );
-  shoulder.rotation.x = -Math.PI / 2;
-  shoulder.position.set(STREET_LEN / 2, 0.01, 14.05);
-  city.add(shoulder);
 
-  // Near-camera framing: rooftop strip so the road edge does not fall into empty void.
+  // Near-camera sidewalk + grass in the band between curb and camera (bottom of portrait view).
+  const walkNear = new THREE.Mesh(
+    new THREE.PlaneGeometry(STREET_LEN + 4, 2.4),
+    new THREE.MeshLambertMaterial({ map: sidewalkTex() }),
+  );
+  walkNear.rotation.x = -Math.PI / 2;
+  walkNear.position.set(STREET_LEN / 2, 0.03, 13.45);
+  walkNear.material.map.repeat.set(160, 1);
+  city.add(walkNear);
+  const grassNear = new THREE.Mesh(
+    new THREE.PlaneGeometry(STREET_LEN + 4, 2.8),
+    new THREE.MeshLambertMaterial({ color: 0x1a3a24 }),
+  );
+  grassNear.rotation.x = -Math.PI / 2;
+  grassNear.position.set(STREET_LEN / 2, 0.02, 15.1);
+  city.add(grassNear);
+  const bushColors = [0x163820, 0x1e4428, 0x12401c, 0x204828];
+  for (let i = 0; i < 36; i++) {
+    const bw = 1.0 + (i % 4) * 0.3;
+    const bd = 0.7 + (i % 3) * 0.2;
+    const bh = 0.4 + (i % 5) * 0.16;
+    const bush = new THREE.Mesh(
+      new THREE.BoxGeometry(bw, bh, bd),
+      new THREE.MeshLambertMaterial({ color: bushColors[i % bushColors.length] }),
+    );
+    bush.position.set(
+      (i + 0.35) * (STREET_LEN / 36) + (i % 2) * 0.4,
+      bh * 0.5,
+      14.55 + (i % 3) * 0.35,
+    );
+    city.add(bush);
+  }
+  for (let i = 0; i < 12; i++) {
+    const nearPalm = makePalm();
+    nearPalm.position.set(
+      (i + 0.5) * (STREET_LEN / 12) + (i % 2) * 1.1,
+      0,
+      14.9 + (i % 2) * 0.35,
+    );
+    nearPalm.scale.setScalar(0.95 + (i % 3) * 0.08);
+    city.add(nearPalm);
+  }
+
+  // Void fill behind the camera.
   const nearRoofs = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 7.2),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 6.4),
     new THREE.MeshLambertMaterial({ color: 0x1a1622 }),
   );
   nearRoofs.rotation.x = -Math.PI / 2;
-  nearRoofs.position.set(STREET_LEN / 2, -0.4, 18.6);
+  nearRoofs.position.set(STREET_LEN / 2, -0.4, 19.8);
   city.add(nearRoofs);
   const roofColors = [0x2a2234, 0x241c2c, 0x302838, 0x1e1828, 0x282030];
   for (let i = 0; i < 28; i++) {
@@ -1641,7 +1678,7 @@ export function createWorld(canvas, sprites) {
     roof.position.set(
       (i + 0.5) * (STREET_LEN / 28),
       h * 0.5 - 0.35,
-      17.2 + (i % 2) * 1.6,
+      19.4 + (i % 2) * 1.6,
     );
     city.add(roof);
   }
@@ -1880,8 +1917,9 @@ export function createWorld(canvas, sprites) {
     city.add(curbPalm);
   }
 
-  const INTER_Z = 7.45;
-  const INTER_DEPTH = 8.2;
+  // Keep the box inside the lane asphalt — do not eat the far/near sidewalk curbs.
+  const INTER_Z = 7.55;
+  const INTER_DEPTH = 5.8;
   const interMat = new THREE.MeshLambertMaterial({ color: 0x16141c });
   const stopMat = new THREE.MeshBasicMaterial({ color: 0xf4f0e8 });
   for (let i = 0; i < blockCount; i++) {
@@ -2490,37 +2528,35 @@ export function createWorld(canvas, sprites) {
       }
     }
     const views = sprites.heroViews;
-    // Stay on the painted hero art always — never swap to classic NES walk pixels.
-    // Hat on/off must not kick us back to the old school sheet.
-    // Loco = stride-synced poses derived from the painted side still.
+    // Painted hero only when views load — turning/muzzle/jump must not flicker to NES sheets.
     const loco = !!(walking || running || boardPose === "walk");
-    const paintedOk = !!(views && views.side)
-      && !(state.muzzle > 0)
-      && !airborne;
-    if (paintedOk && loco && (views.walk?.length || views.run?.length)) {
-      const frames = (running && views.run?.length) ? views.run : (views.walk || views.run);
-      const phase = p.stride || 0;
-      const frameRate = running ? 1 / 12 : 1 / 17;
-      setBillboardFrame(playerSprite, frameAt(frames, phase, frameRate), sprFace);
-      playerSprite.material.alphaTest = 0.04;
-      playerSprite.userData.footPad = 0.02;
-    } else if (paintedOk && !turning) {
-      const viewX = inCrib ? (Number(state.cribX) || 0) : nearestWorldX(px, camX);
-      const viewZ = inCrib ? 1.45 : boardZ;
-      const dx = camera.position.x - viewX;
-      const dz = camera.position.z - viewZ;
-      const fx = sprFace < 0 ? -1 : 1;
-      const camForward = fx * dx;
-      const camRight = fx * dz;
-      const ang = Math.abs(Math.atan2(camRight, camForward));
-      let viewName = "side";
-      if (ang < 0.6) viewName = "front";
-      else if (ang < 1.2) viewName = "front34";
-      else if (ang < 1.95) viewName = "side";
-      else if (ang < 2.55) viewName = "back34";
-      else viewName = "back";
-      const flip = viewName === "front" || viewName === "back" ? 1 : (camRight >= 0 ? 1 : -1);
-      setBillboardFrame(playerSprite, views[viewName] || views.side, flip);
+    if (views?.side) {
+      if (loco && (views.walk?.length || views.run?.length)) {
+        const frames = (running && views.run?.length) ? views.run : (views.walk || views.run);
+        const phase = p.stride || 0;
+        const cycle = running ? RUN_STRIDE_CYCLE : STRIDE_CYCLE;
+        const frameRate = frames.length / Math.max(1, cycle);
+        setBillboardFrame(playerSprite, frameAt(frames, phase, frameRate), sprFace);
+      } else if (turning || airborne || state.muzzle > 0) {
+        setBillboardFrame(playerSprite, views.side, sprFace);
+      } else {
+        const viewX = inCrib ? (Number(state.cribX) || 0) : nearestWorldX(px, camX);
+        const viewZ = inCrib ? 1.45 : boardZ;
+        const dx = camera.position.x - viewX;
+        const dz = camera.position.z - viewZ;
+        const fx = sprFace < 0 ? -1 : 1;
+        const camForward = fx * dx;
+        const camRight = fx * dz;
+        const ang = Math.abs(Math.atan2(camRight, camForward));
+        let viewName = "side";
+        if (ang < 0.6) viewName = "front";
+        else if (ang < 1.2) viewName = "front34";
+        else if (ang < 1.95) viewName = "side";
+        else if (ang < 2.55) viewName = "back34";
+        else viewName = "back";
+        const flip = viewName === "front" || viewName === "back" ? 1 : (camRight >= 0 ? 1 : -1);
+        setBillboardFrame(playerSprite, views[viewName] || views.side, flip);
+      }
       playerSprite.material.alphaTest = 0.04;
       playerSprite.userData.footPad = 0.02;
     } else {

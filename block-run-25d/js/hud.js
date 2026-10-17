@@ -1,8 +1,8 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=94";
-import { paintClassicHero } from "./paint.js?v=94";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=95";
+import { paintClassicHero } from "./paint.js?v=95";
 
 export function createHud(opts = {}) {
-  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v94";
+  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v95";
   const cashEl = document.getElementById("hud-cash");
   const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
@@ -380,9 +380,9 @@ export function createHud(opts = {}) {
       ctx.innerHTML = "";
     }
 
-    // Face grid (no letter labels):
-    //   Y blank/unlit unless CAR (near car) or EXIT (parked in car)
-    //   X PHONE   A action word when available   B RUN
+    // Face grid (no letter labels), fixed size always:
+    //   CAR/EXIT | PHONE
+    //   RUN/U-TN | ACTION (CRIB/EXIT/etc when available)
     const carOn = !!(state.carBtnOk && state.mode === "play" && state.faceCarLabel);
     const label = state.actionLabel || "";
     const actionOn = !!(state.actionOk && state.mode === "play" && label);
