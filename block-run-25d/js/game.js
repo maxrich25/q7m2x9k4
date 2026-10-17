@@ -16,8 +16,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=109";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=109";
+} from "./config.js?v=110";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=110";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -553,8 +553,27 @@ export function createGame() {
     return true;
   }
 
+  function redBlocksPullOut() {
+    const face = car.facing || 1;
+    for (let i = 0; i < LIGHT_COUNT; i++) {
+      const ph = lightPhaseAt(clock, i);
+      if (ph !== "red" && ph !== "yellow") continue;
+      const line = stopLineGameX(i, face);
+      const bumper = wrap(car.x + face * CAR_NOSE_GAME, WORLD);
+      const d = wrapDelta(bumper, line, WORLD);
+      if (Math.sign(d || 1) !== Math.sign(face)) continue;
+      if (Math.abs(d) < 70) return true;
+    }
+    return false;
+  }
+
   function beginPendingPullOut() {
     if (!car.pendingPullOut) return false;
+    // Don't nose out across a hot stop line into the box.
+    if (redBlocksPullOut()) {
+      pop(car.x, 150, "RED");
+      return false;
+    }
     car.pullFromLat = car.lat ?? parkLat(car.facing);
     car.pullToLat = restLat(car.facing);
     car.pullMode = "out";
@@ -1875,8 +1894,6 @@ export function createGame() {
       } else {
         car.autoBrake = false;
       }
-      const gasAmt = gas ? Math.max(0.12, Math.min(1, Number(input.gasAmt) || 1)) : 0;
-      const brakeAmt = brake ? Math.max(0.18, Math.min(1, Number(input.brakeAmt) || 1)) : 1;
       holdLight = false;
       holdCar = false;
       const face = car.facing || 1;
@@ -1915,6 +1932,7 @@ export function createGame() {
         lightAhead.phase === "red"
         || (lightAhead.phase === "yellow" && lightAhead.d < stopNeed + 10)
       ));
+      let approachBrakeAmt = null;
       if (redHold && lightAhead) {
         const line = stopLineX(lightAhead.i);
         const toLine = wrapDelta(bumperX(), line, WORLD);
@@ -1922,20 +1940,31 @@ export function createGame() {
         const going = Math.sign(car.vx || face) === Math.sign(face) || Math.abs(car.vx) < 4;
         if (going && toLine * face <= 0.12) {
           snapBumperTo(line);
+          brake = true;
+          gas = false;
+          approachBrakeAmt = 1;
         } else if (going) {
-          // Never freeze short of the line — creep the last stretch onto the mark.
-          const maxV = Math.sqrt(Math.max(0, 2 * decel * Math.max(0.2, dist - 0.35)));
-          if (spd > maxV + 2) {
+          // Smooth progressive brake — light far out, heavier into the line.
+          const comfort = Math.max(28, accel * 0.9);
+          const maxV = Math.sqrt(Math.max(0, 2 * comfort * Math.max(0.25, dist)));
+          gas = false;
+          if (spd > 2 || dist < 28) {
             brake = true;
-            gas = false;
-          } else if (dist > 0.45 && spd < 16) {
-            car.vx = face * Math.min(18, Math.max(8, dist * 2.8));
-            brake = false;
-            gas = false;
+            const over = Math.max(0, spd - maxV);
+            const byDist = Math.max(0.22, Math.min(1, 1.05 - dist / Math.max(55, stopNeed + 24)));
+            const bySpeed = Math.max(0.2, Math.min(1, 0.28 + over / Math.max(18, spd)));
+            approachBrakeAmt = Math.max(byDist, bySpeed);
           }
-          if (dist < Math.abs(car.vx) * dt + 0.4) snapBumperTo(line);
+          if (dist < Math.abs(car.vx) * dt + 0.45) {
+            snapBumperTo(line);
+            approachBrakeAmt = 1;
+          }
         }
       }
+      const gasAmt = gas ? Math.max(0.12, Math.min(1, Number(input.gasAmt) || 1)) : 0;
+      const brakeAmt = brake
+        ? Math.max(0.18, Math.min(1, approachBrakeAmt != null ? approachBrakeAmt : (Number(input.brakeAmt) || 1)))
+        : 1;
 
       let aheadCar = null;
       let aheadDist = Infinity;
@@ -2032,10 +2061,11 @@ export function createGame() {
         gas = false;
       }
       if ((redHold || carHold) && !pullingOver && !(car.redParkGoT > 0)) gas = false;
-      // Light the brake pedal the whole approach — not only after you've already stopped.
+      // Light the brake pedal the whole approach — depth follows progressive amt.
       if ((redHold || carHold) && !pullingOver && brake) {
         car.autoBrake = true;
       }
+      if (approachBrakeAmt != null) car.autoBrake = true;
       holdLight = redHold;
       holdCar = carHold;
       if (pullingOver) {
@@ -2126,26 +2156,22 @@ export function createGame() {
         } else {
           car.x = wrap(car.x + car.vx * dt, WORLD);
         }
-        // Hard nose separation — no melting through same-lane traffic.
+        // Soft nose buffer — bleed speed, don't teleport several feet.
         const myLatNow = car.lat ?? homeLat;
-        const noseGap = CAR_NOSE_GAME * 2.15;
+        const noseGap = CAR_NOSE_GAME * 2.05;
         for (const t of traffic) {
-          if (Math.abs((t.lat ?? restLat(t.facing)) - myLatNow) > 1.55) continue;
+          if (Math.abs((t.lat ?? restLat(t.facing)) - myLatNow) > 1.45) continue;
           const d = wrapDelta(car.x, t.x, WORLD);
-          if (Math.abs(d) >= noseGap) continue;
+          const ad = Math.abs(d);
+          if (ad >= noseGap) continue;
           if (Math.sign(d || 1) === Math.sign(face)) {
-            // Traffic ahead — sit on their bumper.
-            car.x = wrap(t.x - face * noseGap, WORLD);
             if (Math.sign(car.vx || face) === Math.sign(face)) {
-              car.vx = Math.min(Math.abs(car.vx), Math.max(0, Math.abs(t.vx || 0) * 0.92)) * face;
+              car.vx = Math.min(Math.abs(car.vx), Math.max(0, Math.abs(t.vx || 0) * 0.85)) * face;
             }
-          } else {
-            // Traffic behind overlapping — shove them back via their x next tick;
-            // keep our nose clear by nudging forward slightly only if reversing into them.
-            if (Math.sign(car.vx || 0) !== Math.sign(face) && Math.abs(car.vx) > 4) {
-              car.x = wrap(t.x + face * noseGap, WORLD);
-              car.vx = 0;
-            }
+            const push = Math.min(1.2, (noseGap - ad) * 0.22);
+            car.x = wrap(car.x - face * push, WORLD);
+          } else if (Math.sign(car.vx || 0) !== Math.sign(face) && Math.abs(car.vx) > 4) {
+            car.vx *= 0.3;
           }
         }
       }
@@ -2442,7 +2468,9 @@ export function createGame() {
       let aheadDist = Infinity;
       if (car.hp > 0) {
         const playerLat = car.lat ?? restLat(car.facing);
-        const sameLane = Math.abs((t.lat ?? homeLat) - playerLat) < 1.7;
+        const playerAtCurb = Math.abs(playerLat - parkLat(car.facing)) < 1.05;
+        // Shoulder park sits far enough off the cruise line — don't treat as same-lane block.
+        const sameLane = Math.abs((t.lat ?? homeLat) - playerLat) < (playerAtCurb ? 0.9 : 1.65);
         const ahead = wrapDelta(t.x, car.x, WORLD);
         if (sameLane && Math.sign(faceT) === Math.sign(ahead || 1) && Math.abs(ahead) < 56) {
           aheadBlock = car;
@@ -2452,7 +2480,7 @@ export function createGame() {
       for (const o of traffic) {
         if (o === t) continue;
         if (Math.sign(o.facing || 1) !== Math.sign(faceT)) continue;
-        if (Math.abs((o.lat ?? restLat(o.facing)) - (t.lat ?? homeLat)) > 1.7) continue;
+        if (Math.abs((o.lat ?? restLat(o.facing)) - (t.lat ?? homeLat)) > 1.65) continue;
         const ahead = wrapDelta(t.x, o.x, WORLD);
         if (Math.sign(ahead || 1) === Math.sign(faceT) && Math.abs(ahead) < aheadDist && Math.abs(ahead) < 56) {
           aheadBlock = o;
@@ -2460,10 +2488,12 @@ export function createGame() {
         }
       }
       const headOn = car.hp > 0
-        && Math.abs((t.lat ?? homeLat) - (car.lat ?? restLat(car.facing))) < 1.7
+        && Math.abs((t.lat ?? homeLat) - (car.lat ?? restLat(car.facing))) < 1.55
         && Math.sign(faceT) !== Math.sign(car.facing || 1)
         && Math.abs(wrapDelta(t.x, car.x, WORLD)) < 120
         && Math.sign(wrapDelta(t.x, car.x, WORLD) || 1) === Math.sign(faceT);
+      // Half-lane nudge past a curb-parked car — not a full dive into oncoming.
+      const bypassLat = homeLat + (faceT > 0 ? -1.25 : 1.25);
       if (headOn) {
         want = 0;
         t.passT = 0;
@@ -2471,8 +2501,8 @@ export function createGame() {
         const blockerIsPlayer = aheadBlock === car;
         const playerParkedOrStopped = blockerIsPlayer
           && (carIsParked() || car.gear === "P" || Math.abs(car.vx) < CAR_STOP);
-        // Parked/stopped player: pass even near a green junction (batch 11 jam fix).
-        // Only one passer at a time near the player — no double-merge melt.
+        const playerAtCurb = blockerIsPlayer
+          && Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 1.05;
         let otherPassing = false;
         for (const o of traffic) {
           if (o === t) continue;
@@ -2481,16 +2511,20 @@ export function createGame() {
             break;
           }
         }
+        const passDest = playerAtCurb ? bypassLat : otherLat;
         const canStartPass = !(t.passT > 0)
           && !otherPassing
           && !oncomingClose && !redAhead
           && (playerParkedOrStopped || !nearJunction)
-          && !laneBusy(otherLat, t.x, t, carGap * 1.2)
-          && (playerParkedOrStopped || mergeGapClear(t, otherLat));
-        if (canStartPass || (playerParkedOrStopped && !(t.passT > 0) && !otherPassing && !oncomingClose && !redAhead
-          && !laneBusy(otherLat, t.x, t, carGap * 0.9))) {
-          t.passT = Math.max(t.passT || 0, playerParkedOrStopped ? 1.8 : 1.45);
-          want = cruise * 1.22;
+          && !laneBusy(passDest, t.x, t, carGap * (playerAtCurb ? 0.7 : 1.2))
+          && (playerAtCurb || playerParkedOrStopped || mergeGapClear(t, otherLat));
+        if (canStartPass || (playerAtCurb && !(t.passT > 0) && !otherPassing && !oncomingClose)) {
+          t.passT = Math.max(t.passT || 0, playerAtCurb ? 1.1 : (playerParkedOrStopped ? 1.8 : 1.45));
+          t.passDestLat = passDest;
+          want = cruise * (playerAtCurb ? 1.08 : 1.22);
+          if (playerAtCurb && aheadDist < 22 && Math.abs(car.vx) < 8 && Math.random() < dt * 0.35) {
+            sfx.honk();
+          }
         } else if (!(t.passT > 0)) {
           want = Math.min(Math.abs(want), Math.abs(aheadBlock.vx || 0) * 0.92) * Math.sign(faceT || 1);
         } else {
@@ -2498,13 +2532,13 @@ export function createGame() {
         }
       }
       // Abort an active pass only when it's actually unsafe.
-      if (t.passT > 0 && (oncomingTight || redAhead)) t.passT = 0;
-      if (t.passT > 0 && nearJunction) {
+      if (t.passT > 0 && (oncomingTight || redAhead) && t.passDestLat === otherLat) t.passT = 0;
+      if (t.passT > 0 && nearJunction && t.passDestLat === otherLat) {
         const ph = junctionAheadOf(t.x, faceT, 55);
         if (ph === "red" || ph === "yellow") t.passT = 0;
       }
       t.passT = Math.max(0, (t.passT || 0) - dt);
-      let targetLat = t.passT > 0 ? otherLat : homeLat;
+      let targetLat = t.passT > 0 ? (t.passDestLat ?? otherLat) : homeLat;
       const curLat = t.lat ?? homeLat;
       if (Math.abs(targetLat - curLat) > 0.12 && laneBusy(targetLat, t.x, t, carGap)) {
         // Hold lane; don't slide into the player or another car.

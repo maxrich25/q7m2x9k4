@@ -1,8 +1,8 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=109";
-import { paintClassicHero } from "./paint.js?v=109";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=110";
+import { paintClassicHero } from "./paint.js?v=110";
 
 export function createHud(opts = {}) {
-  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v109";
+  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v110";
   const cashEl = document.getElementById("hud-cash");
   const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
@@ -260,7 +260,7 @@ export function createHud(opts = {}) {
     const wht = "WHT " + fmtGrams(g.WHITE);
     const rep = "REP " + Math.round(state.rep || 0);
     const buildEl = document.getElementById("hud-build");
-    const build = (buildEl?.textContent || "v109").trim();
+    const build = (buildEl?.textContent || "v110").trim();
     if (cashEl) cashEl.textContent = cash;
     if (invEl) invEl.innerHTML = invHtml(state);
     if (repEl) repEl.textContent = rep;
@@ -403,14 +403,15 @@ export function createHud(opts = {}) {
     // On foot:
     //   CAR | PHONE
     //   RUN | ACTION
-    // In the whip (playtest):
-    //   PULL | PHONE
-    //   EXIT | U-TN
+    // In the whip:
+    //   EXIT (or PULL) | PHONE   ← EXIT stays top-left like CAR
+    //   (blank) | U-TN
     const carOn = !!(state.carBtnOk && state.mode === "play" && state.faceCarLabel);
     const label = state.actionLabel || "";
     const actionOn = !!(state.actionOk && state.mode === "play" && label);
     const pullOn = !!(driving && state.pullOverOk);
     const uturnOn = !!(driving && state.uturnBtnOk);
+    const exitOn = !!(driving && carOn);
 
     if (btnXLabel) btnXLabel.textContent = "PHONE";
     if (btnX) {
@@ -420,16 +421,27 @@ export function createHud(opts = {}) {
     }
 
     if (driving) {
-      if (btnCarLabel) btnCarLabel.textContent = pullOn ? "PULL" : "";
-      if (btnCar) {
-        btnCar.dataset.role = "pullover";
-        btnCar.classList.toggle("off", !pullOn);
-        btnCar.classList.remove("go", "arm", "pulse", "serve");
+      // Top-left: EXIT when parked, else PULL when available.
+      if (exitOn) {
+        if (btnCarLabel) btnCarLabel.textContent = state.faceCarLabel || "EXIT";
+        if (btnCar) {
+          btnCar.dataset.role = "car";
+          btnCar.classList.toggle("off", false);
+          btnCar.classList.remove("go", "arm", "pulse", "serve");
+        }
+      } else {
+        if (btnCarLabel) btnCarLabel.textContent = pullOn ? "PULL" : "";
+        if (btnCar) {
+          btnCar.dataset.role = "pullover";
+          btnCar.classList.toggle("off", !pullOn);
+          btnCar.classList.remove("go", "arm", "pulse", "serve");
+        }
       }
-      if (bLabelEl) bLabelEl.textContent = carOn ? (state.faceCarLabel || "EXIT") : "";
+      // Bottom-left free when EXIT is up top; otherwise unused.
+      if (bLabelEl) bLabelEl.textContent = "";
       if (btnB) {
-        btnB.dataset.role = "car";
-        btnB.classList.toggle("off", !carOn);
+        btnB.dataset.role = "run";
+        btnB.classList.toggle("off", true);
         btnB.classList.remove("go", "arm", "pulse", "serve");
       }
       if (actionLabelEl) actionLabelEl.textContent = uturnOn ? "U-TN" : "";

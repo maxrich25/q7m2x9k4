@@ -17,10 +17,12 @@ export const CAR_STOP = 8;
  *  Road: curb z=2.95, dashes z=7.55, near edge ~12.15. Centers sit mid-lane.
  *  Place z = 4.95 + lat. Pull over to the RIGHT of travel so parked cars
  *  face with their lane's traffic (+X → near shoulder, −X → far curb). */
-export const CAR_LANE_NEAR = 4.9;
-export const CAR_LANE_FAR = 0.3;
-export const PARK_LAT_NEAR = 6.2;
-export const PARK_LAT_FAR = -1.0;
+/** Near/far cruise centers — leave shoulder room so parked cars don't force a full lane change. */
+export const CAR_LANE_NEAR = 4.35;
+export const CAR_LANE_FAR = 0.75;
+/** Shoulder park — ~2.5 lat off the cruise line (two cars fit on the near half). */
+export const PARK_LAT_NEAR = 6.9;
+export const PARK_LAT_FAR = -1.55;
 /** Pull-over / pull-out clip length, seconds. Soft nose arc + lat ease. */
 export const PULL_OVER_T = 2.05;
 /** Blink in/out of the whip — short fade, no ghost float. */
