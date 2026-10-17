@@ -1,5 +1,11 @@
 /* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
-const ASSET_V = "20";
+const ASSET_V = "21";
+const BUILD_LABEL = "v21";
+/** Sidewalk belt only — no up/down depth walk this pass. */
+const SIDEWALK_Z = 0.28;
+const RUN_MULT = 1.55;
+const RIM_SET = "5spoke-option1-MAIN/silver";
+const RIM_DIST = 4.6;
 const STEP = 1 / 60;
 const SAVE_KEY = "block-run-2d-v3";
 const HERO_SRC_W = 40;
@@ -143,7 +149,10 @@ let hasSave = false;
 let inbox = [];
 const keys = new Set();
 const holds = new Set();
-let pulses = { act: false, jump: false, start: false, car: false, phone: false, crib: false, pullover: false, accept: false, stall: false, save: false, stash: false, gear: null, turn: null };
+let pulses = { act: false, jump: false, start: false, car: false, phone: false, crib: false, pullover: false, uturn: false, accept: false, stall: false, save: false, stash: false, gear: null, turn: null };
+let rimFrames = [];
+let trafficSheets = [];
+let carOdo = 0;
 let testGas = false;
 let testBrake = false;
 
@@ -178,17 +187,11 @@ function meetById(id) {
 function speedNow() {
   return Math.abs(inCar ? car.vx : player.vx);
 }
-function alongMin() {
-  const ix = currentStreet()?.intersections?.[0];
-  return ix ? ix.x - 48 : 28;
-}
-function alongMax() {
-  const list = currentStreet()?.intersections;
-  const ix = list?.[list.length - 1];
-  return ix ? ix.x + 48 : WORLD - 28;
-}
+function alongMin() { return 0; }
+function alongMax() { return Math.max(1, WORLD); }
+/** Loop the block like classic / 2.5D — no hard left/right wall. */
 function clampAlong(x) {
-  return Math.max(alongMin(), Math.min(alongMax(), Number(x) || alongMin()));
+  return wrap(Number(x) || 0, Math.max(1, WORLD));
 }
 function applyHeading(h) {
   heading = h;
@@ -366,12 +369,10 @@ function addPop(_x, _z, s) {
   toast = { text: String(s || ""), life: 0.95 };
 }
 function spawnPeds() {
-  const n = streetHasSpots() ? 6 : 3;
-  const lo = alongMin();
-  const hi = alongMax();
+  const n = streetHasSpots() ? 8 : 4;
   peds = Array.from({ length: n }, (_, i) => ({
-    x: lo + ((hi - lo) / n) * i + 20,
-    z: clampWalkZ(0.22 + (i % 3) * 0.06),
+    x: wrap((WORLD / n) * i + 24, WORLD),
+    z: SIDEWALK_Z,
     facing: i % 2 ? -1 : 1,
     look: i % 2,
     anim: Math.random(),
@@ -379,128 +380,99 @@ function spawnPeds() {
     mode: "walk",
     wantCross: false,
     crossT: 0,
+    sheet: i % 2,
   }));
+}
+function alongDist(a, b) {
+  return Math.abs(wrapDelta(a, b, Math.max(1, WORLD)));
 }
 function carComingNear(x) {
   const cars = [];
   if (car.street === streetId) cars.push(car);
   for (const t of traffic) cars.push(t);
   for (const c of cars) {
-    const d = c.x - x;
+    const d = wrapDelta(x, c.x, Math.max(1, WORLD));
     const spd = Math.abs(c.vx);
-    if (spd > 8 && ((c.vx > 0 && d < 0 && d > -110) || (c.vx < 0 && d > 0 && d < 110))) return true;
+    if (spd > 8 && ((c.vx > 0 && d > 0 && d < 110) || (c.vx < 0 && d < 0 && d > -110))) return true;
     if (spd > 4 && Math.abs(d) < 30) return true;
   }
   return false;
 }
 function carBlocksPed(x) {
-  if (car.street === streetId && Math.abs(car.x - x) < 48) return true;
+  if (car.street === streetId && alongDist(car.x, x) < 48) return true;
   for (const t of traffic) {
-    if (Math.abs(t.x - x) < 48) return true;
+    if (alongDist(t.x, x) < 48) return true;
   }
   return false;
 }
 function updatePeds(dt) {
-  const lo = alongMin();
-  const hi = alongMax();
   for (const ped of peds) {
     ped.anim += dt;
-    if (ped.mode === "cross") {
-      ped.crossT += dt;
-      const u = ped.crossT / 1.5;
-      if (u < 0.45) ped.z = Z_WALK_MAX + (0.78 - Z_WALK_MAX) * (u / 0.45);
-      else if (u < 1) ped.z = 0.78 + (Z_WALK_MIN - 0.78) * ((u - 0.45) / 0.55);
-      else {
-        ped.mode = "walk";
-        ped.z = clampWalkZ(0.26);
-        ped.facing *= -1;
-        ped.crossT = 0;
-      }
-      continue;
-    }
-    if (ped.wantCross || Math.random() < 0.0018) {
-      ped.wantCross = true;
-      ped.z = Z_WALK_MAX;
-      if (carComingNear(ped.x) || carBlocksPed(ped.x)) {
-        ped.mode = "wait";
-      } else {
-        ped.mode = "cross";
-        ped.crossT = 0;
-        ped.wantCross = false;
-      }
-      continue;
-    }
-    const nx = ped.x + ped.facing * ped.speed * dt;
-    if (carComingNear(ped.x) || carBlocksPed(nx) || carBlocksPed(ped.x)) {
+    ped.z = SIDEWALK_Z;
+    /* No curb-crossing this pass — belt walkers only. Pass through each other. */
+    if (carComingNear(ped.x) || carBlocksPed(ped.x)) {
       ped.mode = "wait";
-      ped.z = clampWalkZ(Math.min(ped.z, Z_WALK_MIN + 0.06));
       continue;
     }
     ped.mode = "walk";
-    ped.x = Math.max(lo, Math.min(hi, nx));
-    ped.z = clampWalkZ(ped.z);
-    if (ped.x <= lo + 1 || ped.x >= hi - 1) ped.facing *= -1;
-    if (Math.random() < 0.002) ped.facing *= -1;
+    ped.x = clampAlong(ped.x + ped.facing * ped.speed * dt);
+    if (Math.random() < 0.0012) ped.facing *= -1;
   }
 }
 function carClearOf(x, ignore) {
   const gap = 112;
-  if (car.street === streetId && (!ignore || ignore !== car) && Math.abs(car.x - x) < gap) return false;
+  if (car.street === streetId && (!ignore || ignore !== car) && alongDist(car.x, x) < gap) return false;
   for (const t of traffic) {
     if (t === ignore) continue;
-    if (Math.abs(t.x - x) < gap) return false;
+    if (alongDist(t.x, x) < gap) return false;
   }
   return true;
 }
 function updateTraffic(dt) {
-  const lo = alongMin();
-  const hi = alongMax();
   for (const t of traffic) {
     t.justTurned = Math.max(0, (t.justTurned || 0) - dt);
     const nx = t.x + t.vx * dt;
-    /* Slow for blocked path instead of ping-pong reversing forever. */
     if (!carClearOf(nx, t)) {
-      t.vx *= Math.exp(-3.2 * dt);
-      if (Math.abs(t.vx) < 10) t.vx = t.facing * 28;
+      t.vx *= Math.exp(-2.4 * dt);
       continue;
     }
-    t.x = nx;
-    if (t.x < lo || t.x > hi) {
-      t.x = t.facing > 0 ? lo + 8 : hi - 8;
-      t.vx = t.facing * (36 + Math.random() * 12);
-    }
+    t.x = clampAlong(nx);
+    t.odo = (t.odo || 0) + Math.abs(t.vx) * dt;
   }
-  if (traffic.length > 1) traffic.length = 1;
+  if (traffic.length > 2) traffic.length = 2;
   crossSpawnT -= dt;
   if (crossSpawnT <= 0) {
-    crossSpawnT = 10 + Math.random() * 10;
-    const st = currentStreet();
-    const ix = st?.intersections[Math.floor(Math.random() * st.intersections.length)];
-    const x = ix ? clampAlong(ix.x) : 0;
-    if (ix && traffic.length < 1 && carClearOf(x)) {
+    crossSpawnT = 12 + Math.random() * 10;
+    if (traffic.length < 2) {
       const dir = heading === "W" || heading === "S" ? -1 : 1;
-      traffic.push({
-        x,
-        z: Z_CAR_DRIVE,
-        facing: dir,
-        vx: dir * (36 + Math.random() * 12),
-        justTurned: 1.4,
-      });
+      const x = clampAlong(car.x + dir * (220 + Math.random() * 80));
+      if (carClearOf(x)) {
+        traffic.push({
+          x,
+          z: Z_CAR_DRIVE,
+          facing: dir,
+          vx: dir * (34 + Math.random() * 14),
+          justTurned: 0,
+          odo: Math.random() * 40,
+          tint: traffic.length % Math.max(1, trafficSheets.length),
+        });
+      }
     }
   }
 }
 function spawnTraffic() {
-  const lo = alongMin();
-  const hi = alongMax();
   traffic = [];
-  const mid = lo + (hi - lo) * 0.62;
+  const dir = heading === "W" || heading === "S" ? -1 : 1;
+  const mid = clampAlong(car.x + dir * 180);
   if (carClearOf(mid)) {
     traffic.push({
       x: mid,
       z: Z_CAR_DRIVE,
-      facing: heading === "W" || heading === "S" ? -1 : 1,
-      vx: (heading === "W" || heading === "S" ? -1 : 1) * 44,
+      facing: dir,
+      vx: dir * 40,
       justTurned: 0,
+      odo: 0,
+      tint: 0,
     });
   }
 }
@@ -509,8 +481,9 @@ function fresh() {
   heading = "E";
   WORLD = streets.sunset?.length || WORLD;
   longStreet = streets.sunset?.strip || longStreet;
-  player = { x: at(CRIB) + 18, z: 0.28, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
+  player = { x: at(CRIB) + 18, z: SIDEWALK_Z, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
   car = { x: at(CRIB) + 86, z: Z_CAR_PARK, vx: 0, facing: 1, gear: "P", parked: true, pullOverT: 0, shiftHint: 0, street: "sunset" };
+  carOdo = 0;
   inCar = false;
   cash = START_CASH;
   grams = 0;
@@ -562,13 +535,13 @@ function continueSave(s) {
   cam = Math.max(0, Math.min(Math.max(0, WORLD - nesW), player.x - nesW * 0.42));
 }
 function closeTo(x) {
-  return Math.abs((inCar ? car.x : player.x) - x) <= REACH;
+  return alongDist(inCar ? car.x : player.x, x) <= REACH;
 }
 function onWalk() {
-  return player.z <= Z_WALK_MAX + 0.02;
+  return true;
 }
 function nearCar() {
-  return !inCar && car.street === streetId && Math.abs(player.x - car.x) < 36;
+  return !inCar && car.street === streetId && alongDist(player.x, car.x) < 36;
 }
 function nearCrib() {
   return !inCar && closeTo(at(CRIB)) && onWalk();
@@ -645,7 +618,7 @@ function enterCar(force) {
   car.parked = true;
   car.z = Z_CAR_PARK;
   player.x = car.x;
-  player.z = car.z;
+  player.z = SIDEWALK_Z;
   player.facing = car.facing;
   player.vx = 0;
   player.vz = 0;
@@ -663,7 +636,7 @@ function leaveCar() {
   car.parked = true;
   car.z = Z_CAR_PARK;
   player.x = car.x;
-  player.z = Z_WALK_MAX;
+  player.z = SIDEWALK_Z;
   player.vx = 0;
   player.vz = 0;
   player.facing = car.facing;
@@ -708,9 +681,25 @@ function startPullOver() {
   return true;
 }
 function doCarBtn() {
-  if (inCar) return carIsParked() ? leaveCar() : (addPop(car.x, car.z, "PULL OVER FIRST"), false);
+  if (inCar) {
+    if (carIsParked()) return leaveCar();
+    return startPullOver();
+  }
   if (nearCar()) return enterCar();
   return false;
+}
+function doUturn() {
+  if (!inCar || car.gear !== "D" || car.pullOverT > 0) return false;
+  if (Math.abs(car.vx) > 28) {
+    addPop(car.x, car.z, "SLOW DOWN");
+    return false;
+  }
+  car.facing *= -1;
+  syncHeadingFromFacing();
+  car.vx = 0;
+  addPop(car.x, car.z, "U-TURN");
+  BRAudio.sfx.shift();
+  return true;
 }
 function doAct() {
   if (ui === "phone") return acceptOrder();
@@ -735,12 +724,12 @@ function beginPlay(fromSave) {
 
 function moveAxes() {
   let x = 0;
-  let z = 0;
   if (keys.has("ArrowLeft") || keys.has("KeyA") || holds.has("left")) x -= 1;
   if (keys.has("ArrowRight") || keys.has("KeyD") || holds.has("right")) x += 1;
-  if (keys.has("ArrowUp") || keys.has("KeyW") || holds.has("up")) z -= 1;
-  if (keys.has("ArrowDown") || keys.has("KeyS") || holds.has("down")) z += 1;
-  return { x: Math.max(-1, Math.min(1, x)), z: Math.max(-1, Math.min(1, z)) };
+  return { x: Math.max(-1, Math.min(1, x)), z: 0 };
+}
+function runHeld() {
+  return holds.has("run") || keys.has("ShiftLeft") || keys.has("KeyZ");
 }
 function gasHeld() {
   return testGas || holds.has("gas") || keys.has("KeyK") || keys.has("ShiftRight");
@@ -789,7 +778,7 @@ function clampWalkZ(z) {
   return Math.max(Z_WALK_MIN, Math.min(Z_WALK_MAX, Number(z) || Z_WALK_MIN));
 }
 function worldToScreen(wx) {
-  return wx - cam;
+  return wrap(wx - cam, Math.max(1, WORLD));
 }
 
 const footPadCache = new WeakMap();
@@ -838,18 +827,35 @@ function heroSheet() {
   return pickWalkSheet(player.moveDir);
 }
 
-function drawSprite(img, wx, z, w, h, facing, footPad = 0, yLock) {
-  if (!img) return;
-  const sx = worldToScreen(wx);
-  const sy = (yLock != null ? yLock : depthY(z)) + Math.round(footPad);
-  const dw = Math.round(w);
-  const dh = Math.round(h);
-  if (sx < -dw || sx > nesW + dw) return;
+function blitFacing(img, sx, sy, dw, dh, facing) {
   nctx.save();
   nctx.translate(Math.round(sx), sy);
   nctx.scale(facing < 0 ? -1 : 1, 1);
   nctx.drawImage(img, -Math.round(dw / 2), -dh, dw, dh);
   nctx.restore();
+}
+function drawSprite(img, wx, z, w, h, facing, footPad = 0, yLock) {
+  if (!img) return;
+  const sy = (yLock != null ? yLock : depthY(z)) + Math.round(footPad);
+  const dw = Math.round(w);
+  const dh = Math.round(h);
+  const sx = worldToScreen(wx);
+  for (const x of [sx, sx - WORLD, sx + WORLD]) {
+    if (x < -dw || x > nesW + dw) continue;
+    blitFacing(img, x, sy, dw, dh, facing);
+  }
+}
+function rimIndex(dist) {
+  if (!rimFrames.length) return 0;
+  const u = Math.abs(dist) / RIM_DIST;
+  return Math.floor(u) % rimFrames.length;
+}
+function drawCarWithRims(base, wx, z, w, h, facing, yLock, odo) {
+  drawSprite(base, wx, z, w, h, facing, 0, yLock);
+  if (!rimFrames.length) return;
+  const frame = rimFrames[rimIndex(odo)];
+  if (!frame) return;
+  drawSprite(frame, wx, z, w, h, facing, 0, yLock);
 }
 function drawPerson(img, wx, z, facing) {
   if (!img) return;
@@ -1032,12 +1038,13 @@ function streetTint(style) {
   return [1, 1, 1];
 }
 function streetPattern(def) {
-  if (def.id === "sunset") return [0, 1, 2, 3, 1, 2, 0, 3];
-  if (def.id === "santa_monica") return [1, 3, 0, 2, 3, 1, 0, 2];
-  if (def.id === "melrose") return [2, 0, 3, 1, 2, 3, 0, 1];
-  if (def.id === "western") return [3, 1, 0, 3, 1, 2];
-  if (def.id === "normandie") return [0, 3, 1, 2, 0, 3];
-  return [1, 0, 3, 2, 1, 0];
+  /* Longer strip + start/end on the same slice so the loop seam is less ugly. */
+  if (def.id === "sunset") return [1, 2, 3, 1, 2, 0, 3, 1, 2, 3, 1, 2, 0, 3, 1];
+  if (def.id === "santa_monica") return [1, 3, 0, 2, 3, 1, 0, 2, 1, 3, 0, 2, 1];
+  if (def.id === "melrose") return [2, 0, 3, 1, 2, 3, 0, 1, 2, 0, 3, 1, 2];
+  if (def.id === "western") return [3, 1, 0, 3, 1, 2, 3, 1, 0, 3, 1];
+  if (def.id === "normandie") return [0, 3, 1, 2, 0, 3, 1, 2, 0, 3, 0];
+  return [1, 0, 3, 2, 1, 0, 3, 2, 1];
 }
 function buildStreetStrip(def, streetImg) {
   const pattern = streetPattern(def);
@@ -1160,45 +1167,36 @@ function drawActors() {
   const actors = [];
   if (art) {
     if (streetHasSpots()) {
-      const plugSheet = art.thug;
-      const plugImg = plugSheet[0];
-      actors.push({ z: Z_WALK_MIN + 0.04, draw: () => drawPerson(plugImg, at(PLUG), clampWalkZ(0.26), 1) });
+      const plugImg = art.thug[0];
+      actors.push({ z: SIDEWALK_Z - 0.02, draw: () => drawPerson(plugImg, at(PLUG), SIDEWALK_Z, 1) });
     }
     for (const ped of peds) {
-      if (car.street === streetId && Math.abs(ped.x - car.x) < 40) continue;
-      let skip = false;
-      for (const t of traffic) {
-        if (Math.abs(ped.x - t.x) < 40) { skip = true; break; }
-      }
-      if (skip) continue;
       const sheet = ped.look ? art.runner : art.thug;
       const img = sheet[Math.floor(ped.anim * WALK_FPS) % sheet.length];
-      actors.push({ z: ped.z, draw: () => drawPerson(img, ped.x, ped.z, ped.facing) });
+      actors.push({ z: SIDEWALK_Z, draw: () => drawPerson(img, ped.x, SIDEWALK_Z, ped.facing) });
     }
     if (streetHasSpots() && order && order.phase === "active") {
       const spot = meetById(order.spot);
       const sheet = NAMES.indexOf(order.name) % 2 === 0 ? art.thug : art.runner;
       const img = sheet[Math.floor(buyerAnim * WALK_FPS) % sheet.length];
-      const face = at(spot) >= player.x ? 1 : -1;
-      const bz = clampWalkZ(0.30);
-      actors.push({ z: bz, draw: () => drawPerson(img, at(spot), bz, face) });
+      const face = wrapDelta(player.x, at(spot), WORLD) >= 0 ? 1 : -1;
+      actors.push({ z: SIDEWALK_Z, draw: () => drawPerson(img, at(spot), SIDEWALK_Z, face) });
     }
     const ride = art.car;
     const carW = (ride?.naturalWidth || ride?.width || 95) * spriteScale;
     const carH = (ride?.naturalHeight || ride?.height || 29) * spriteScale;
     for (const t of traffic) {
-      if (car.street === streetId && Math.abs(t.x - car.x) < 110) continue;
+      const body = trafficSheets[t.tint|0] || ride;
       actors.push({
         z: 0.9,
-        draw: () => drawSprite(ride, t.x, t.z, carW, carH, t.facing, 0, streetDestY(ROAD_Y)),
+        draw: () => drawCarWithRims(body, t.x, t.z, carW, carH, t.facing, streetDestY(ROAD_Y), t.odo || 0),
       });
     }
     if (car.street === streetId) {
       actors.push({
         z: 0.85,
         draw: () => {
-          drawSprite(ride, car.x, car.z, carW, carH, car.facing, 0, carGroundY());
-          // Instant blink-in: seated driver overlay (95x29, aligned at 0,0 over car.png).
+          drawCarWithRims(ride, car.x, car.z, carW, carH, car.facing, carGroundY(), carOdo);
           if (inCar && art.driver) drawSprite(art.driver, car.x, car.z, carW, carH, car.facing, 0, carGroundY());
         },
       });
@@ -1207,10 +1205,10 @@ function drawActors() {
       const sheet = heroSheet();
       const img = heroFrame(sheet);
       actors.push({
-        z: player.z,
+        z: SIDEWALK_Z + 0.01,
         draw: () => {
-          drawPerson(img, player.x, player.z, player.facing);
-          if (grams > 0) drawSprite(art.pack, player.x, player.z, 12 * spriteScale, 12 * spriteScale, 1);
+          drawPerson(img, player.x, SIDEWALK_Z, player.facing);
+          if (grams > 0) drawSprite(art.pack, player.x, SIDEWALK_Z, 12 * spriteScale, 12 * spriteScale, 1);
         },
       });
     }
@@ -1218,11 +1216,9 @@ function drawActors() {
   actors.sort((a, b) => a.z - b.z);
   for (const a of actors) a.draw();
   if (mode === "play" && streetHasSpots() && !inCar) {
-    const px = player.x;
-    const near = (wx) => Math.abs(px - wx) < 54;
+    const near = (wx) => alongDist(player.x, wx) < 54;
     if (near(at(CRIB))) drawLabel(at(CRIB), 0.12, "CRIB", "#e81818");
     if (near(at(PLUG))) drawLabel(at(PLUG), 0.12, "PLUG", "#f0c430");
-    /* Meet tags (TACO/PARK/…) only when that deal is live — not random facade text. */
     if (order && order.phase === "active") {
       const m = meetById(order.spot);
       if (m) drawLabel(at(m), 0.12, m.label, "#38d8f8");
@@ -1235,12 +1231,20 @@ function syncHud() {
   padCar.classList.toggle("hidden", !(mode === "play" && inCar));
   phoneEl.classList.toggle("hidden", ui !== "phone");
   cribEl.classList.toggle("hidden", ui !== "crib");
-  muteBtn.textContent = BRAudio.isMuted() ? "SOUND: OFF" : "SOUND: ON";
   muteBtn.classList.toggle("off", BRAudio.isMuted());
+  muteBtn.setAttribute("aria-label", BRAudio.isMuted() ? "sound off" : "sound on");
   document.querySelectorAll(".gear").forEach((el) => el.classList.toggle("on", el.dataset.gear === car.gear));
   shiftHint.classList.toggle("show", inCar && car.shiftHint > 0);
-  const carBtn = document.getElementById("btn-car");
-  if (carBtn) carBtn.textContent = nearCar() ? "CAR" : "CAR";
+  const carLabel = document.getElementById("btn-car-label");
+  if (carLabel) carLabel.textContent = nearCar() ? "CAR" : "CAR";
+  const exitLabel = document.getElementById("btn-exit-label");
+  if (exitLabel) exitLabel.textContent = carIsParked() ? "EXIT" : "PULL";
+  const uturnBtn = document.getElementById("btn-uturn");
+  const uturnOk = !!(inCar && car.gear === "D" && Math.abs(car.vx) < 28 && car.pullOverT <= 0);
+  if (uturnBtn) {
+    uturnBtn.classList.toggle("off", !uturnOk);
+    uturnBtn.disabled = !uturnOk;
+  }
   document.getElementById("phone-cash").textContent = "CASH $" + String(Math.floor(cash)).padStart(4, "0");
   document.getElementById("phone-inv").textContent = "GRN " + fmtG(grams) + "   STASH $" + Math.floor(stash);
   document.getElementById("crib-meta").textContent = "CASH $" + Math.floor(cash) + "  STASH $" + Math.floor(stash);
@@ -1259,34 +1263,11 @@ function syncHud() {
   padCar.querySelectorAll("[data-role='gas'],[data-role='brake']").forEach((el) => {
     el.classList.toggle("on", el.dataset.role === "gas" ? gasHeld() : brakeHeld());
   });
-  syncTurnHint();
-}
-function syncTurnHint() {
-  const el = document.getElementById("turn-hint");
-  const row = document.getElementById("turn-exits");
-  if (!el || !row) return;
-  const ix = mode === "play" ? nearIntersection() : null;
-  if (!ix) {
-    el.classList.add("hidden");
-    row.innerHTML = "";
-    return;
-  }
-  el.classList.remove("hidden");
-  if (speedNow() > TURN_SPEED) {
-    row.innerHTML = `<button type="button" class="pad-btn" disabled>SLOW DOWN</button>`;
-    return;
-  }
-  const exits = exitsAt(ix, heading);
-  const mark = { left: "◀", right: "▶", straight: "▲" };
-  row.innerHTML = exits.map((ex) => (
-    `<button type="button" class="pad-btn accent" data-role="turn" data-dir="${ex.dir}">${mark[ex.dir] || "▲"} ${ex.label}</button>`
-  )).join("");
 }
 function keysHasRole(role) {
   if (role === "left") return keys.has("ArrowLeft") || keys.has("KeyA");
   if (role === "right") return keys.has("ArrowRight") || keys.has("KeyD");
-  if (role === "up") return keys.has("ArrowUp") || keys.has("KeyW");
-  if (role === "down") return keys.has("ArrowDown") || keys.has("KeyS");
+  if (role === "run") return runHeld();
   return false;
 }
 
@@ -1299,13 +1280,13 @@ function update(dt) {
   const phonePulse = pulses.phone;
   const cribPulse = pulses.crib;
   const pullPulse = pulses.pullover;
+  const uturnPulse = pulses.uturn;
   const gearPulse = pulses.gear;
   const acceptPulse = pulses.accept;
   const stallPulse = pulses.stall;
   const savePulse = pulses.save;
   const stashPulse = pulses.stash;
-  const turnPulse = pulses.turn;
-  pulses = { act: false, jump: false, start: false, car: false, phone: false, crib: false, pullover: false, accept: false, stall: false, save: false, stash: false, gear: null, turn: null };
+  pulses = { act: false, jump: false, start: false, car: false, phone: false, crib: false, pullover: false, uturn: false, accept: false, stall: false, save: false, stash: false, gear: null, turn: null };
 
   blink += dt;
   if (mode === "title") {
@@ -1339,21 +1320,9 @@ function update(dt) {
   }
 
   if (carPulse) doCarBtn();
+  if (uturnPulse) doUturn();
   if (act) doAct();
   if (acceptPulse) acceptOrder();
-
-  turnLock = Math.max(0, turnLock - dt);
-  const ixNow = nearIntersection();
-  const slowNow = speedNow() <= TURN_SPEED;
-  let edgeTurn = turnPulse;
-  if (!edgeTurn && ixNow && slowNow) {
-    if (ax.z < -0.5 && prevTurnZ >= -0.5) edgeTurn = "straight";
-    if (inCar && ax.x < -0.5 && prevTurnX >= -0.5) edgeTurn = "left";
-    if (inCar && ax.x > 0.5 && prevTurnX <= 0.5) edgeTurn = "right";
-  }
-  prevTurnZ = ax.z;
-  prevTurnX = ax.x;
-  if (edgeTurn) tryTurn(edgeTurn);
 
   if (inCar) {
     if (gearPulse) tryShift(gearPulse, brakeHeld());
@@ -1400,11 +1369,12 @@ function update(dt) {
     }
     car.vx = Math.max(-CAR_MAX, Math.min(CAR_MAX, car.vx));
     if (brake && Math.abs(car.vx) < CAR_STOP) car.vx = 0;
+    const prevX = car.x;
     car.x = clampAlong(car.x + car.vx * dt);
-    if (car.x <= alongMin() || car.x >= alongMax()) car.vx = 0;
+    carOdo += alongDist(prevX, car.x);
     if (!car.parked && car.gear !== "P") car.z = Z_CAR_DRIVE;
     player.x = car.x;
-    player.z = car.z;
+    player.z = SIDEWALK_Z;
     player.vx = car.vx;
     player.facing = car.facing;
     BRAudio.setEngine("drive", Math.abs(car.vx) / CAR_MAX);
@@ -1413,28 +1383,20 @@ function update(dt) {
     if (ax.x < 0) player.facing = -1;
     if (ax.x > 0) player.facing = 1;
     if (ax.x) syncHeadingFromFacing();
-    const spd = walkSpeed();
+    const spd = walkSpeed() * (runHeld() ? RUN_MULT : 1);
     player.vx = ax.x * spd;
-    player.vz = ax.z * (spd * 0.62);
-    if (Math.abs(ax.z) > Math.abs(ax.x) + 0.1) player.moveDir = ax.z > 0 ? "front" : "back";
-    else player.moveDir = "side";
+    player.vz = 0;
+    player.moveDir = "side";
     let nx = clampAlong(player.x + player.vx * dt);
-    let nz = clampWalkZ(player.z + (player.vz / 80) * dt);
-    /* Soft body vs parked whip — stop walking through the sprite. */
-    if (car.street === streetId && carIsParked()) {
-      const dx = nx - car.x;
-      if (Math.abs(dx) < 34 && nz > 0.30) {
-        nx = car.x + Math.sign(dx || player.facing || 1) * 34;
-        nx = clampAlong(nx);
-      }
+    /* Soft body vs parked whip — slide past, don't eat the sprite. */
+    if (car.street === streetId && carIsParked() && alongDist(nx, car.x) < 34) {
+      const side = Math.sign(wrapDelta(car.x, nx, WORLD) || player.facing || 1);
+      nx = clampAlong(car.x + side * 34);
     }
     player.x = nx;
-    player.z = nz;
-    if (Math.abs(ax.x) > 0 || Math.abs(ax.z) > 0) player.anim += dt;
+    player.z = SIDEWALK_Z;
+    if (Math.abs(ax.x) > 0) player.anim += dt * (runHeld() ? RUN_MULT : 1);
     else player.anim = 0;
-    if (jump && player.z < Z_STREET_MIN) {
-      /* jump reserved; belt-scroller stays grounded */
-    }
   }
 
   buyerAnim += dt;
@@ -1447,9 +1409,8 @@ function update(dt) {
   if (toast.life > 0) toast.life -= dt;
   if (toast.life <= 0) toast.text = "";
   const follow = inCar ? car.x : player.x;
-  const maxCam = Math.max(0, WORLD - nesW);
-  const target = Math.max(0, Math.min(maxCam, follow - nesW * 0.42));
-  cam += (target - cam) * (1 - Math.exp(-7 * dt));
+  const target = clampAlong(follow - nesW * 0.42);
+  cam = clampAlong(cam + wrapDelta(cam, target, WORLD) * (1 - Math.exp(-7 * dt)));
 }
 
 function renderNes() {
@@ -1459,9 +1420,9 @@ function renderNes() {
   if (mode === "play") drawActors();
   nctx.font = "8px 'Press Start 2P', monospace";
   if (mode === "play") {
-    text(nctx, "$" + String(Math.floor(cash)).padStart(4, "0"), 48, 6, "#f0c430");
-    text(nctx, fmtG(grams) + "G", Math.round(nesW * 0.42), 6, grams > 0 ? "#38f070" : "#8a8696");
-    text(nctx, heading, nesW - 52, 6, "#38d8f8");
+    text(nctx, "$" + String(Math.floor(cash)).padStart(4, "0"), 8, 6, "#f0c430");
+    text(nctx, fmtG(grams) + "G", Math.round(nesW * 0.36), 6, grams > 0 ? "#38f070" : "#8a8696");
+    text(nctx, BUILD_LABEL, Math.round(nesW * 0.52), 6, "#8a8696");
     text(nctx, "R" + rep, nesW - 22, 6, "#f8f8f8");
   }
   if (toast.life > 0 && toast.text) {
@@ -1474,17 +1435,16 @@ function renderNes() {
     text(nctx, msg, nesW / 2, ty + 3, "#f8f8f8", "center");
   }
   if (mode === "title") {
-    nctx.fillStyle = "rgba(7,6,12,0.72)";
-    nctx.fillRect(0, 16, nesW, nesH - 16);
+    nctx.fillStyle = "rgba(7,6,12,0.78)";
+    nctx.fillRect(0, 0, nesW, nesH);
     nctx.font = "16px 'Press Start 2P', monospace";
-    text(nctx, "BLOCK", nesW / 2, nesH * 0.22, "#f8f8f8", "center");
-    text(nctx, "RUN", nesW / 2, nesH * 0.22 + 22, "#e81818", "center");
+    text(nctx, "BLOCK", nesW / 2, nesH * 0.28, "#f8f8f8", "center");
+    text(nctx, "RUN", nesW / 2, nesH * 0.28 + 22, "#e81818", "center");
     nctx.font = "8px 'Press Start 2P', monospace";
-    text(nctx, "DRIVE THE BLOCK", nesW / 2, nesH * 0.22 + 52, "#38d8f8", "center");
+    text(nctx, "DRIVE THE BLOCK", nesW / 2, nesH * 0.28 + 52, "#38d8f8", "center");
     if (Math.floor(blink * 2) % 2 === 0) {
-      text(nctx, hasSave ? "TAP TO CONTINUE" : "PRESS START", nesW / 2, nesH * 0.22 + 84, "#f0c430", "center");
+      text(nctx, hasSave ? "TAP TO CONTINUE" : "PRESS START", nesW / 2, nesH * 0.28 + 84, "#f0c430", "center");
     }
-    if (hasSave) text(nctx, "JUMP FOR A NEW BLOCK", nesW / 2, nesH * 0.22 + 104, "#8a8696", "center");
   }
 }
 
@@ -1508,6 +1468,7 @@ function pulseFromRole(role, extra) {
   if (role === "crib-save") pulses.save = true;
   if (role === "crib-stash") pulses.stash = true;
   if (role === "pullover") pulses.pullover = true;
+  if (role === "uturn") pulses.uturn = true;
   if (role === "accept") pulses.accept = true;
   if (role === "stall") pulses.stall = true;
   if (role === "gear") pulses.gear = extra || null;
@@ -1693,6 +1654,27 @@ window.__br = {
   ready: false,
 };
 
+function tintCar(img, color) {
+  const c = document.createElement("canvas");
+  c.width = img.naturalWidth || img.width;
+  c.height = img.naturalHeight || img.height;
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  g.drawImage(img, 0, 0);
+  g.globalCompositeOperation = "source-atop";
+  g.fillStyle = color;
+  g.fillRect(0, 0, c.width, c.height);
+  g.globalCompositeOperation = "source-over";
+  return c;
+}
+async function loadRimFrames() {
+  const sets = window.RIM_ALTERNATES?.sets || {};
+  const list = sets[RIM_SET] || sets.current || Object.values(sets)[0];
+  if (!list?.length) return [];
+  const frames = await Promise.all(list.map((src) => loadImage(src)));
+  return frames.filter(Boolean);
+}
+
 Promise.all([
   loadSheet("idle"),
   loadSheet("walk"),
@@ -1705,13 +1687,21 @@ Promise.all([
   loadImage(`sprites/car.png?v=${ASSET_V}`),
   loadImage(`map/street.png?v=${ASSET_V}`),
   window.DRIVER_OVERLAY ? loadImage(window.DRIVER_OVERLAY) : null,
-]).then(([idle, walk, walkNew, thug, runner, walkFront, walkBack, pack, carImg, streetImg, driverImg]) => {
+  loadRimFrames(),
+]).then(([idle, walk, walkNew, thug, runner, walkFront, walkBack, pack, carImg, streetImg, driverImg, rims]) => {
   if (!idle || !thug || !runner || !pack || !carImg || !streetImg) return;
   bakeStreets(streetImg);
   streetId = "sunset";
   heading = "E";
   longStreet = streets.sunset.strip;
   WORLD = streets.sunset.length;
+  rimFrames = rims || [];
+  trafficSheets = [
+    tintCar(carImg, "rgba(40, 90, 140, 0.45)"),
+    tintCar(carImg, "rgba(140, 50, 40, 0.42)"),
+    tintCar(carImg, "rgba(40, 110, 70, 0.40)"),
+    tintCar(carImg, "rgba(120, 120, 40, 0.38)"),
+  ];
   art = {
     idle, walk: walkNew || walk, walkNew: walkNew || walk, thug, runner, pack,
     walkFront, walkBack,
