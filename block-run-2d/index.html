@@ -11,14 +11,10 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="description" content="BLOCK RUN. NES-style night block. Buy from the plug, drive deals, stash at the crib." />
-  <!--
-    Home-screen icons open this URL directly (manifest start_url), so cache
-    busting must live HERE — not only on the root menu.
-  -->
   <script>
     (function () {
-      var BUILD = "116";
-      var CART = "24";
+      var BUILD = "117";
+      var CART = "25";
       try {
         var prev = localStorage.getItem("br_build");
         var params = new URLSearchParams(location.search);
@@ -47,18 +43,12 @@
       } catch (e) {}
     })();
   </script>
-  <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg?v=24" />
+  <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg?v=25" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
-  <link rel="stylesheet" href="style.css?v=24" />
+  <link rel="stylesheet" href="style.css?v=25" />
 </head>
 <body class="title-open">
   <div id="app">
-    <div id="chrome">
-      <a id="btn-quit" href="../?menu=1">QUIT</a>
-      <button type="button" id="btn-mute" class="icon-btn" aria-label="sound on" title="sound">
-        <span class="spk" aria-hidden="true">♪</span>
-      </button>
-    </div>
     <div id="view">
       <canvas id="game" width="256" height="224" aria-label="BLOCK RUN street"></canvas>
       <div id="phone" class="sheet hidden">
@@ -83,15 +73,26 @@
           <button type="button" data-role="crib-close">LEAVE</button>
         </div>
       </div>
+      <div id="pause" class="sheet hidden">
+        <div class="sheet-card">
+          <h2>PAUSED</h2>
+          <p id="pause-meta" class="sheet-line">v25</p>
+          <button type="button" class="accent" data-role="resume">RESUME</button>
+          <button type="button" id="btn-sound" data-role="mute">SOUND ON</button>
+          <a class="sheet-btn" href="../?menu=1">QUIT</a>
+        </div>
+      </div>
     </div>
-    <!-- Layout mirrored from block-run-25d: dpad/pedals left, face grid right. -->
+    <div id="chrome">
+      <button type="button" id="btn-menu" data-role="pause">MENU</button>
+    </div>
     <div id="pad" class="gb sa title-hide">
       <div id="gb-grill" aria-hidden="true"></div>
       <div id="gb-face">
         <div id="pad-foot">
           <div id="gb-dpad">
-            <button type="button" class="pad-btn gb-dir" data-role="left" aria-label="left">◀</button>
-            <button type="button" class="pad-btn gb-dir" data-role="right" aria-label="right">▶</button>
+            <button type="button" class="pad-btn gb-dir" data-role="left" aria-label="left"><i class="dir-arrow" aria-hidden="true"></i></button>
+            <button type="button" class="pad-btn gb-dir" data-role="right" aria-label="right"><i class="dir-arrow" aria-hidden="true"></i></button>
           </div>
         </div>
         <div id="pad-car" class="hidden">
@@ -129,11 +130,11 @@
       </div>
     </div>
   </div>
-  <script src="../art/rims/alternates/rims.js?v=24"></script>
-  <script src="audio.js?v=24"></script>
-  <script src="sprites/walk14.js?v=24"></script>
-  <script src="sprites/chain24.js?v=24"></script>
-  <script src="sprites/driver-overlay.js?v=24"></script>
-  <script src="game.js?v=24"></script>
+  <script src="../art/rims/alternates/rims.js?v=25"></script>
+  <script src="audio.js?v=25"></script>
+  <script src="sprites/walk14.js?v=25"></script>
+  <script src="sprites/chain24.js?v=25"></script>
+  <script src="sprites/driver-overlay.js?v=25"></script>
+  <script src="game.js?v=25"></script>
 </body>
 </html>

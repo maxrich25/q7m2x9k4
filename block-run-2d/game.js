@@ -1,6 +1,6 @@
 /* BLOCK RUN — classic night-street cart. NES 256×224, hard pixels. */
-const ASSET_V = "24";
-const BUILD_LABEL = "v24";
+const ASSET_V = "25";
+const BUILD_LABEL = "v25";
 /** Sidewalk belt only — no up/down depth walk this pass. */
 const SIDEWALK_Z = 0.28;
 const RUN_MULT = 2.45;
@@ -9,17 +9,19 @@ const RIM_DIST = 4.6;
 /**
  * US right-hand traffic (side view, sidewalk above the road):
  * facing east (+) → near/bottom lane; facing west (−) → far/top lane.
- * Park sits in the curb gutter — not up on the sidewalk.
+ * Park sits in the street gutter — never up on the sidewalk.
  */
-const Z_LANE_NEAR = 0.86;
-const Z_LANE_FAR = 0.68;
-const Z_CURB_NEAR = 0.78;
-const Z_CURB_FAR = 0.62;
+const Z_LANE_NEAR = 0.88;
+const Z_LANE_FAR = 0.72;
+const Z_CURB_NEAR = 0.80;
+const Z_CURB_FAR = 0.66;
 /** Classic car.png / rim sheets face LEFT; draw with this flip vs logical facing. */
 const CAR_ART_FACE = -1;
 const CAR_TURN_TIME = 1.0;
 const PULL_OVER_T = 1.15;
 const PULL_OUT_T = 0.85;
+/** Auto park climb D→N→R→P after curb settle (mirrors 2.5D). */
+const PARK_SHIFT_T = 0.55;
 function laneZ(facing) {
   return (facing >= 0 ? Z_LANE_NEAR : Z_LANE_FAR);
 }
@@ -122,7 +124,9 @@ const padFoot = document.getElementById("pad-foot");
 const padCar = document.getElementById("pad-car");
 const phoneEl = document.getElementById("phone");
 const cribEl = document.getElementById("crib");
-const muteBtn = document.getElementById("btn-mute");
+const pauseEl = document.getElementById("pause");
+const menuBtn = document.getElementById("btn-menu");
+const soundBtn = document.getElementById("btn-sound");
 const shiftHint = document.getElementById("shift-hint");
 const ctx = canvas.getContext("2d");
 const nes = document.createElement("canvas");
@@ -136,6 +140,8 @@ let worldZoom = 1;
 let worldY0 = 0;
 let WORLD = 398 * 4;
 let longStreet = null;
+/** Static sky + skyline (does not scroll). */
+let skyBg = null;
 let streets = {};
 let streetId = "sunset";
 let heading = "E";
@@ -149,7 +155,7 @@ let ui = null;
 let player = { x: 70, z: 0.28, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
 let car = {
   x: 140, z: curbZ(1), vx: 0, facing: 1, gear: "P", parked: true,
-  pullOverT: 0, pullOutT: 0, shiftHint: 0, street: "sunset",
+  pullOverT: 0, pullOutT: 0, shiftT: 0, shiftHint: 0, street: "sunset",
   turnT: 0, turnFrom: 1, turnTo: -1, pendingPullOut: null,
 };
 let inCar = false;
@@ -524,7 +530,7 @@ function fresh() {
   player = { x: at(CRIB) + 18, z: SIDEWALK_Z, vx: 0, vz: 0, facing: 1, anim: 0, moveDir: "side" };
   car = {
     x: at(CRIB) + 86, z: curbZ(1), vx: 0, facing: 1, gear: "P", parked: true,
-    pullOverT: 0, pullOutT: 0, shiftHint: 0, street: "sunset",
+    pullOverT: 0, pullOutT: 0, shiftT: 0, shiftHint: 0, street: "sunset",
     turnT: 0, turnFrom: 1, turnTo: -1, pendingPullOut: null,
   };
   carOdo = 0;
@@ -562,7 +568,7 @@ function continueSave(s) {
     z: curbZ(face),
     vx: 0,
     facing: face,
-    gear: "P", parked: true, pullOverT: 0, pullOutT: 0, shiftHint: 0,
+    gear: "P", parked: true, pullOverT: 0, pullOutT: 0, shiftT: 0, shiftHint: 0,
     street: streets[s.carStreet] ? s.carStreet : streetId,
     turnT: 0, turnFrom: 1, turnTo: -1, pendingPullOut: null,
   };
@@ -668,6 +674,7 @@ function enterCar(force) {
   car.turnT = 0;
   car.pullOverT = 0;
   car.pullOutT = 0;
+  car.shiftT = 0;
   car.pendingPullOut = null;
   player.x = car.x;
   player.z = SIDEWALK_Z;
@@ -689,6 +696,7 @@ function leaveCar() {
   car.z = curbZ(car.facing);
   car.pendingPullOut = null;
   car.pullOutT = 0;
+  car.shiftT = 0;
   player.x = car.x;
   player.z = SIDEWALK_Z;
   player.vx = 0;
@@ -698,7 +706,7 @@ function leaveCar() {
 }
 function tryShift(to, brakeOn) {
   if (!to || !GEARS.includes(to) || to === car.gear) return false;
-  if (car.pullOverT > 0 || car.pullOutT > 0 || car.turnT > 0) return false;
+  if (car.pullOverT > 0 || car.pullOutT > 0 || car.shiftT > 0 || car.turnT > 0) return false;
   /* Mirror 2.5D: every gear change needs brake held. */
   if (!brakeOn) {
     car.shiftHint = 1.35;
@@ -735,7 +743,13 @@ function tryShift(to, brakeOn) {
   return true;
 }
 function startPullOver() {
-  if (!inCar || car.parked || car.pullOverT > 0 || car.pullOutT > 0 || car.turnT > 0) return false;
+  if (!inCar || car.parked || car.pullOverT > 0 || car.pullOutT > 0 || car.shiftT > 0 || car.turnT > 0) {
+    return false;
+  }
+  if (car.gear !== "D") {
+    addPop(car.x, car.z, "DRIVE");
+    return false;
+  }
   car.pullOverT = PULL_OVER_T;
   car.pendingPullOut = null;
   return true;
@@ -749,7 +763,7 @@ function doCarBtn() {
   return false;
 }
 function doUturn() {
-  if (!inCar || car.gear !== "D" || car.pullOverT > 0 || car.turnT > 0) return false;
+  if (!inCar || car.gear !== "D" || car.pullOverT > 0 || car.shiftT > 0 || car.turnT > 0) return false;
   if (Math.abs(car.vx) > 48) {
     addPop(car.x, car.z, "SLOW DOWN");
     return false;
@@ -803,24 +817,35 @@ function streetDestY(srcY) {
   return Math.round((srcY - worldY0) * worldZoom);
 }
 function snapView() {
-  const vw = Math.max(160, viewEl?.clientWidth || 375);
-  const vh = Math.max(140, viewEl?.clientHeight || 400);
+  /* Locked NES 256×224 — never stretch the world to the phone height. */
+  const rect = viewEl?.getBoundingClientRect?.();
+  const style = viewEl ? getComputedStyle(viewEl) : null;
+  const padX = style
+    ? (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0)
+    : 0;
+  const padY = style
+    ? (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0)
+    : 0;
+  const vw = Math.max(160, (rect?.width || viewEl?.clientWidth || 375) - padX);
+  const vh = Math.max(140, (rect?.height || viewEl?.clientHeight || 400) - padY);
   spriteScale = 1;
   nesW = NES_W;
-  cssScale = Math.max(0.5, vw / NES_W);
-  nesH = Math.max(NES_H, Math.round(vh / cssScale));
-  worldY0 = 8;
-  /* Shorter chrome pad → more road / far lane visible. */
-  const roadPad = 16;
-  worldZoom = (nesH - roadPad) / Math.max(1, SIDEWALK_CURB - worldY0);
+  nesH = NES_H;
+  worldY0 = 0;
+  worldZoom = 1;
+  cssScale = Math.min(vw / nesW, vh / nesH);
   if (nes.width !== nesW || nes.height !== nesH) {
     nes.width = nesW;
     nes.height = nesH;
   }
-  canvas.width = nesW;
-  canvas.height = nesH;
-  canvas.style.width = "100%";
-  canvas.style.height = "100%";
+  if (canvas.width !== nesW || canvas.height !== nesH) {
+    canvas.width = nesW;
+    canvas.height = nesH;
+  }
+  const dw = Math.max(1, Math.floor(nesW * cssScale));
+  const dh = Math.max(1, Math.floor(nesH * cssScale));
+  canvas.style.width = dw + "px";
+  canvas.style.height = dh + "px";
 }
 
 function depthY(z) {
@@ -836,16 +861,17 @@ function sidewalkCurb() {
 function roadSrcY(facing, parked) {
   const face = facing >= 0 ? 1 : -1;
   if (parked) {
-    /* Curb gutter — not planted on the sidewalk (that looked like jail-time). */
-    return face > 0 ? SIDEWALK_CURB + 4 : SIDEWALK_CURB + 3;
+    /* Street gutter on asphalt — below the tan sidewalk belt (171–179). */
+    return face > 0 ? 188 : 186;
   }
-  /* US right-hand: eastbound near/bottom, westbound far/top of the road band. */
-  return face > 0 ? ROAD_Y + 7 : ROAD_Y - 5;
+  /* US right-hand: eastbound near/bottom, westbound far/top of the road. */
+  return face > 0 ? 204 : 194;
 }
 function carGroundY() {
   const face = car.facing >= 0 ? 1 : -1;
   const parkY = roadSrcY(face, true);
   const driveY = roadSrcY(face, false);
+  if (car.shiftT > 0) return streetDestY(parkY);
   if (car.pullOutT > 0) {
     const u = 1 - Math.min(1, car.pullOutT / PULL_OUT_T);
     const s = u * u * (3 - 2 * u);
@@ -1112,25 +1138,21 @@ function blitClassic(g, src, e, sy, sh, dy) {
     g.drawImage(src, 0, srcY, dw - first, srcH, first, destY, dw - first, destH);
   }
 }
-function drawNightSky() {
-  const src = art?.street;
-  const top = streetDestY(FACADE_Y);
-  if (!src) {
+function drawStaticSky() {
+  /* Sky + skyline + moon stay put — we're not circling the city. */
+  const top = FACADE_Y;
+  if (!skyBg) {
     nctx.fillStyle = "#0c011f";
-    nctx.fillRect(0, 0, nesW, Math.max(1, top));
+    nctx.fillRect(0, 0, nesW, top);
     return;
   }
-  blitClassic(nctx, src, Math.round(camScroll * 0.14), worldY0, 56 - worldY0);
+  /* Fixed crop: one moon, no wrap. Clamp so we never sample past the edge. */
+  const sx = Math.max(0, Math.min(skyBg.width - nesW, 40));
+  nctx.drawImage(skyBg, sx, 0, nesW, top, 0, 0, nesW, top);
 }
-function drawClassicSkylineBand(scroll) {
-  const src = art?.street;
-  if (!src) return;
-  blitClassic(nctx, src, scroll, 40, FACADE_Y - 40);
-}
-function drawDowntownSkyline() {
-  /* Full skyline band only — chopped tower stamps were butchering the seam. */
-  drawClassicSkylineBand(Math.round(camScroll * 0.2) + 18);
-}
+function drawNightSky() { drawStaticSky(); }
+function drawClassicSkylineBand() { /* skyline is inside static skyBg */ }
+function drawDowntownSkyline() { drawStaticSky(); }
 function hillHeight(x, seed, baseH, amp1, amp2) {
   const t = x + seed;
   return Math.round(
@@ -1172,27 +1194,17 @@ function drawHillsSkyline() {
     if ((lx + drop) % 2 === 0) px(nctx, x + 3, y + 2, 1, 1, "#aca190");
   }
 }
-function drawWestSkyline() {
-  drawClassicSkylineBand(Math.round(camScroll * 0.16) + 220);
-}
-function drawSouthSkyline() {
-  drawClassicSkylineBand(Math.round(camScroll * 0.18) + 90);
-  const y0 = streetDestY(58);
-  nctx.fillStyle = "rgba(10,2,32,0.28)";
-  nctx.fillRect(0, y0, nesW, Math.max(1, streetDestY(FACADE_Y) - y0));
-}
+function drawWestSkyline() { drawStaticSky(); }
+function drawSouthSkyline() { drawStaticSky(); }
 function drawHeadingSky() {
   if (heading === "N") {
-    const src = art?.street;
-    nctx.fillStyle = "#0c011f";
-    nctx.fillRect(0, 0, nesW, streetDestY(FACADE_Y));
-    if (src) blitClassic(nctx, src, Math.round(camScroll * 0.1), 0, 36);
-    drawHillsSkyline();
+    drawStaticSky();
+    /* Soft hills sit under the static skyline — also non-scrolling. */
+    const base = FACADE_Y;
+    drawHillLayer(base, 40, 26, 9, 4, "#160828", "#0c0418", "#2a1848");
+    drawHillLayer(base, 12, 38, 12, 5, "#1c0a38", "#140828", "#3a2870");
   } else {
-    drawNightSky();
-    if (heading === "E") drawDowntownSkyline();
-    else if (heading === "W") drawWestSkyline();
-    else drawSouthSkyline();
+    drawStaticSky();
   }
 }
 function streetTint(style) {
@@ -1201,10 +1213,38 @@ function streetTint(style) {
   if (style === "ave") return [0.86, 0.84, 0.96];
   return [1, 1, 1];
 }
+function patchCali(g, streetImg, dx) {
+  /* CALI stamp sits ~x180–240 on street.png — cover with a clean brick slice. */
+  g.drawImage(streetImg, 250, 92, 100, 68, dx + 170, 92, 100, 68);
+}
+/** Punch sky/skyline above the facade so palm tops can scroll over a static backdrop. */
+function punchBackdropTops(canvas, top) {
+  const g = canvas.getContext("2d");
+  const id = g.getImageData(0, 0, canvas.width, top);
+  const d = id.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 10) continue;
+    const r = d[i];
+    const gv = d[i + 1];
+    const b = d[i + 2];
+    /* Never keep moon / stars — those stay on the static skyBg only. */
+    const bright = r + gv + b > 480;
+    const pale = Math.max(r, gv, b) - Math.min(r, gv, b) < 50 && Math.max(r, gv, b) > 160;
+    if (bright || pale) {
+      d[i + 3] = 0;
+      continue;
+    }
+    /* Keep palm fronds + warm roof tips; drop sky + distant skyline. */
+    const palm = gv > r + 8 && gv > b + 5 && gv > 40;
+    const warm = r > gv + 15 && r > b + 10 && r > 70 && gv > 35 && r < 200;
+    if (!(palm || warm)) d[i + 3] = 0;
+  }
+  g.putImageData(id, 0, 0);
+}
 function buildStreetStrip(def, streetImg) {
   /*
-   * Tile the full classic street.png — same wrap seam as the original cart.
-   * No slice reshuffles (those made CALI / brick / stucco collide mid-block).
+   * Foreground (facade + palms + sidewalk + road), tiled.
+   * Sky/skyline live in skyBg and never scroll; palm tops stay in this strip.
    */
   const copies = def.id === "sunset" ? 10 : 7;
   const width = STREET_SRC_W * copies;
@@ -1213,12 +1253,21 @@ function buildStreetStrip(def, streetImg) {
     const x = i * STREET_SRC_W;
     g.drawImage(streetImg, 0, 0, STREET_SRC_W, STREET_SRC_H, x, 0, STREET_SRC_W, STREET_SRC_H);
     eraseBakedCar(g, streetImg, x);
+    /* One CALI wall is enough — cover the stamp on every tiled copy. */
+    patchCali(g, streetImg, x);
   }
   const tint = streetTint(def.style);
   tintBuildings(c, tint[0], tint[1], tint[2]);
+  punchBackdropTops(c, FACADE_Y);
+  return c;
+}
+function bakeSkyBg(streetImg) {
+  const { c, g } = mkCanvas(STREET_SRC_W, FACADE_Y);
+  g.drawImage(streetImg, 0, 0, STREET_SRC_W, FACADE_Y, 0, 0, STREET_SRC_W, FACADE_Y);
   return c;
 }
 function bakeStreets(streetImg) {
+  skyBg = bakeSkyBg(streetImg);
   streets = {};
   for (const def of STREET_DEFS) {
     const strip = buildStreetStrip(def, streetImg);
@@ -1237,14 +1286,10 @@ function drawCurrentStreet() {
   const src = currentStreet()?.strip || longStreet || art?.street;
   nctx.fillStyle = "#0c011f";
   nctx.fillRect(0, 0, nesW, nesH);
+  drawHeadingSky();
   if (!src) return;
-  const e = Math.round(cam);
-  if (heading === "E" && streetId === "sunset") {
-    blitClassic(nctx, src, e, worldY0, STREET_SRC_H - worldY0);
-  } else {
-    drawHeadingSky();
-    blitClassic(nctx, src, e, FACADE_Y, STREET_SRC_H - FACADE_Y);
-  }
+  /* Full strip: transparent tops over static sky so palms don't chop. */
+  blitClassic(nctx, src, Math.round(cam), 0, STREET_SRC_H);
 }
 
 function drawSignText(s, x, y, color) {
@@ -1385,15 +1430,26 @@ function drawActors() {
 function syncHud() {
   const driving = mode === "play" && inCar;
   const onTitle = mode === "title";
+  const paused = mode === "paused";
   document.body.classList.toggle("title-open", onTitle);
-  document.getElementById("pad")?.classList.toggle("title-hide", onTitle);
-  document.getElementById("pad")?.classList.toggle("driving", driving);
-  padFoot.classList.toggle("hidden", driving || onTitle);
-  padCar.classList.toggle("hidden", !driving || onTitle);
-  phoneEl.classList.toggle("hidden", ui !== "phone");
-  cribEl.classList.toggle("hidden", ui !== "crib");
-  muteBtn.classList.toggle("off", BRAudio.isMuted());
-  muteBtn.setAttribute("aria-label", BRAudio.isMuted() ? "sound off" : "sound on");
+  document.getElementById("pad")?.classList.toggle("title-hide", onTitle || paused);
+  document.getElementById("pad")?.classList.toggle("driving", driving && !paused);
+  padFoot.classList.toggle("hidden", driving || onTitle || paused);
+  padCar.classList.toggle("hidden", !driving || onTitle || paused);
+  phoneEl.classList.toggle("hidden", ui !== "phone" || paused);
+  cribEl.classList.toggle("hidden", ui !== "crib" || paused);
+  pauseEl?.classList.toggle("hidden", !paused);
+  if (soundBtn) {
+    soundBtn.textContent = BRAudio.isMuted() ? "SOUND OFF" : "SOUND ON";
+    soundBtn.classList.toggle("off", BRAudio.isMuted());
+    soundBtn.setAttribute("aria-label", BRAudio.isMuted() ? "sound off" : "sound on");
+  }
+  if (menuBtn) {
+    menuBtn.classList.toggle("hidden", onTitle);
+    menuBtn.textContent = paused ? "MENU" : "MENU";
+  }
+  const meta = document.getElementById("pause-meta");
+  if (meta) meta.textContent = BUILD_LABEL;
   const showGear = (driving && shiftPreview) || car.gear;
   document.querySelectorAll(".gear").forEach((el) => el.classList.toggle("on", el.dataset.gear === showGear));
   if (shiftHint) {
@@ -1406,7 +1462,8 @@ function syncHud() {
   const actBtn = document.getElementById("btn-action");
   const bBtn = document.getElementById("btn-b");
   const uturnOk = !!(driving && car.gear === "D" && Math.abs(car.vx) < 48
-    && car.pullOverT <= 0 && car.pullOutT <= 0 && car.turnT <= 0 && !car.pendingPullOut);
+    && car.pullOverT <= 0 && car.pullOutT <= 0 && car.shiftT <= 0
+    && car.turnT <= 0 && !car.pendingPullOut);
   if (driving) {
     if (carLabel) carLabel.textContent = carIsParked() ? "EXIT" : "PULL";
     if (bLabel) bLabel.textContent = "";
@@ -1467,6 +1524,20 @@ function keysHasRole(role) {
   return false;
 }
 
+function togglePause() {
+  if (mode === "play") {
+    mode = "paused";
+    ui = null;
+    BRAudio.setEngine("off");
+    return true;
+  }
+  if (mode === "paused") {
+    mode = "play";
+    return true;
+  }
+  return false;
+}
+
 function update(dt) {
   const ax = moveAxes();
   const act = pulses.act;
@@ -1493,6 +1564,11 @@ function update(dt) {
       hasSave = false;
       beginPlay(false);
     }
+    return;
+  }
+
+  if (mode === "paused") {
+    BRAudio.setEngine("off");
     return;
   }
 
@@ -1526,12 +1602,29 @@ function update(dt) {
     car.shiftHint = Math.max(0, car.shiftHint - dt);
     let brake = brakeHeld();
     let gas = gasHeld();
-    if (car.pendingPullOut && !brake && car.pullOverT <= 0 && car.pullOutT <= 0 && car.turnT <= 0) {
+    if (car.pendingPullOut && !brake && car.pullOverT <= 0 && car.pullOutT <= 0
+      && car.shiftT <= 0 && car.turnT <= 0) {
       car.pullOutT = PULL_OUT_T;
       car.pendingPullOut = null;
       car.parked = false;
     }
-    if (car.turnT > 0) {
+    if (car.shiftT > 0) {
+      /* Brake on, stick climbs D → N → R → P like 2.5D. */
+      car.shiftT = Math.max(0, car.shiftT - dt);
+      car.vx = 0;
+      car.parked = true;
+      car.z = curbZ(car.facing);
+      const seq = ["D", "N", "R", "P"];
+      const u = 1 - car.shiftT / PARK_SHIFT_T;
+      car.gear = seq[Math.min(seq.length - 1, Math.floor(u * seq.length))];
+      gas = false;
+      brake = true;
+      if (car.shiftT <= 0) {
+        car.gear = "P";
+        car.parked = true;
+        addPop(car.x, car.z, "PARKED");
+      }
+    } else if (car.turnT > 0) {
       car.turnT = Math.max(0, car.turnT - dt);
       const u = 1 - car.turnT / CAR_TURN_TIME;
       /* Hold old nose through the first half, then show the new one. */
@@ -1563,20 +1656,31 @@ function update(dt) {
         car.vx = dir * Math.max(20, Math.abs(car.vx));
       }
     } else if (car.pullOverT > 0) {
-      car.pullOverT = Math.max(0, car.pullOverT - dt);
-      gas = false;
-      brake = true;
-      car.vx *= Math.exp(-3.2 * dt);
-      const u = 1 - car.pullOverT / PULL_OVER_T;
-      const s = u * u * (3 - 2 * u);
-      car.z = laneZ(car.facing) + (curbZ(car.facing) - laneZ(car.facing)) * s;
-      if (Math.abs(car.vx) < CAR_STOP || car.pullOverT <= 0) {
+      /* Hold brake mid-pull to freeze; release continues with creep into the gutter. */
+      if (brake) {
         car.vx = 0;
-        car.gear = "P";
-        car.parked = true;
-        car.z = curbZ(car.facing);
-        car.pullOverT = 0;
-        addPop(car.x, car.z, "PARKED");
+        gas = false;
+        const uHold = 1 - car.pullOverT / PULL_OVER_T;
+        const s = uHold * uHold * (3 - 2 * uHold);
+        car.z = laneZ(car.facing) + (curbZ(car.facing) - laneZ(car.facing)) * s;
+      } else {
+        car.pullOverT = Math.max(0, car.pullOverT - dt);
+        const u = 1 - car.pullOverT / PULL_OVER_T;
+        const s = u * u * (3 - 2 * u);
+        car.z = laneZ(car.facing) + (curbZ(car.facing) - laneZ(car.facing)) * s;
+        gas = false;
+        brake = u > 0.55;
+        const driveDir = car.facing >= 0 ? 1 : -1;
+        const pullCreep = 28 * Math.sin(Math.min(1, u) * Math.PI);
+        const want = driveDir * pullCreep;
+        car.vx += (want - car.vx) * Math.min(1, dt * 3);
+        if (car.pullOverT <= 0) {
+          car.vx = 0;
+          car.parked = true;
+          car.z = curbZ(car.facing);
+          car.gear = "D";
+          car.shiftT = PARK_SHIFT_T;
+        }
       }
     } else if (car.gear === "P") {
       car.vx = 0;
@@ -1608,7 +1712,7 @@ function update(dt) {
     const prevX = car.x;
     car.x = clampAlong(car.x + car.vx * dt);
     carOdo += alongDist(prevX, car.x);
-    if (car.turnT <= 0 && car.pullOverT <= 0 && car.pullOutT <= 0) {
+    if (car.turnT <= 0 && car.pullOverT <= 0 && car.pullOutT <= 0 && car.shiftT <= 0) {
       const wantZ = (!car.parked && car.gear !== "P") ? laneZ(car.facing) : curbZ(car.facing);
       car.z += (wantZ - car.z) * Math.min(1, dt * 2.4);
     }
@@ -1653,16 +1757,15 @@ function renderNes() {
   nctx.imageSmoothingEnabled = false;
   drawParallax();
   /* Street-sign popups shelved — not the look we want. */
-  if (mode === "play") drawActors();
+  if (mode === "play" || mode === "paused") drawActors();
   nctx.font = "8px 'Press Start 2P', monospace";
-  if (mode === "play") {
-    /* Tight left cluster; QUIT/mute live in top-right chrome. */
+  if (mode === "play" || mode === "paused") {
+    /* Left cluster only — quit/sound live in the MENU pause sheet. */
     let hx = 6;
     const gap = 6;
     const cashS = "$" + String(Math.floor(cash)).padStart(4, "0");
     const grnS = "GRN " + fmtG(grams);
     const whtS = "WHT " + fmtG(white);
-    const repS = "REP " + rep;
     text(nctx, cashS, hx, 6, "#f0c430");
     hx += Math.ceil(nctx.measureText(cashS).width) + gap;
     text(nctx, grnS, hx, 6, grams > 0 ? "#38f070" : "#2a8a48");
@@ -1670,8 +1773,6 @@ function renderNes() {
     text(nctx, whtS, hx, 6, white > 0 ? "#f4f0e8" : "#9a9690");
     hx += Math.ceil(nctx.measureText(whtS).width) + gap;
     text(nctx, BUILD_LABEL, hx, 6, "#8a8696");
-    hx += Math.ceil(nctx.measureText(BUILD_LABEL).width) + gap;
-    text(nctx, repS, hx, 6, "#c8c4d0");
   }
   if (toast.life > 0 && toast.text) {
     const msg = toast.text;
@@ -1707,6 +1808,16 @@ function render() {
 }
 
 function pulseFromRole(role, extra) {
+  if (role === "pause" || role === "resume") {
+    togglePause();
+    return;
+  }
+  if (role === "mute") {
+    BRAudio.toggleMute();
+    syncHud();
+    return;
+  }
+  if (mode === "paused") return;
   if (role === "act") pulses.act = true;
   if (role === "car") pulses.car = true;
   if (role === "phone") pulses.phone = true;
@@ -1727,6 +1838,13 @@ function pulseFromRole(role, extra) {
 window.addEventListener("keydown", (e) => {
   keys.add(e.code);
   if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
+  if (e.code === "Escape") {
+    togglePause();
+    syncHud();
+    e.preventDefault();
+    return;
+  }
+  if (mode === "paused") return;
   if (e.code === "Enter" || e.code === "Space") { pulses.start = true; pulses.act = true; }
   if (e.code === "KeyJ" || e.code === "KeyZ") pulses.act = true;
   if (e.code === "KeyY") pulses.car = true;
@@ -1805,10 +1923,22 @@ function endPointer(e) {
 }
 document.getElementById("app").addEventListener("pointerup", endPointer);
 document.getElementById("app").addEventListener("pointercancel", endPointer);
-muteBtn.addEventListener("pointerdown", (e) => {
+soundBtn?.addEventListener("pointerdown", (e) => {
   e.preventDefault();
   e.stopPropagation();
   BRAudio.toggleMute();
+  syncHud();
+});
+menuBtn?.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  togglePause();
+  syncHud();
+});
+pauseEl?.querySelector('[data-role="resume"]')?.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  if (mode === "paused") togglePause();
   syncHud();
 });
 canvas.addEventListener("pointerdown", () => {
@@ -1837,7 +1967,7 @@ function frame(now) {
 }
 hasSave = !!readSave();
 BRAudio.bindUnlock();
-if (BRAudio.isMuted()) muteBtn.classList.add("off");
+if (BRAudio.isMuted()) soundBtn?.classList.add("off");
 
 window.__br = {
   getState: () => ({
@@ -1866,9 +1996,12 @@ window.__br = {
   }),
   start: () => beginPlay(false),
   finishIntro: () => { if (mode === "title") beginPlay(false); },
+  pause: () => { if (mode === "play") togglePause(); },
+  resume: () => { if (mode === "paused") togglePause(); },
   setInCar: (on) => { if (on) { player.x = car.x; player.z = Math.max(player.z, Z_STREET_MIN); enterCar(true); } else leaveCar(); },
   setGear: (g) => { if (GEARS.includes(g)) car.gear = g; },
   tryShift: (g, brake) => tryShift(g, !!brake),
+  startPullOver,
   setPlayerX: (x) => { player.x = clampAlong(Number(x) || 0); },
   setCarX: (x) => { car.x = clampAlong(Number(x) || 0); },
   setHeading: (h) => { if (["E", "W", "N", "S"].includes(h)) applyHeading(h); },
