@@ -3,7 +3,7 @@ import {
   pixelCanvas, derivePose, paintLook, paintWalkLook, paintCopFig, paintPlugFig, PED_LOOKS,
   WALK_POSES, WALK_CYCLE_POSES, RUN_CYCLE_POSES, IDLE_POSES, JUMP_POSES, SHOOT_POSES, WAVE_POSES,
   paintClassicHeroSet, classicWithoutHat,
-} from "./paint.js?v=108";
+} from "./paint.js?v=109";
 
 const SPRITE_BASE = new URL("../../block-run/sprites/", import.meta.url);
 
@@ -63,31 +63,35 @@ const HERO_VIEW_NAMES = ["side", "front34", "front", "back34", "back"];
  * leaves a transparent chop through painted side art — never do that here.
  */
 const PAINTED_WALK_POSES = [
-  { bob: 0, lean: 2 },
-  { bob: 3, lean: 1 },
-  { bob: 1, lean: 0 },
-  { bob: 3, lean: -1 },
-  { bob: 0, lean: -2 },
-  { bob: 3, lean: -1 },
-  { bob: 1, lean: 0 },
-  { bob: 3, lean: 1 },
+  { bob: 0, lean: 3, skew: 0.04 },
+  { bob: 2, lean: 2, skew: 0.02 },
+  { bob: 0, lean: 0, skew: 0 },
+  { bob: 2, lean: -2, skew: -0.02 },
+  { bob: 0, lean: -3, skew: -0.04 },
+  { bob: 2, lean: -2, skew: -0.02 },
+  { bob: 0, lean: 0, skew: 0 },
+  { bob: 2, lean: 2, skew: 0.02 },
 ];
 const PAINTED_RUN_POSES = [
-  { bob: 0, lean: 3 },
-  { bob: 4, lean: 1 },
-  { bob: 1, lean: -1 },
-  { bob: 4, lean: -3 },
-  { bob: 1, lean: -1 },
-  { bob: 4, lean: 1 },
+  { bob: 0, lean: 4, skew: 0.05 },
+  { bob: 3, lean: 2, skew: 0.03 },
+  { bob: 1, lean: -1, skew: -0.01 },
+  { bob: 3, lean: -4, skew: -0.05 },
+  { bob: 1, lean: -1, skew: -0.01 },
+  { bob: 3, lean: 2, skew: 0.03 },
 ];
 
-function softLocoPose(src, { bob = 0, lean = 0 } = {}) {
+function softLocoPose(src, { bob = 0, lean = 0, skew = 0 } = {}) {
   const w = src.width || src.naturalWidth || 40;
   const h = src.height || src.naturalHeight || 40;
-  return pixelCanvas(w, h + Math.ceil(Math.abs(bob)) + 2, (g) => {
-    g.imageSmoothingEnabled = true;
+  const pad = Math.ceil(Math.abs(bob) + Math.abs(lean) + 4);
+  return pixelCanvas(w + pad * 2, h + Math.ceil(Math.abs(bob)) + 2, (g) => {
+    g.imageSmoothingEnabled = false;
     const y = Math.max(0, bob);
-    g.drawImage(src, lean, y);
+    g.translate(pad + w / 2 + lean, y);
+    // Light shear reads as a step without needing full 8-dir walk sheets.
+    g.transform(1, 0, skew, 1, 0, 0);
+    g.drawImage(src, -w / 2, 0);
   });
 }
 

@@ -1,6 +1,13 @@
 {
   "versions": [
     {
+      "pr": 82,
+      "date": "2026-10-17",
+      "note": "v108: Bliss hill wall, far street, smooth cam, bigger pad",
+      "path": "v108/",
+      "sha": "fb2aa70"
+    },
+    {
       "pr": 81,
       "date": "2026-10-17",
       "note": "v107: hills, drive cam, pull-in brake, street cleanup",
