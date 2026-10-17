@@ -4,8 +4,8 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=92";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=92";
+} from "./config.js?v=93";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=93";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -2490,16 +2490,21 @@ export function createWorld(canvas, sprites) {
       }
     }
     const views = sprites.heroViews;
-    // Painted multi-views are stills — fine for idle. While moving, play the real
-    // walk/run sheet so he doesn't skate on one frozen pose.
+    // Stay on the painted hero art always — never swap to classic NES walk pixels.
+    // Loco = stride-synced poses derived from the painted side still.
     const loco = !!(walking || running || boardPose === "walk");
-    const usePaintedIdle = !!(views && views.side)
+    const paintedOk = !!(views && views.side)
       && hatId !== "none"
       && !(state.muzzle > 0)
-      && !airborne
-      && !loco
-      && !turning;
-    if (usePaintedIdle) {
+      && !airborne;
+    if (paintedOk && loco && (views.walk?.length || views.run?.length)) {
+      const frames = (running && views.run?.length) ? views.run : (views.walk || views.run);
+      const phase = p.stride || 0;
+      const frameRate = running ? 1 / 12 : 1 / 17;
+      setBillboardFrame(playerSprite, frameAt(frames, phase, frameRate), sprFace);
+      playerSprite.material.alphaTest = 0.04;
+      playerSprite.userData.footPad = 0.02;
+    } else if (paintedOk && !turning) {
       const viewX = inCrib ? (Number(state.cribX) || 0) : nearestWorldX(px, camX);
       const viewZ = inCrib ? 1.45 : boardZ;
       const dx = camera.position.x - viewX;
@@ -2519,11 +2524,8 @@ export function createWorld(canvas, sprites) {
       playerSprite.material.alphaTest = 0.04;
       playerSprite.userData.footPad = 0.02;
     } else {
-      // Stride-sync locomotion so feet advance with distance, not wall-clock skate.
       const phase = loco ? (p.stride || 0) : (p.anim || 0);
-      const frameRate = loco
-        ? (running ? 1 / 12 : 1 / 18)
-        : rate;
+      const frameRate = loco ? (running ? 1 / 12 : 1 / 17) : rate;
       setBillboardFrame(playerSprite, frameAt(animSet, phase, frameRate), sprFace);
       playerSprite.material.alphaTest = 0.12;
       playerSprite.userData.footPad = (playerSprite.userData.height || PLAYER_H) * FOOT_PAD_FRAC;
