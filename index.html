@@ -188,9 +188,10 @@
         <strong>LATEST</strong>
         <em>CLASSIC SHOOTER</em>
       </a>
-      <a class="pick more" href="./versions/?mode=shoot">
+      <!-- Only other real 2D shooter cart is legacy — no 2.5D archives here. -->
+      <a class="pick more" href="./block-run/legacy/">
         <strong>MORE</strong>
-        <em>LEGACY + EARLY FIRE BUILDS</em>
+        <em>OLDER CLASSIC 2D BUILD</em>
       </a>
       <button type="button" class="pick back" data-go="2d-mode">
         <strong>BACK</strong>
@@ -198,13 +199,10 @@
       </button>
     </div>
     <div class="picks" id="menu-2d-safe-ver" style="display:none">
+      <!-- Sole non-shooting 2D cart — no More until another 2D deals build exists. -->
       <a class="pick latest" href="./block-run-2d/?v=19&fresh=clear">
         <strong>LATEST</strong>
         <em>CURRENT 2D DEALS</em>
-      </a>
-      <a class="pick more" href="./versions/?mode=deal">
-        <strong>MORE</strong>
-        <em>OLDER DEAL BUILDS (NO COMBAT)</em>
       </a>
       <button type="button" class="pick back" data-go="2d-mode">
         <strong>BACK</strong>
@@ -216,7 +214,7 @@
         <strong>LATEST</strong>
         <em>CURRENT NIGHT STREET</em>
       </a>
-      <a class="pick more" href="./versions/?mode=25d">
+      <a class="pick more" href="./versions/">
         <strong>MORE</strong>
         <em>OLDER 2.5D BATCHES</em>
       </a>
@@ -239,9 +237,9 @@
     const feet = {
       line: "PICK A CART",
       "2d-mode": "SHOOTING OR DEALS",
-      "2d-shoot-ver": "CLASSIC VERSIONS",
-      "2d-safe-ver": "2D DEALS VERSIONS",
-      "25d-ver": "2.5D VERSIONS",
+      "2d-shoot-ver": "CLASSIC 2D",
+      "2d-safe-ver": "2D DEALS",
+      "25d-ver": "2.5D",
     };
     function show(id) {
       Object.entries(panels).forEach(([key, el]) => {
