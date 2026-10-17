@@ -4,9 +4,9 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=101";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=101";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=101";
+} from "./config.js?v=102";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=102";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=102";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -35,12 +35,11 @@ function brickTex(color, accent) {
         g.fillRect(x + off, y, 14, 6);
       }
     }
-    g.fillStyle = "rgba(0,0,0,0.22)";
-    for (let i = 0; i < 50; i++) g.fillRect((i * 17) % w, (i * 13) % h, 2, 1);
-    g.fillStyle = "rgba(255,255,255,0.06)";
-    for (let i = 0; i < 30; i++) g.fillRect((i * 11) % w, (i * 19) % h, 1, 1);
-    // Mortar lines
-    g.strokeStyle = "rgba(0,0,0,0.28)";
+    g.fillStyle = "rgba(0,0,0,0.16)";
+    for (let i = 0; i < 40; i++) g.fillRect((i * 17) % w, (i * 13) % h, 2, 1);
+    g.fillStyle = "rgba(255,255,255,0.08)";
+    for (let i = 0; i < 28; i++) g.fillRect((i * 11) % w, (i * 19) % h, 1, 1);
+    g.strokeStyle = "rgba(0,0,0,0.22)";
     g.lineWidth = 1;
     for (let y = 0; y < h; y += 8) {
       g.beginPath();
@@ -51,25 +50,35 @@ function brickTex(color, accent) {
   });
 }
 
+function stuccoTex(color) {
+  return canvasTex(64, 64, (g, w, h) => {
+    g.fillStyle = color;
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = "rgba(0,0,0,0.12)";
+    for (let i = 0; i < 90; i++) g.fillRect((i * 13) % w, (i * 17) % h, 2, 2);
+    g.fillStyle = "rgba(255,255,255,0.07)";
+    for (let i = 0; i < 50; i++) g.fillRect((i * 19) % w, (i * 23) % h, 1, 1);
+  });
+}
+
 function asphaltTex() {
   return canvasTex(128, 128, (g, w, h) => {
-    g.fillStyle = "#22202a";
+    // Rough night asphalt — grit only, no lane pinstripes (dashes are separate meshes).
+    g.fillStyle = "#2a2830";
     g.fillRect(0, 0, w, h);
-    g.fillStyle = "#2c2834";
-    for (let i = 0; i < 260; i++) g.fillRect((i * 37) % w, (i * 53) % h, 2, 2);
-    g.fillStyle = "#18161e";
-    for (let i = 0; i < 120; i++) g.fillRect((i * 19) % w, (i * 29) % h, 3, 1);
-    // Faint tire wear + cracks so it doesn't read as a black void.
-    g.strokeStyle = "rgba(0,0,0,0.35)";
-    g.lineWidth = 1;
-    for (let i = 0; i < 8; i++) {
+    g.fillStyle = "#323038";
+    for (let i = 0; i < 280; i++) g.fillRect((i * 37) % w, (i * 53) % h, 2, 2);
+    g.fillStyle = "#1e1c24";
+    for (let i = 0; i < 140; i++) g.fillRect((i * 19) % w, (i * 29) % h, 2, 1);
+    g.fillStyle = "rgba(255,255,255,0.04)";
+    for (let i = 0; i < 60; i++) g.fillRect((i * 41) % w, (i * 17) % h, 1, 1);
+    // Soft tire wear patches, not stripes.
+    g.fillStyle = "rgba(0,0,0,0.22)";
+    for (let i = 0; i < 10; i++) {
       g.beginPath();
-      g.moveTo((i * 17) % w, 0);
-      g.lineTo(((i * 17) + 40) % w, h);
-      g.stroke();
+      g.ellipse((i * 23) % w, (i * 31) % h, 18, 4, 0.2, 0, Math.PI * 2);
+      g.fill();
     }
-    g.fillStyle = "rgba(240, 196, 48, 0.12)";
-    for (let y = 4; y < h; y += 18) g.fillRect(0, y, w, 2);
   });
 }
 
@@ -89,23 +98,19 @@ function sidewalkTex() {
 
 function grassTex() {
   return canvasTex(64, 64, (g, w, h) => {
-    // Bright enough to read under night fog; speckles for turf, not a flat slab.
-    g.fillStyle = "#3a8a48";
+    // Dark night turf — Lambert lighting lifts it under lamps.
+    g.fillStyle = "#142818";
     g.fillRect(0, 0, w, h);
-    g.fillStyle = "#4a9e58";
-    for (let i = 0; i < 110; i++) {
-      const x = (i * 17 + 5) % w;
-      const y = (i * 23 + 3) % h;
-      g.fillRect(x, y, 2, 3);
+    g.fillStyle = "#1a3220";
+    for (let i = 0; i < 100; i++) {
+      g.fillRect((i * 17 + 5) % w, (i * 23 + 3) % h, 2, 3);
     }
-    g.fillStyle = "#2a6a34";
+    g.fillStyle = "#0e1e12";
     for (let i = 0; i < 80; i++) {
-      const x = (i * 29 + 11) % w;
-      const y = (i * 13 + 7) % h;
-      g.fillRect(x, y, 1, 2);
+      g.fillRect((i * 29 + 11) % w, (i * 13 + 7) % h, 1, 2);
     }
-    g.fillStyle = "#6ab870";
-    for (let i = 0; i < 50; i++) {
+    g.fillStyle = "#243c28";
+    for (let i = 0; i < 40; i++) {
       g.fillRect((i * 41) % w, (i * 19) % h, 1, 1);
     }
   });
@@ -115,20 +120,16 @@ function bushTex(hex) {
   return canvasTex(32, 32, (g, w, h) => {
     g.fillStyle = hex;
     g.fillRect(0, 0, w, h);
-    g.fillStyle = "rgba(0,0,0,0.18)";
+    g.fillStyle = "rgba(0,0,0,0.35)";
     for (let i = 0; i < 28; i++) {
       g.fillRect((i * 11) % w, (i * 17) % h, 2, 2);
     }
-    g.fillStyle = "rgba(180,255,160,0.22)";
-    for (let i = 0; i < 22; i++) {
+    g.fillStyle = "rgba(80,140,70,0.18)";
+    for (let i = 0; i < 18; i++) {
       g.fillRect((i * 13 + 4) % w, (i * 7 + 2) % h, 1, 1);
     }
-    g.fillStyle = "rgba(0,50,0,0.22)";
+    g.fillStyle = "rgba(0,20,0,0.4)";
     g.fillRect(0, h - 4, w, 4);
-    g.fillStyle = "rgba(120,200,90,0.4)";
-    for (let i = 0; i < 14; i++) {
-      g.fillRect((i * 5) % w, (i * 3) % (h / 2), 3, 2);
-    }
   });
 }
 
@@ -431,7 +432,7 @@ function makePalm() {
   return g;
 }
 
-function makeBuilding(w, h, d, facade) {
+function makeBuilding(w, h, d, facade, { door = true } = {}) {
   const g = new THREE.Group();
   const roofH = 0.28;
   const wallH = Math.max(1.2, h - roofH);
@@ -441,14 +442,36 @@ function makeBuilding(w, h, d, facade) {
   );
   body.position.y = wallH / 2;
   g.add(body);
-  const winH = wallH * 0.52;
+  const winH = wallH * 0.42;
   const windows = new THREE.Mesh(
-    new THREE.PlaneGeometry(w * 0.82, winH),
+    new THREE.PlaneGeometry(w * 0.78, winH),
     winMat,
   );
-  windows.position.set(0, wallH * 0.42, d / 2 + 0.04);
+  windows.position.set(0, wallH * 0.55, d / 2 + 0.04);
   windows.renderOrder = 1;
   g.add(windows);
+  if (door && w > 2.2 && wallH > 2.4) {
+    const doorW = Math.min(1.05, w * 0.28);
+    const doorH = Math.min(2.05, wallH * 0.48);
+    const frame = new THREE.Mesh(
+      new THREE.BoxGeometry(doorW + 0.12, doorH + 0.1, 0.08),
+      new THREE.MeshLambertMaterial({ color: 0x2a2430 }),
+    );
+    frame.position.set(-w * 0.22, doorH * 0.5, d / 2 + 0.05);
+    g.add(frame);
+    const slab = new THREE.Mesh(
+      new THREE.BoxGeometry(doorW, doorH, 0.06),
+      new THREE.MeshLambertMaterial({ color: 0x3a2a22 }),
+    );
+    slab.position.set(-w * 0.22, doorH * 0.5, d / 2 + 0.09);
+    g.add(slab);
+    const knob = new THREE.Mesh(
+      new THREE.BoxGeometry(0.06, 0.06, 0.08),
+      new THREE.MeshLambertMaterial({ color: 0xc8a060 }),
+    );
+    knob.position.set(-w * 0.22 + doorW * 0.32, doorH * 0.5, d / 2 + 0.14);
+    g.add(knob);
+  }
   const roof = new THREE.Mesh(
     new THREE.BoxGeometry(w + 0.28, roofH, d + 0.28),
     new THREE.MeshLambertMaterial({ color: 0x16121c }),
@@ -525,19 +548,19 @@ function addHeadBeams(car, bumperX, lampZ = 0.42, lampY = 0.52) {
     transparent: true,
     depthWrite: false,
     depthTest: true,
-    opacity: 0.92,
+    opacity: 1,
     side: THREE.DoubleSide,
     blending: THREE.AdditiveBlending,
   });
   for (const side of [-1, 1]) {
-    const pool = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 3.2), spotMat);
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(5.8, 3.5), spotMat);
     pool.rotation.x = -Math.PI / 2;
-    pool.position.set(bumperX + 1.85, 0.034, side * lampZ * 0.38);
+    pool.position.set(bumperX + 1.95, 0.034, side * lampZ * 0.38);
     group.add(pool);
   }
-  const center = new THREE.Mesh(new THREE.PlaneGeometry(6.8, 3.6), spotMat);
+  const center = new THREE.Mesh(new THREE.PlaneGeometry(7.4, 3.9), spotMat);
   center.rotation.x = -Math.PI / 2;
-  center.position.set(bumperX + 2.05, 0.032, 0);
+  center.position.set(bumperX + 2.2, 0.032, 0);
   group.add(center);
   car.add(group);
   return group;
@@ -1496,15 +1519,14 @@ export function createWorld(canvas, sprites) {
   const STAR_W = 440;
   const STAR_H = 160;
   function paintStars(g, w, h, phase = 0) {
+    // Sparse — city light pollution, not a planetarium.
     g.clearRect(0, 0, w, h);
-    for (let i = 0; i < 22; i++) {
+    for (let i = 0; i < 9; i++) {
       const x = ((i * 97 + 23) % (w - 12)) + 6;
       const y = ((i * 53 + 17) % (h - 28)) + 10;
-      const tw = 0.5 + 0.5 * Math.abs(Math.sin(phase * 2.1 + i * 1.1));
-      const r = i % 6 === 0 ? 2.2 : 1.4;
-      g.fillStyle = i % 8 === 0
-        ? `rgba(190,220,255,${(0.5 * tw).toFixed(2)})`
-        : `rgba(244,240,232,${(0.75 * tw).toFixed(2)})`;
+      const tw = 0.35 + 0.35 * Math.abs(Math.sin(phase * 2.1 + i * 1.1));
+      const r = i % 6 === 0 ? 1.6 : 1.1;
+      g.fillStyle = `rgba(220,230,255,${(0.35 * tw).toFixed(2)})`;
       g.beginPath();
       g.arc(x, y, r, 0, Math.PI * 2);
       g.fill();
@@ -1727,15 +1749,15 @@ export function createWorld(canvas, sprites) {
   grassNearMap.repeat.set(48, 3);
   const grassNear = new THREE.Mesh(
     new THREE.PlaneGeometry(STREET_LEN + 4, 2.8),
-    // Unlit so night fog doesn't crush the strip into black.
-    new THREE.MeshBasicMaterial({ map: grassNearMap }),
+    // Lambert so street lights lift turf; stays dark in open night.
+    new THREE.MeshLambertMaterial({ map: grassNearMap }),
   );
   grassNear.rotation.x = -Math.PI / 2;
   grassNear.position.set(STREET_LEN / 2, 0.05, 14.85);
   city.add(grassNear);
-  // Brighter bush bases — MeshBasic keeps leaf texture readable at night.
-  const bushHex = ["#3a7a40", "#4a8a48", "#327038", "#52a050"];
-  const bushMats = bushHex.map((hex) => new THREE.MeshBasicMaterial({ map: bushTex(hex) }));
+  // Dark hedges — MeshLambert so lamp pools read on them.
+  const bushHex = ["#0e2214", "#142818", "#0c1c12", "#1a2e1c"];
+  const bushMats = bushHex.map((hex) => new THREE.MeshLambertMaterial({ map: bushTex(hex) }));
   for (let i = 0; i < 40; i++) {
     const bw = 1.2 + (i % 4) * 0.35;
     const bd = 0.85 + (i % 3) * 0.25;
@@ -1812,18 +1834,29 @@ export function createWorld(canvas, sprites) {
   }
 
   const brickCache = new Map();
+  const stuccoCache = new Map();
   function brick(col) {
-    if (!brickCache.has(col)) brickCache.set(col, brickTex(col, "#1a1420"));
+    if (!brickCache.has(col)) brickCache.set(col, brickTex(col, "#2a2030"));
     return brickCache.get(col);
+  }
+  function stucco(col) {
+    if (!stuccoCache.has(col)) stuccoCache.set(col, stuccoTex(col));
+    return stuccoCache.get(col);
+  }
+  function facadeFor(theme, i, col) {
+    // Mix brick + stucco so blocks don't read as flat black slabs.
+    if (theme.id === "motel" || theme.id === "studio") return stucco(col);
+    if (i % 3 === 2) return stucco(col);
+    return brick(col);
   }
 
   const THEMES = [
-    { id: "liquor", neon: ["LIQUOR", "#e21b7a"], cols: ["#6a4a58", "#4a3a48", "#3a2e40"] },
-    { id: "motel", neon: ["MOTEL", "#3de0ff"], cols: ["#4a3a60", "#3a4a58", "#5a3040"] },
-    { id: "studio", neon: ["STUDIO", "#f0c430"], cols: ["#8a7a58", "#3a2838", "#4a3a50"], graf: true },
-    { id: "taco", neon: ["TACOS", "#f0c430"], cols: ["#6a3a28", "#4a2a20", "#3a4a38"] },
-    { id: "gas", neon: ["GAS", "#e21b7a"], cols: ["#2a3848", "#3a2e40", "#4a3a48"] },
-    { id: "park", neon: ["PARK", "#3de0ff"], cols: ["#2a4a38", "#3a3a30", "#2a3840"], park: true },
+    { id: "liquor", neon: ["LIQUOR", "#e21b7a"], cols: ["#7a5a58", "#6a4a48", "#5a3e40"] },
+    { id: "motel", neon: ["MOTEL", "#3de0ff"], cols: ["#6a5a70", "#5a6a68", "#7a4050"] },
+    { id: "studio", neon: ["STUDIO", "#f0c430"], cols: ["#9a8a68", "#6a4a48", "#5a4a58"], graf: true },
+    { id: "taco", neon: ["TACOS", "#f0c430"], cols: ["#8a4a30", "#6a3a28", "#4a5a40"] },
+    { id: "gas", neon: ["GAS", "#e21b7a"], cols: ["#4a5868", "#5a4e58", "#6a5a58"] },
+    { id: "park", neon: ["PARK", "#3de0ff"], cols: ["#3a5a48", "#4a4a38", "#3a4850"], park: true },
   ];
   const facadeLayout = [
     { x: 4, w: 4.2, h: 5.2, d: 2.4 },
@@ -1946,16 +1979,17 @@ export function createWorld(canvas, sprites) {
       const col = theme.cols[i % theme.cols.length];
       const h = theme.park ? Math.min(b.h, 3.4) : theme.id === "motel" ? Math.min(b.h, 3.6) : b.h;
       const blocked = facadeBlocked(b.x + xOff, b.w, xOff, theme);
+      const face = facadeFor(theme, i, col);
       if (blocked) {
-        const distant = makeBuilding(b.w * 0.7, 2.8, 1.3, brick(col));
+        const distant = makeBuilding(b.w * 0.7, 2.8, 1.3, face, { door: false });
         distant.position.set(b.x + xOff, 0, -10.4);
         city.add(distant);
         continue;
       }
-      const back = makeBuilding(b.w * 0.88, Math.max(3.0, h * 0.78), 1.5, brick(col));
+      const back = makeBuilding(b.w * 0.88, Math.max(3.0, h * 0.78), 1.5, face, { door: false });
       back.position.set(b.x + xOff, 0, -8.2);
       city.add(back);
-      const mesh = makeBuilding(b.w, h, b.d, brick(col));
+      const mesh = makeBuilding(b.w, h, b.d, face, { door: true });
       mesh.position.set(b.x + xOff, 0, -3.4);
       city.add(mesh);
     }
@@ -1996,10 +2030,11 @@ export function createWorld(canvas, sprites) {
   for (let i = 0; i < blockCount; i++) {
     stampTheme(THEMES[i % THEMES.length], i * BLOCK_LEN, i === 0);
   }
-  // Visual cobra-heads both curbs; shared PointLight pool follows the nearest poles.
-  for (let i = 0; i < blockCount; i++) {
-    addStreetLamp(city, i * BLOCK_LEN + 14, 1.05, 1.35, lampAnchors, 1.6);
-    addStreetLamp(city, i * BLOCK_LEN + 40, 12.35, -1.2, lampAnchors, 1.4);
+  // ~2× poles, even both curbs; still only 4 shared PointLights (perf-safe).
+  const lampStep = BLOCK_LEN / 2;
+  for (let i = 0; i < blockCount * 2; i++) {
+    addStreetLamp(city, (i + 0.2) * lampStep, 1.05, 1.35, lampAnchors, 1.55);
+    addStreetLamp(city, (i + 0.7) * lampStep, 12.35, -1.2, lampAnchors, 1.35);
   }
   const homeWXCurb = gameToWorldX(HOME_X);
   for (let i = 0; i < blockCount * 2; i++) {
@@ -2467,7 +2502,11 @@ export function createWorld(canvas, sprites) {
       if (r) r.visible = on;
       if (glow) {
         glow.visible = on;
-        glow.material.opacity = on ? 0.7 : 0;
+        glow.material.opacity = on ? 0.92 : 0;
+        if (glow.userData.baseScale == null) {
+          glow.userData.baseScale = glow.scale.x || 1;
+        }
+        if (on) glow.scale.setScalar(glow.userData.baseScale * 1.2);
       }
       if (bar) bar.material.color.setHex(on ? 0xfff6c8 : 0x6a7080);
       const beam = mesh.getObjectByName("headBeam");
@@ -2581,7 +2620,7 @@ export function createWorld(canvas, sprites) {
           const hit = best[i];
           if (!hit) { pl.intensity = 0; continue; }
           pl.position.set(hit.a.x, hit.a.y, hit.a.z);
-          pl.intensity = hit.a.base * (0.7 + skyInfo.lamps * 0.5);
+          pl.intensity = hit.a.base * (0.95 + skyInfo.lamps * 0.55);
         }
       } else {
         for (const pl of lampLights) pl.intensity = 0;
