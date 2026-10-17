@@ -2,27 +2,27 @@
 
 The main cart. Phone-first night street at the classic NES size, 256×224.
 
-Play: https://maxrich25.github.io/q7m2x9k4/block-run-2d/?v=24&fresh=clear
+Play: https://maxrich25.github.io/q7m2x9k4/block-run-2d/?v=25&fresh=clear
 
-v24: home-screen cache bust lives in this cart (not only the root menu). Title
-shows `v24` and keeps pad height so the view doesn't stretch. US right-hand
-lanes. Soft pull-out / pull-over. Rims composited inside the car (no black
-slab/smog). Full street.png tiles. Shorter pad. Compact HUD; QUIT/mute top-right.
+v25: letterboxed NES view (road stays visible). Frosted see-through pad.
+Static sky + skyline; scrolling facade / palms only (CALI patched on repeats).
+US curb gutter park + 2.5D-style pull-over creep then D→N→R→P climb. MENU
+pause sheet holds quit + sound. Compact HUD without REP clutter.
 
 ## Cache / home-screen
 
 Safari home-screen icons open `manifest.json` `start_url` straight into this
 folder. Approving a PR does not instantly clear that icon's cache — this cart
 bumps `br_build` and force-reloads once when it sees a stale build. Hard-close
-the PWA and reopen, or use Safari with `?v=24&fresh=clear`, if it still sticks.
+the PWA and reopen, or use Safari with `?v=25&fresh=clear`, if it still sticks.
 
 ## What's in it
 
-- Street art is classic `map/street.png` tiled whole (same wrap as the original).
+- Street art is classic `map/street.png` — sky/skyline static, near buildings scroll.
 - US right-hand traffic: eastbound near/bottom lane, westbound far/top lane. Park in the curb gutter.
-- Purple lowrider + silver rims (composited). D/R creep, U-turn arc, soft curb in/out.
+- Purple lowrider + silver rims (composited). D/R creep, U-turn arc, soft curb in/out + park climb.
 - Hero walk14 + chain. Sidewalk belt. Plug / deals / crib / phone.
-- HUD: `$` GRN WHT v24 REP — quit + mute in the top-right chrome.
+- HUD: `$` GRN WHT v25 — MENU (pause) for sound + quit.
 
 ## Older builds
 
