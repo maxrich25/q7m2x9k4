@@ -4,15 +4,17 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=105";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=105";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=105";
+} from "./config.js?v=106";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=106";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=106";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
   c.width = w;
   c.height = h;
-  const g = c.getContext("2d");
+  // willReadFrequently: CanvasTexture uploads read pixels; without this Safari
+  // thrash-warns and iPhone init gets even slower under v105 texture load.
+  const g = c.getContext("2d", { willReadFrequently: true });
   g.imageSmoothingEnabled = false;
   paint(g, w, h);
   const tex = new THREE.CanvasTexture(c);
@@ -54,17 +56,17 @@ function stuccoTex(color) {
   return canvasTex(64, 64, (g, w, h) => {
     g.fillStyle = color;
     g.fillRect(0, 0, w, h);
-    // Soft speckles only — avoid (i*a)% lattices that read as spiral stripes on boxes.
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const n = ((x * 73 + y * 31) ^ (x * 19 + y * 47)) & 255;
-        if (n > 228) {
-          g.fillStyle = "rgba(0,0,0,0.16)";
-          g.fillRect(x, y, 1, 1);
-        } else if (n < 22) {
-          g.fillStyle = "rgba(255,255,255,0.09)";
-          g.fillRect(x, y, 1, 1);
-        }
+    // Sparse speckles only — full 64×64 pixel loops froze iPhone createWorld in v105.
+    for (let i = 0; i < 160; i++) {
+      const x = (i * 17) % w;
+      const y = (i * 29) % h;
+      const n = (i * 73 + x * 19 + y * 47) & 255;
+      if (n > 200) {
+        g.fillStyle = "rgba(0,0,0,0.16)";
+        g.fillRect(x, y, 1, 1);
+      } else if (n < 40) {
+        g.fillStyle = "rgba(255,255,255,0.09)";
+        g.fillRect(x, y, 1, 1);
       }
     }
   });
@@ -1489,15 +1491,7 @@ function makeCribRoom() {
   return g;
 }
 
-export function createWorld(canvas, sprites) {
-  const renderer = new THREE.WebGLRenderer({
-    canvas,
-    antialias: false,
-    alpha: false,
-    powerPreference: "high-performance",
-    stencil: false,
-    depth: true,
-  });
+export async function createWorld(canvas, sprites) {
   // iPhone home-screen (standalone) + 3x DPR was freezing again after v103 scene cost.
   const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
   const ios = /iPad|iPhone|iPod/.test(ua)
@@ -1506,7 +1500,18 @@ export function createWorld(canvas, sprites) {
     navigator.standalone
     || (typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)")?.matches)
   ));
-  const dprCap = ios && standalone ? 1.25 : 2;
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: false,
+    alpha: false,
+    // default on iOS — high-performance cold-open stalls showed up with v105 cost
+    powerPreference: ios ? "default" : "high-performance",
+    stencil: false,
+    depth: true,
+  });
+  // Cap all iOS (Safari + home-screen) — v105 SphereGeometry hills + texture spam
+  // froze both; high DPR made the first compile even worse.
+  const dprCap = ios ? (standalone ? 1.15 : 1.35) : 2;
   renderer.setPixelRatio(Math.max(1, Math.min(dprCap, window.devicePixelRatio || 1)));
   renderer.setClearColor(0x0c1428, 1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -1692,25 +1697,25 @@ export function createWorld(canvas, sprites) {
   hazeBand.renderOrder = -7;
   hazeBand.visible = true;
   scene.add(hazeBand);
-  // No floating space palms — hills + back block close the void instead.
+  // No floating space palms — cheap ridge planes wall the far void (v105
+  // SphereGeometry hills + Lambert froze Safari/home-screen on open).
   const farPalms = [];
-  // Soft ridge hills behind the far facades (wall the world in).
-  const hillMat = new THREE.MeshLambertMaterial({ color: 0x1a2a20 });
-  const hillDark = new THREE.MeshLambertMaterial({ color: 0x121c18 });
+  const hillMat = new THREE.MeshBasicMaterial({ color: 0x1a2a20 });
+  const hillDark = new THREE.MeshBasicMaterial({ color: 0x121c18 });
+  const hillGeo = new THREE.PlaneGeometry(42, 12);
   const hills = [];
-  for (let i = 0; i < 7; i++) {
-    const hill = new THREE.Mesh(
-      new THREE.SphereGeometry(14 + (i % 3) * 3.5, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.48),
-      i % 2 ? hillDark : hillMat,
-    );
-    hill.scale.set(1.35 + (i % 2) * 0.25, 0.42 + (i % 3) * 0.06, 0.7);
-    const dx = (i - 3) * 28;
-    hill.position.set(dx, -1.2, -38 - (i % 2) * 4);
-    hill.rotation.y = i * 0.2;
+  for (let i = 0; i < 5; i++) {
+    const hill = new THREE.Mesh(hillGeo, i % 2 ? hillDark : hillMat);
+    const dx = (i - 2) * 36;
+    hill.position.set(dx, 3.2 + (i % 2) * 0.6, -38 - (i % 2) * 3);
     hill.userData.dx = dx;
     scene.add(hill);
     hills.push(hill);
   }
+  // Paint night clear ASAP so Safari isn't stuck on black while the city builds.
+  renderer.setSize(canvas.clientWidth || window.innerWidth, canvas.clientHeight || window.innerHeight, false);
+  renderer.render(scene, camera);
+  await new Promise((r) => requestAnimationFrame(r));
 
   const city = new THREE.Group();
   // One shared asphalt map — recreating canvases per plane was spiking iPhone load.
@@ -1834,49 +1839,46 @@ export function createWorld(canvas, sprites) {
     city.add(nearPalm);
   }
 
-  // Parallel back street behind the near curb — those aren't floating sheds.
+  // Parallel back street — solid colors only. v105 canvas brick/stucco maps
+  // here (plus asphalt.clone) spiked iPhone createWorld into a hard freeze.
   const backAsphalt = new THREE.Mesh(
     new THREE.PlaneGeometry(STREET_LEN + 4, 5.2),
-    new THREE.MeshLambertMaterial({ map: asphaltMap.clone() }),
+    new THREE.MeshLambertMaterial({ color: 0x2a2832 }),
   );
-  backAsphalt.material.map.repeat.set(40, 1.5);
-  backAsphalt.material.map.needsUpdate = true;
   backAsphalt.rotation.x = -Math.PI / 2;
   backAsphalt.position.set(STREET_LEN / 2, 0.02, 17.6);
   city.add(backAsphalt);
   const backWalk = new THREE.Mesh(
     new THREE.PlaneGeometry(STREET_LEN + 4, 2.4),
-    new THREE.MeshLambertMaterial({ map: sidewalkTex() }),
+    new THREE.MeshLambertMaterial({ color: 0x8a8694 }),
   );
-  backWalk.material.map.repeat.set(120, 1);
   backWalk.rotation.x = -Math.PI / 2;
   backWalk.position.set(STREET_LEN / 2, 0.04, 20.4);
   city.add(backWalk);
-  const backFaceCols = ["#6a4a48", "#7a5a50", "#5a4a40", "#8a6a58", "#4a5a48", "#6a5a68"];
-  const backMats = backFaceCols.map((hex, i) => new THREE.MeshLambertMaterial({
-    map: i % 3 === 0 ? stuccoTex(hex) : brickTex(hex, "#2a2030"),
-  }));
+  const backFaceCols = [0x6a4a48, 0x7a5a50, 0x5a4a40, 0x8a6a58, 0x4a5a48, 0x6a5a68];
+  const backMats = backFaceCols.map((hex) => new THREE.MeshLambertMaterial({ color: hex }));
   const backWinMatA = new THREE.MeshBasicMaterial({ color: 0xf0c430 });
   const backWinMatB = new THREE.MeshBasicMaterial({ color: 0x7ad8ff });
-  for (let i = 0; i < 22; i++) {
+  const backBoxGeos = new Map();
+  const backWinGeos = new Map();
+  for (let i = 0; i < 14; i++) {
     const w = 5.2 + (i % 4) * 1.1;
     const d = 2.4 + (i % 3) * 0.5;
     const h = 3.6 + (i % 5) * 1.15;
-    const bldg = new THREE.Mesh(
-      new THREE.BoxGeometry(w, h, d),
-      backMats[i % backMats.length],
-    );
+    const key = `${w}|${h}|${d}`;
+    if (!backBoxGeos.has(key)) backBoxGeos.set(key, new THREE.BoxGeometry(w, h, d));
+    const bldg = new THREE.Mesh(backBoxGeos.get(key), backMats[i % backMats.length]);
     bldg.position.set(
-      (i + 0.45) * (STREET_LEN / 22),
+      (i + 0.45) * (STREET_LEN / 14),
       h * 0.5,
       21.8 + (i % 2) * 0.8,
     );
     city.add(bldg);
-    // Warm windows facing the camera (toward -Z).
-    const win = new THREE.Mesh(
-      new THREE.PlaneGeometry(w * 0.72, Math.min(h * 0.42, 3.2)),
-      i % 2 ? backWinMatA : backWinMatB,
-    );
+    const ww = w * 0.72;
+    const wh = Math.min(h * 0.42, 3.2);
+    const wKey = `${ww}|${wh}`;
+    if (!backWinGeos.has(wKey)) backWinGeos.set(wKey, new THREE.PlaneGeometry(ww, wh));
+    const win = new THREE.Mesh(backWinGeos.get(wKey), i % 2 ? backWinMatA : backWinMatB);
     win.position.set(bldg.position.x, h * 0.55, bldg.position.z - d / 2 - 0.04);
     city.add(win);
   }

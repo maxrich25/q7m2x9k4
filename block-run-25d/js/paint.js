@@ -4,7 +4,7 @@ export function pixelCanvas(w, h, paint) {
   const c = document.createElement("canvas");
   c.width = w;
   c.height = h;
-  const g = c.getContext("2d");
+  const g = c.getContext("2d", { willReadFrequently: true });
   g.imageSmoothingEnabled = false;
   paint(g, w, h);
   return c;
