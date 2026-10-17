@@ -4,9 +4,9 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=97";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=97";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=97";
+} from "./config.js?v=98";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=98";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=98";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -62,6 +62,50 @@ function sidewalkTex() {
     g.fillRect(0, 0, w, 3);
     g.fillStyle = "#6a6674";
     g.fillRect(0, h - 3, w, 3);
+  });
+}
+
+function grassTex() {
+  return canvasTex(64, 64, (g, w, h) => {
+    g.fillStyle = "#2a6a38";
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = "#348044";
+    for (let i = 0; i < 90; i++) {
+      const x = (i * 17 + 5) % w;
+      const y = (i * 23 + 3) % h;
+      g.fillRect(x, y, 2, 3);
+    }
+    g.fillStyle = "#1e5028";
+    for (let i = 0; i < 70; i++) {
+      const x = (i * 29 + 11) % w;
+      const y = (i * 13 + 7) % h;
+      g.fillRect(x, y, 1, 2);
+    }
+    g.fillStyle = "#3a9050";
+    for (let i = 0; i < 40; i++) {
+      g.fillRect((i * 41) % w, (i * 19) % h, 1, 1);
+    }
+  });
+}
+
+function bushTex(hex) {
+  return canvasTex(32, 32, (g, w, h) => {
+    g.fillStyle = hex;
+    g.fillRect(0, 0, w, h);
+    g.fillStyle = "rgba(0,0,0,0.22)";
+    for (let i = 0; i < 28; i++) {
+      g.fillRect((i * 11) % w, (i * 17) % h, 2, 2);
+    }
+    g.fillStyle = "rgba(255,255,255,0.12)";
+    for (let i = 0; i < 18; i++) {
+      g.fillRect((i * 13 + 4) % w, (i * 7 + 2) % h, 1, 1);
+    }
+    g.fillStyle = "rgba(0,40,0,0.28)";
+    g.fillRect(0, h - 4, w, 4);
+    g.fillStyle = "rgba(80,160,70,0.35)";
+    for (let i = 0; i < 12; i++) {
+      g.fillRect((i * 5) % w, (i * 3) % (h / 2), 3, 2);
+    }
   });
 }
 
@@ -1615,35 +1659,38 @@ export function createWorld(canvas, sprites) {
   curbNearShadow.position.z = 11.92;
   city.add(curbNearShadow);
 
-  // Near-camera sidewalk + bright grass just past the near curb (bottom of portrait view).
+  // Near-camera sidewalk (across the street) — match player-side depth so it doesn't read thin.
   const walkNear = new THREE.Mesh(
-    new THREE.PlaneGeometry(STREET_LEN + 4, 2.0),
+    new THREE.PlaneGeometry(STREET_LEN + 4, 3.2),
     new THREE.MeshLambertMaterial({ map: sidewalkTex() }),
   );
   walkNear.rotation.x = -Math.PI / 2;
-  walkNear.position.set(STREET_LEN / 2, 0.04, 13.2);
+  walkNear.position.set(STREET_LEN / 2, 0.04, 13.55);
   walkNear.material.map.repeat.set(160, 1);
   city.add(walkNear);
+  const grassNearMap = grassTex();
+  grassNearMap.repeat.set(48, 3);
   const grassNear = new THREE.Mesh(
     new THREE.PlaneGeometry(STREET_LEN + 4, 3.6),
-    new THREE.MeshBasicMaterial({ color: 0x2a6a38 }),
+    new THREE.MeshLambertMaterial({ map: grassNearMap }),
   );
   grassNear.rotation.x = -Math.PI / 2;
-  grassNear.position.set(STREET_LEN / 2, 0.05, 15.0);
+  grassNear.position.set(STREET_LEN / 2, 0.05, 15.85);
   city.add(grassNear);
-  const bushColors = [0x245a30, 0x2e6a38, 0x1e5028, 0x347844];
+  const bushHex = ["#245a30", "#2e6a38", "#1e5028", "#347844"];
+  const bushMats = bushHex.map((hex) => new THREE.MeshLambertMaterial({ map: bushTex(hex) }));
   for (let i = 0; i < 40; i++) {
     const bw = 1.2 + (i % 4) * 0.35;
     const bd = 0.85 + (i % 3) * 0.25;
     const bh = 0.55 + (i % 5) * 0.22;
     const bush = new THREE.Mesh(
       new THREE.BoxGeometry(bw, bh, bd),
-      new THREE.MeshBasicMaterial({ color: bushColors[i % bushColors.length] }),
+      bushMats[i % bushMats.length],
     );
     bush.position.set(
       (i + 0.35) * (STREET_LEN / 40) + (i % 2) * 0.35,
       bh * 0.5,
-      13.9 + (i % 3) * 0.45,
+      14.15 + (i % 3) * 0.45,
     );
     city.add(bush);
   }
@@ -1652,7 +1699,7 @@ export function createWorld(canvas, sprites) {
     nearPalm.position.set(
       (i + 0.5) * (STREET_LEN / 12) + (i % 2) * 1.1,
       0,
-      14.4 + (i % 2) * 0.4,
+      14.7 + (i % 2) * 0.4,
     );
     nearPalm.scale.setScalar(1.05 + (i % 3) * 0.1);
     city.add(nearPalm);
@@ -2265,7 +2312,9 @@ export function createWorld(canvas, sprites) {
     const portrait = camera.aspect < 1;
     const boardDur = BOARD_T;
     const boardU = 1 - Math.max(0, Math.min(1, (state.boardT || 0) / boardDur));
-    const carCam = state.inCar ? boardU : (1 - boardU);
+    // Ease camera into the car — linear boardU reads snappy/bumpy on enter.
+    const carCamLin = state.inCar ? boardU : (1 - boardU);
+    const carCam = carCamLin * carCamLin * (3 - 2 * carCamLin);
     const wantZoom = Math.max(CAM_ZOOM_MIN, Math.min(CAM_ZOOM_MAX, Number(state.camZoom) || CAM_ZOOM_MED));
     const zoomFollow = Math.min(1, stepDt * 18);
     zoomMulNow += (wantZoom - zoomMulNow) * (zoomFollow || 1);
@@ -2460,9 +2509,10 @@ export function createWorld(canvas, sprites) {
     const sidewalkZ = 1.15;
     const enter = boarding && state.inCar;
     const leave = boarding && !state.inCar;
-    const walking = spd > 3 && !boarding && !state.inCar;
-    const running = walking && !!(state.runHeld);
     const turning = !boarding && !airborne && (p.turnT || 0) > 0;
+    // Hold walk cycle during turn — flipping mid-stride after a turnaround stutters.
+    const walking = spd > 3 && !boarding && !state.inCar && !turning;
+    const running = walking && !!(state.runHeld);
     let boardPose = null;
     if (enter) {
       if (boardU < 0.30) boardPose = "walk";
@@ -2492,11 +2542,11 @@ export function createWorld(canvas, sprites) {
       : running ? nWalk
       : walking ? nWalk
       : 3;
-    // Hold the old facing through the first half of the turn, then ease to the new one.
+    // Hold old facing most of the turn, flip once near the end (avoids mid-stride stutter).
     const turnU = turning && (p.turnT || 0) > 0
       ? 1 - Math.min(1, (p.turnT || 0) / 0.52)
       : 1;
-    const sprFace = turning && p.turnFrom != null && turnU < 0.55
+    const sprFace = turning && p.turnFrom != null && turnU < 0.82
       ? (p.turnFrom < 0 ? -1 : 1)
       : (p.facing < 0 ? -1 : 1);
     const carZ = 4.95 + (state.car?.lat || 0);
@@ -2507,23 +2557,27 @@ export function createWorld(canvas, sprites) {
     const driverOut = Math.cos(carYaw) >= 0 ? -1 : 1;
     const doorStandZ = carZ + driverOut * 1.05;
     const seatZ = carZ + driverOut * 0.2;
+    const ease = (t) => {
+      const u = Math.max(0, Math.min(1, t));
+      return u * u * (3 - 2 * u);
+    };
     let boardZ = sidewalkZ;
     if (enter) {
       if (boardU < 0.30) boardZ = sidewalkZ;
       else if (boardU < 0.58) {
-        const t = (boardU - 0.30) / 0.28;
+        const t = ease((boardU - 0.30) / 0.28);
         boardZ = sidewalkZ + (doorStandZ - sidewalkZ) * t;
       } else {
-        const t = Math.min(1, (boardU - 0.58) / 0.22);
+        const t = ease(Math.min(1, (boardU - 0.58) / 0.22));
         boardZ = doorStandZ + (seatZ - doorStandZ) * t;
       }
     } else if (leave) {
       if (boardU < 0.20) boardZ = seatZ;
       else if (boardU < 0.55) {
-        const t = (boardU - 0.20) / 0.35;
-        boardZ = seatZ + (doorStandZ - seatZ) * Math.min(1, t);
+        const t = ease((boardU - 0.20) / 0.35);
+        boardZ = seatZ + (doorStandZ - seatZ) * t;
       } else {
-        const t = Math.min(1, (boardU - 0.55) / 0.45);
+        const t = ease(Math.min(1, (boardU - 0.55) / 0.45));
         boardZ = doorStandZ + (sidewalkZ - doorStandZ) * t;
       }
     }
