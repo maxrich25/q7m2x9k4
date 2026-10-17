@@ -1,16 +1,23 @@
 {
   "versions": [
     {
+      "pr": 77,
+      "date": "2026-10-17",
+      "note": "v103: crib setback, pad arrows, dark-green grass, icon refresh",
+      "path": "v103/",
+      "sha": "04d6813"
+    },
+    {
       "pr": 76,
       "date": "2026-10-17",
-      "note": "v102: asphalt grit, dark Lambert grass, doors, 2× lamps",
+      "note": "v102: asphalt grit, dark Lambert grass, doors, 2\u00d7 lamps",
       "path": "v102/",
       "sha": "e36b158"
     },
     {
       "pr": 75,
       "date": "2026-10-17",
-      "note": "v101: iPhone freeze fix — shared PointLights, no shadow maps",
+      "note": "v101: iPhone freeze fix \u2014 shared PointLights, no shadow maps",
       "path": "v101/",
       "sha": "3f08c8bb3e44"
     },

@@ -16,8 +16,8 @@ import {
   BOARD_T, ENTER_LOCK, PULL_OVER_T, ZOOM_KEY, ZOOM_MED_KEY, ZOOM_CONT_KEY,
   CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX, CAM_ZOOM_MUL, STREET_LEN, BLOCK_LEN,
   CAR_NOSE_GAME,
-} from "./config.js?v=103";
-import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=103";
+} from "./config.js?v=104";
+import { sfx, startMusic, stopMusic, isMuted, setMuted, unlockAudio, setEngine } from "./audio.js?v=104";
 
 function loadHi() {
   try { return Number(localStorage.getItem(HI_KEY) || "0") || 0; } catch { return 0; }
@@ -142,8 +142,10 @@ export function createGame() {
     const nearCribDoor = !!(inCrib && cribX < -1.55);
     const nearWardrobe = !!(inCrib && cribX > 2.15);
     const parked = !!(car.parked || (car.gear === "P" && Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.7));
-    const rolling = (car.vx || 0) * (car.facing || 1) > 8;
-    const pullOverOk = !!(inCar && !car.parked && car.gear === "D" && rolling && (car.pullOverT || 0) <= 0 && car.turnT <= 0);
+    const inLane = Math.abs((car.lat ?? 0) - parkLat(car.facing)) > 0.65;
+    // Pull while in D in the lane — moving or braked/stopped (U-TN stays on the other face button).
+    const pullOverOk = !!(inCar && car.gear === "D" && inLane && !car.pendingPullOut
+      && (car.pullOverT || 0) <= 0 && car.turnT <= 0);
     const exitOk = (inCar && parked) || nearCribDoor;
     // Y: CAR only when on foot near the car. EXIT only when parked in the car.
     const carBtnOk = !!(!inCrib && (
@@ -185,9 +187,8 @@ export function createGame() {
       else if (nearCribDoor) { actionLabel = "EXIT"; actionOk = true; actionKind = "crib"; }
       else if (!inCar && !inCrib && nearHome) { actionLabel = "CRIB"; actionOk = true; actionKind = "crib"; }
       else if (inCar && pullOverOk) { actionLabel = "PULL"; actionOk = true; actionKind = "pull"; }
-      else if (inCar && car.gear === "D" && car.turnT <= 0 && (car.pullOverT || 0) <= 0) {
-        actionLabel = "U-TN"; actionOk = true; actionKind = "uturn";
-      } else if (canServe) { actionLabel = "SERVE"; actionOk = true; actionKind = "serve"; }
+      else if (inCar && parked) { actionLabel = "EXIT"; actionOk = true; actionKind = "exit"; }
+      else if (canServe) { actionLabel = "SERVE"; actionOk = true; actionKind = "serve"; }
       else if (canSell) { actionLabel = "SELL"; actionOk = true; actionKind = "sell"; }
       else if (canBuy) { actionLabel = "BUY"; actionOk = true; actionKind = "buy"; }
       else if (nearPlug && !plugMeet) { actionLabel = "TEXT"; actionOk = true; actionKind = "text"; }
@@ -197,7 +198,9 @@ export function createGame() {
     const xLabel = "PHONE";
     const xBtnOk = true;
     const cribLabel = xLabel;
-    const uturnBtnOk = !!(inCar && car.gear === "D" && car.turnT <= 0 && (car.pullOverT || 0) <= 0);
+    // U-turn when in D (incl. braked/stopped) — separate from PULL on the action square.
+    const uturnBtnOk = !!(inCar && car.gear === "D" && car.turnT <= 0
+      && (car.pullOverT || 0) <= 0 && !car.pendingPullOut);
     return {
       nearCar, nearPlug, nearHome, nearPed, nearCribDoor, nearWardrobe, exitOk, liveDeal, nearDeal, slowEnough,
       canServe, canBuy, canSell, offer, prompt, gate, actionLabel, actionOk, actionKind, picks: [],
@@ -381,15 +384,19 @@ export function createGame() {
   }
 
   function startPullOver() {
-    if (!inCar || car.parked || (car.pullOverT || 0) > 0 || car.turnT > 0 || car.pendingPullOut) return false;
-    if (car.gear !== "D") {
-      pop(car.x, 150, "DRIVE");
+    if (!inCar || (car.pullOverT || 0) > 0 || car.turnT > 0 || car.pendingPullOut) return false;
+    // Already at the curb in Park — that's EXIT, not pull.
+    if (carIsParked() && Math.abs((car.lat ?? 0) - parkLat(car.facing)) < 0.7) {
+      pop(car.x, 150, "EXIT");
       return false;
     }
-    if (Math.abs(car.vx) < 8 || (car.vx || 0) * (car.facing || 1) <= 0) {
-      pop(car.x, 150, "MOVING");
-      return false;
-    }
+    // Auto: brake, ensure Drive, then ease to the curb (works from a stop too).
+    car.gear = "D";
+    car.parked = false;
+    car.shiftPreview = null;
+    car.shiftT = 0;
+    car.vx = Math.min(car.vx || 0, (car.facing || 1) * Math.max(24, Math.abs(car.vx || 0)));
+    if (Math.abs(car.vx) < 10) car.vx = (car.facing || 1) * 22;
     car.pullFromLat = car.lat ?? restLat(car.facing);
     car.pullToLat = parkLat(car.facing);
     car.pullMode = "in";
@@ -397,6 +404,8 @@ export function createGame() {
     car.pendingPullOut = null;
     car.passT = 0;
     car.turnT = 0;
+    car.autoBrake = true;
+    pop(car.x, 150, "PULL OVER");
     return true;
   }
 
@@ -1211,6 +1220,7 @@ export function createGame() {
     if (a.actionKind === "clothes") return openOutfit();
     if (a.actionKind === "crib") return doCribBtn();
     if (a.actionKind === "pull") return startPullOver();
+    if (a.actionKind === "exit") return doCarBtn();
     if (a.actionKind === "uturn") return doUTurn();
     if (a.actionKind === "buy") return useGatePick("buy");
     if (a.actionKind === "text") return textPlug();
@@ -1803,39 +1813,56 @@ export function createGame() {
         }
       } else if ((car.pullOverT || 0) > 0) {
         // Smooth pull: nose arcs in, lat eases, slight creep — then transmission climb.
-        car.pullOverT = Math.max(0, car.pullOverT - dt);
-        const u = 1 - car.pullOverT / PULL_OVER_T;
-        const s = u * u * (3 - 2 * u);
         const intoCurb = car.pullMode !== "out";
-        const from = car.pullFromLat ?? (car.lat ?? restLat(car.facing));
-        const dest = car.pullToLat ?? (intoCurb ? parkLat(car.facing) : restLat(car.facing));
-        car.lat = from + (dest - from) * s;
-        const baseYaw = car.facing < 0 ? Math.PI : 0;
-        const nose = (intoCurb ? -1 : 1) * Math.sin(u * Math.PI) * 0.32;
-        car.yaw = baseYaw + nose;
-        car.steer = nose * 1.7;
-        gas = false;
-        brake = intoCurb ? u > 0.55 : false;
-        const driveDir = car.gear === "R" ? -(car.facing || 1) : (car.facing || 1);
-        const pullCreep = 32 * Math.sin(Math.min(1, u) * Math.PI);
-        const want = driveDir * pullCreep;
-        car.vx += (want - car.vx) * Math.min(1, dt * 3);
-        car.passT = 0;
-        if (car.pullOverT <= 0) {
-          car.lat = dest;
-          car.steer = 0;
-          car.yaw = baseYaw;
-          car.pullMode = "";
-          if (intoCurb) {
-            car.vx = 0;
-            car.parked = true;
-            car.shiftT = 0.48;
-            car.autoBrake = true;
-            car.gear = "D";
-          } else {
-            car.vx = driveDir * Math.max(28, Math.abs(car.vx));
-            car.parked = false;
-            car.autoBrake = false;
+        // Mid pull-OUT: holding brake freezes the maneuver; release continues.
+        if (!intoCurb && brake) {
+          car.autoBrake = true;
+          car.vx = 0;
+          gas = false;
+          const uHold = 1 - car.pullOverT / PULL_OVER_T;
+          const from = car.pullFromLat ?? (car.lat ?? restLat(car.facing));
+          const dest = car.pullToLat ?? restLat(car.facing);
+          const s = uHold * uHold * (3 - 2 * uHold);
+          car.lat = from + (dest - from) * s;
+          const baseYaw = car.facing < 0 ? Math.PI : 0;
+          const nose = Math.sin(uHold * Math.PI) * 0.32;
+          car.yaw = baseYaw + nose;
+          car.steer = nose * 1.7;
+        } else {
+          car.pullOverT = Math.max(0, car.pullOverT - dt);
+          const u = 1 - car.pullOverT / PULL_OVER_T;
+          const s = u * u * (3 - 2 * u);
+          const from = car.pullFromLat ?? (car.lat ?? restLat(car.facing));
+          const dest = car.pullToLat ?? (intoCurb ? parkLat(car.facing) : restLat(car.facing));
+          car.lat = from + (dest - from) * s;
+          const baseYaw = car.facing < 0 ? Math.PI : 0;
+          const nose = (intoCurb ? -1 : 1) * Math.sin(u * Math.PI) * 0.32;
+          car.yaw = baseYaw + nose;
+          car.steer = nose * 1.7;
+          gas = false;
+          brake = intoCurb ? u > 0.55 : false;
+          car.autoBrake = intoCurb ? u > 0.55 : false;
+          const driveDir = car.gear === "R" ? -(car.facing || 1) : (car.facing || 1);
+          const pullCreep = 32 * Math.sin(Math.min(1, u) * Math.PI);
+          const want = driveDir * pullCreep;
+          car.vx += (want - car.vx) * Math.min(1, dt * 3);
+          car.passT = 0;
+          if (car.pullOverT <= 0) {
+            car.lat = dest;
+            car.steer = 0;
+            car.yaw = baseYaw;
+            car.pullMode = "";
+            if (intoCurb) {
+              car.vx = 0;
+              car.parked = true;
+              car.shiftT = 0.48;
+              car.autoBrake = true;
+              car.gear = "D";
+            } else {
+              car.vx = driveDir * Math.max(28, Math.abs(car.vx));
+              car.parked = false;
+              car.autoBrake = false;
+            }
           }
         }
       } else {
@@ -1953,6 +1980,10 @@ export function createGame() {
         gas = false;
       }
       if ((redHold || carHold) && !pullingOver) gas = false;
+      // Light the brake pedal at a held red / bumper-to-bumper stop.
+      if ((redHold || carHold) && !pullingOver && Math.abs(car.vx) < 6) {
+        car.autoBrake = true;
+      }
       holdLight = redHold;
       holdCar = carHold;
       if (pullingOver) {

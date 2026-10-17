@@ -1,8 +1,8 @@
-import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=103";
-import { paintClassicHero } from "./paint.js?v=103";
+import { GEARS, PRODUCTS, fmtGrams, formatDeal, HOME_X, HEAT_ENABLED } from "./config.js?v=104";
+import { paintClassicHero } from "./paint.js?v=104";
 
 export function createHud(opts = {}) {
-  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v103";
+  const subtitle = opts.subtitle || "2.5D NIGHT BLOCK  v104";
   const cashEl = document.getElementById("hud-cash");
   const invEl = document.getElementById("hud-inv") || document.getElementById("hud-packs");
   const heatEl = document.getElementById("hud-heat");
@@ -260,7 +260,7 @@ export function createHud(opts = {}) {
     const wht = "WHT " + fmtGrams(g.WHITE);
     const rep = "REP " + Math.round(state.rep || 0);
     const buildEl = document.getElementById("hud-build");
-    const build = (buildEl?.textContent || "v103").trim();
+    const build = (buildEl?.textContent || "v104").trim();
     if (cashEl) cashEl.textContent = cash;
     if (invEl) invEl.innerHTML = invHtml(state);
     if (repEl) repEl.textContent = rep;
@@ -419,7 +419,7 @@ export function createHud(opts = {}) {
       btnAction.classList.toggle("off", !actionOn);
       btnAction.classList.remove("go", "arm", "pulse", "serve");
     }
-    // On foot: RUN. In the whip: U-turn (no run while driving).
+    // On foot: RUN. In the whip: U-TN on this square; PULL/EXIT lives on ACTION.
     if (driving) {
       const uturnOn = !!state.uturnBtnOk;
       if (bLabelEl) bLabelEl.textContent = "U-TN";

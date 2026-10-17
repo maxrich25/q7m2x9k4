@@ -1,10 +1,10 @@
-import { TICK } from "./config.js?v=103";
-import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=103";
-import { createInput } from "./input.js?v=103";
-import { createGame } from "./game.js?v=103";
-import { loadSprites } from "./sprites.js?v=103";
-import { createWorld } from "./world.js?v=103";
-import { createHud } from "./hud.js?v=103";
+import { TICK } from "./config.js?v=104";
+import { bindAudioUnlock, unlockAudio, startMusic } from "./audio.js?v=104";
+import { createInput } from "./input.js?v=104";
+import { createGame } from "./game.js?v=104";
+import { loadSprites } from "./sprites.js?v=104";
+import { createWorld } from "./world.js?v=104";
+import { createHud } from "./hud.js?v=104";
 
 const canvas = document.getElementById("scene");
 const pauseBtn = document.getElementById("btn-pause");
@@ -20,6 +20,13 @@ document.getElementById("view")?.addEventListener("touchstart", (e) => {
 }, { passive: false });
 
 bindAudioUnlock();
+// Kick the music scheduler immediately — WebAudio still needs a tap to unmute on iOS,
+// but PLAY / first pointer should not sit on silence after the title opens.
+startMusic();
+window.addEventListener("pageshow", () => {
+  unlockAudio();
+  startMusic();
+});
 
 const input = createInput(document.getElementById("app"));
 const game = createGame();
@@ -44,12 +51,16 @@ resumeBtn?.addEventListener("pointerdown", (e) => {
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    game.pause();
+    // Don't pause the drone title — iOS standalone blips hidden on open and was
+    // freezing people on a black/paused shell before PLAY.
+    if (game.getState().mode === "play") game.pause();
     return;
   }
   last = performance.now();
   acc = 0;
   world?.resetCam?.();
+  unlockAudio();
+  startMusic();
 });
 
 let world = null;
