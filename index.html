@@ -159,14 +159,13 @@
     <p class="tag">NIGHT ARCADE</p>
     <h1>BLOCK<br><span>RUN</span></h1>
     <p class="cali">CALI</p>
-    <!-- Cold open lands on 2.5D (main focus). Back reveals 2D / 2.5D. -->
-    <div class="picks" id="menu-line" style="display:none">
+    <!-- Cold open: pick 2D or 2.5D. 2.5D opens the drone title (Play/More/Back live there). -->
+    <div class="picks" id="menu-line">
       <button type="button" class="pick line" data-go="2d-mode">
         <strong>2D</strong>
         <em>ON-FOOT BLOCK</em>
       </button>
-      <!-- Straight into the 2.5D drone title — no second Play step. -->
-      <a class="pick line" href="./block-run-25d/?v=93&fresh=clear&play=1">
+      <a class="pick line" href="./block-run-25d/?v=94&fresh=clear&play=1">
         <strong>2.5D</strong>
         <em>NIGHT STREET TITLE</em>
       </a>
@@ -209,21 +208,7 @@
         <em>2D MODE</em>
       </button>
     </div>
-    <div class="picks" id="menu-25d-ver">
-      <a class="pick latest" href="./block-run-25d/?v=93&fresh=clear&play=1">
-        <strong>PLAY 2.5D</strong>
-        <em>CURRENT NIGHT STREET</em>
-      </a>
-      <a class="pick more" href="./versions/">
-        <strong>MORE</strong>
-        <em>OLDER 2.5D BATCHES</em>
-      </a>
-      <button type="button" class="pick back" data-go="line">
-        <strong>BACK</strong>
-        <em>2D OR 2.5D</em>
-      </button>
-    </div>
-    <footer id="menu-foot">2.5D</footer>
+    <footer id="menu-foot">PICK A CART</footer>
   </main>
   <script>
     const panels = {
@@ -231,7 +216,6 @@
       "2d-mode": document.getElementById("menu-2d-mode"),
       "2d-shoot-ver": document.getElementById("menu-2d-shoot-ver"),
       "2d-safe-ver": document.getElementById("menu-2d-safe-ver"),
-      "25d-ver": document.getElementById("menu-25d-ver"),
     };
     const foot = document.getElementById("menu-foot");
     const feet = {
@@ -239,7 +223,6 @@
       "2d-mode": "2D SHOOTING OR NON-SHOOTING",
       "2d-shoot-ver": "2D SHOOTING",
       "2d-safe-ver": "2D NON-SHOOTING",
-      "25d-ver": "2.5D",
     };
     function show(id) {
       Object.entries(panels).forEach(([key, el]) => {
@@ -250,8 +233,7 @@
     document.querySelectorAll("[data-go]").forEach((btn) => {
       btn.addEventListener("click", () => show(btn.dataset.go));
     });
-    // Default: already on 2.5D (main focus).
-    show("25d-ver");
+    show("line");
   </script>
 </body>
 </html>

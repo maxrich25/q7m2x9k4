@@ -31,7 +31,7 @@
   </script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <!-- Cache bust: GitHub Pages max-age=600. Bump ?v= here, on js/main.js, and every relative import in js/*.js (see README). -->
-  <link rel="stylesheet" href="style.css?v=93" />
+  <link rel="stylesheet" href="style.css?v=94" />
   <script type="importmap">
   {
     "imports": {
@@ -50,7 +50,7 @@
           <span id="hud-cash">$0130</span>
           <span id="hud-inv"><span class="g-grn">GRN 0</span> <span class="g-wht">WHT 0</span></span>
           <span id="hud-rep">REP 1</span>
-          <span id="hud-build">v93</span>
+          <span id="hud-build">v94</span>
         </div>
         <span id="hud-heat" class="hidden" title="heat"></span>
         <span id="hud-time" class="hud-sr">9:00 PM</span>
@@ -210,20 +210,22 @@
         <div id="overlay">
           <div id="overlay-card">
             <h1 id="overlay-title">BLOCK<br><span>RUN</span></h1>
-            <p id="overlay-sub">2.5D NIGHT BLOCK  v93</p>
+            <p id="overlay-sub">2.5D NIGHT BLOCK  v94</p>
             <div id="overlay-body"></div>
             <p id="overlay-hi"></p>
-            <p id="overlay-prompt" class="blink">TAP TO START</p>
+            <p id="overlay-prompt" class="blink hidden">TAP TO START</p>
+            <!-- Title = Play / More / Back (merged from the old root 2.5D panel). -->
+            <div id="cart-picks" class="title-picks">
+              <button type="button" id="cart-latest" class="cart-pick on">PLAY</button>
+              <a class="cart-pick" href="../versions/">MORE</a>
+              <a class="cart-pick" href="../">BACK</a>
+            </div>
             <div id="pause-actions" class="hidden">
               <button type="button" id="btn-resume">RESUME</button>
               <button type="button" id="btn-sound" data-role="mute">SOUND ON</button>
               <button type="button" id="btn-title">TITLE</button>
               <a id="btn-mainmenu" href="../">MENU</a>
             </div>
-          </div>
-          <!-- Tucked bottom-left — plain text, no box. -->
-          <div id="cart-picks" class="title-menu-link">
-            <a class="cart-pick menu-quiet" href="../">MENU</a>
           </div>
         </div>
       </div>
@@ -282,11 +284,11 @@
   </div>
   <p id="status" class="sr-only">title</p>
   <script>
-    document.body.dataset.cartLabel = "2.5D NIGHT BLOCK  v93";
+    document.body.dataset.cartLabel = "2.5D NIGHT BLOCK  v94";
     document.getElementById("btn-title")?.addEventListener("click", () => {
       window.__br?.toTitle?.();
     });
   </script>
-  <script type="module" src="js/main.js?v=93"></script>
+  <script type="module" src="js/main.js?v=94"></script>
 </body>
 </html>
