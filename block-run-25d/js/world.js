@@ -4,9 +4,9 @@ import {
   wrap, wrapDelta, gameToWorldX, gameToWorldY, nearestWorldX,
   BLOCK_LEN, PLUG_X, HOME_X, LIGHT_COUNT, lightGameX, restLat, DAY_NIGHT_ENABLED,
   INTER_METERS, BOARD_T, CAM_ZOOM_MIN, CAM_ZOOM_MED, CAM_ZOOM_MAX,
-} from "./config.js?v=99";
-import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=99";
-import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=99";
+} from "./config.js?v=100";
+import { makeBillboard, setBillboardFrame, orientBillboard, frameAt } from "./sprites.js?v=100";
+import { STRIDE_CYCLE, RUN_STRIDE_CYCLE } from "./paint.js?v=100";
 
 function canvasTex(w, h, paint) {
   const c = document.createElement("canvas");
@@ -35,19 +35,41 @@ function brickTex(color, accent) {
         g.fillRect(x + off, y, 14, 6);
       }
     }
-    g.fillStyle = "rgba(0,0,0,0.18)";
-    for (let i = 0; i < 40; i++) g.fillRect((i * 17) % w, (i * 13) % h, 2, 1);
+    g.fillStyle = "rgba(0,0,0,0.22)";
+    for (let i = 0; i < 50; i++) g.fillRect((i * 17) % w, (i * 13) % h, 2, 1);
+    g.fillStyle = "rgba(255,255,255,0.06)";
+    for (let i = 0; i < 30; i++) g.fillRect((i * 11) % w, (i * 19) % h, 1, 1);
+    // Mortar lines
+    g.strokeStyle = "rgba(0,0,0,0.28)";
+    g.lineWidth = 1;
+    for (let y = 0; y < h; y += 8) {
+      g.beginPath();
+      g.moveTo(0, y + 0.5);
+      g.lineTo(w, y + 0.5);
+      g.stroke();
+    }
   });
 }
 
 function asphaltTex() {
   return canvasTex(128, 128, (g, w, h) => {
-    g.fillStyle = "#1a1822";
+    g.fillStyle = "#22202a";
     g.fillRect(0, 0, w, h);
-    g.fillStyle = "#24202c";
-    for (let i = 0; i < 220; i++) g.fillRect((i * 37) % w, (i * 53) % h, 2, 2);
-    g.fillStyle = "#2e2a36";
-    for (let i = 0; i < 90; i++) g.fillRect((i * 19) % w, (i * 29) % h, 1, 1);
+    g.fillStyle = "#2c2834";
+    for (let i = 0; i < 260; i++) g.fillRect((i * 37) % w, (i * 53) % h, 2, 2);
+    g.fillStyle = "#18161e";
+    for (let i = 0; i < 120; i++) g.fillRect((i * 19) % w, (i * 29) % h, 3, 1);
+    // Faint tire wear + cracks so it doesn't read as a black void.
+    g.strokeStyle = "rgba(0,0,0,0.35)";
+    g.lineWidth = 1;
+    for (let i = 0; i < 8; i++) {
+      g.beginPath();
+      g.moveTo((i * 17) % w, 0);
+      g.lineTo(((i * 17) + 40) % w, h);
+      g.stroke();
+    }
+    g.fillStyle = "rgba(240, 196, 48, 0.12)";
+    for (let y = 4; y < h; y += 18) g.fillRect(0, y, w, 2);
   });
 }
 
@@ -1115,27 +1137,60 @@ function makeKiosk() {
   return g;
 }
 
-function makeLamp() {
+function makeLamp(overZ = 1.1) {
+  // Cobra-head street lamp: pole + arm, fixture aimed down over the curb/street.
   const g = new THREE.Group();
-  const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.05, 0.07, 3.2, 6),
-    new THREE.MeshLambertMaterial({ color: 0x1a1820 }),
-  );
-  pole.position.y = 1.6;
+  const metal = new THREE.MeshLambertMaterial({ color: 0x2a2832 });
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.08, 3.6, 6), metal);
+  pole.position.y = 1.8;
   g.add(pole);
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, Math.abs(overZ) + 0.15), metal);
+  arm.position.set(0, 3.55, overZ * 0.5);
+  g.add(arm);
   const head = new THREE.Mesh(
-    new THREE.BoxGeometry(0.35, 0.12, 0.18),
+    new THREE.BoxGeometry(0.42, 0.14, 0.28),
     lampHeadMat,
   );
   head.name = "lampHead";
-  head.position.set(0.12, 3.15, 0);
+  head.position.set(0, 3.42, overZ);
+  // Tip the head downward so it reads as a street fixture, not a stadium flood.
+  head.rotation.x = overZ >= 0 ? 0.35 : -0.35;
   g.add(head);
   const glow = new THREE.Sprite(lampGlowMat);
   glow.name = "lampGlow";
-  glow.scale.set(2.8, 2.8, 1);
-  glow.position.set(0.12, 3.15, 0.1);
+  glow.scale.set(1.6, 1.1, 1);
+  glow.position.set(0, 3.28, overZ);
   g.add(glow);
+  // Soft ground pool disc (visible even when shadow maps are off).
+  const pool = new THREE.Mesh(
+    new THREE.CircleGeometry(2.8, 22),
+    new THREE.MeshBasicMaterial({
+      color: 0xffe08a,
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+    }),
+  );
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.set(0, 0.05, overZ * 0.9);
+  pool.name = "lampPool";
+  g.add(pool);
   return g;
+}
+
+function addStreetLamp(city, x, z, overZ, base = 1.6) {
+  const lamp = makeLamp(overZ);
+  lamp.position.set(x, 0, z);
+  city.add(lamp);
+  // One SpotLight per pole (Point fill would blow the mobile light budget).
+  const spot = new THREE.SpotLight(0xffe2a0, base, 16, Math.PI / 4.2, 0.55, 1.4);
+  spot.position.set(x, 3.35, z + overZ);
+  spot.target.position.set(x, 0, z + overZ * 0.9);
+  spot.userData.streetLamp = true;
+  spot.userData.lampBase = base;
+  city.add(spot);
+  city.add(spot.target);
+  return lamp;
 }
 
 function skylineTex() {
@@ -1416,6 +1471,8 @@ export function createWorld(canvas, sprites) {
   renderer.setPixelRatio(Math.max(1, Math.min(3, window.devicePixelRatio || 1)));
   renderer.setClearColor(0x0c1428, 1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2(0x101628, 0.014);
@@ -1425,12 +1482,21 @@ export function createWorld(canvas, sprites) {
   camera.far = 240;
   camera.position.set(0, 4.6, 11.5);
 
-  const amb = new THREE.AmbientLight(0x2a1838, 0.55);
+  // Keep night ambient low so street-lamp pools actually read.
+  const amb = new THREE.AmbientLight(0x2a1838, 0.32);
   scene.add(amb);
-  const hemi = new THREE.HemisphereLight(0x446688, 0x1a1018, 0.55);
+  const hemi = new THREE.HemisphereLight(0x446688, 0x1a1018, 0.38);
   scene.add(hemi);
-  const moonLight = new THREE.DirectionalLight(0xc8d8ff, 0.35);
+  const moonLight = new THREE.DirectionalLight(0xc8d8ff, 0.28);
   moonLight.position.set(-8, 18, 8);
+  moonLight.castShadow = true;
+  moonLight.shadow.mapSize.set(512, 512);
+  moonLight.shadow.camera.near = 2;
+  moonLight.shadow.camera.far = 60;
+  moonLight.shadow.camera.left = -22;
+  moonLight.shadow.camera.right = 22;
+  moonLight.shadow.camera.top = 22;
+  moonLight.shadow.camera.bottom = -22;
   scene.add(moonLight);
   const sunLight = new THREE.DirectionalLight(0xfff2d0, 0);
   sunLight.position.set(12, 20, 8);
@@ -1947,38 +2013,9 @@ export function createWorld(canvas, sprites) {
       palm.scale.setScalar(1.28 + (px % 3) * 0.04);
       city.add(palm);
     }
-    // Far-curb + near-curb street lamps — warm pools on both sidewalks.
-    const lampFar = makeLamp();
-    lampFar.position.set(16 + xOff, 0, 0.35);
-    city.add(lampFar);
-    const lampNear = makeLamp();
-    lampNear.position.set(8 + xOff, 0, 12.6);
-    lampNear.scale.setScalar(0.92);
-    city.add(lampNear);
-    const lampNear2 = makeLamp();
-    lampNear2.position.set(24 + xOff, 0, 12.7);
-    lampNear2.scale.setScalar(0.92);
-    city.add(lampNear2);
-    {
-      const plFar = new THREE.PointLight(0xf0c430, 1.8, 18, 1.45);
-      plFar.position.set(16 + xOff + 0.12, 3.15, 1.1);
-      plFar.userData.streetLamp = true;
-      plFar.userData.lampBase = 1.8;
-      city.add(plFar);
-      const plNear = new THREE.PointLight(0xf0c430, 1.5, 14, 1.55);
-      plNear.position.set(8 + xOff + 0.12, 3.0, 12.9);
-      plNear.userData.streetLamp = true;
-      plNear.userData.lampBase = 1.5;
-      city.add(plNear);
-      const plNear2 = new THREE.PointLight(0xf0c430, 1.5, 14, 1.55);
-      plNear2.position.set(24 + xOff + 0.12, 3.0, 13.0);
-      plNear2.userData.streetLamp = true;
-      plNear2.userData.lampBase = 1.5;
-      city.add(plNear2);
-    }
     // Warm spill from lit windows onto the far sidewalk.
     if (lit || (Math.round(xOff / BLOCK_LEN) % 2 === 0)) {
-      const winSpill = new THREE.PointLight(0xffe08a, 0.7, 10, 1.9);
+      const winSpill = new THREE.PointLight(0xffe08a, 0.55, 9, 1.9);
       winSpill.position.set(12 + xOff, 2.4, 1.6);
       city.add(winSpill);
     }
@@ -1986,6 +2023,11 @@ export function createWorld(canvas, sprites) {
   const blockCount = Math.round(STREET_LEN / BLOCK_LEN);
   for (let i = 0; i < blockCount; i++) {
     stampTheme(THEMES[i % THEMES.length], i * BLOCK_LEN, i === 0);
+  }
+  // Even cobra-head lamps both curbs — one per block side, staggered.
+  for (let i = 0; i < blockCount; i++) {
+    addStreetLamp(city, i * BLOCK_LEN + 14, 0.55, 1.15, 1.85);
+    addStreetLamp(city, i * BLOCK_LEN + 40, 12.55, -1.05, 1.55);
   }
   const homeWXCurb = gameToWorldX(HOME_X);
   for (let i = 0; i < blockCount * 2; i++) {
@@ -2121,7 +2163,16 @@ export function createWorld(canvas, sprites) {
   scene.add(strip);
   const lampLights = [];
   city.traverse((o) => {
-    if (o.isPointLight && o.userData.streetLamp) lampLights.push(o);
+    if ((o.isPointLight || o.isSpotLight) && o.userData.streetLamp) lampLights.push(o);
+  });
+  // Ground + facades catch lamp light / moon shadows.
+  city.traverse((o) => {
+    if (!o.isMesh) return;
+    o.receiveShadow = true;
+    if (o.name === "lampHead" || o.name === "lampPool") return;
+    if (o.material && o.material.map && o.geometry?.type === "BoxGeometry") {
+      o.castShadow = true;
+    }
   });
   const homePane = homeHouse.getObjectByName("homePane");
 
@@ -2365,9 +2416,9 @@ export function createWorld(canvas, sprites) {
     strip.visible = !inCrib;
     cribRoom.visible = inCrib;
     if (scene.fog) scene.fog.density = inCrib ? 0.001 : 0.016;
-    amb.intensity = inCrib ? 1.25 : 0.55;
-    amb.color.setHex(inCrib ? 0xffe6c8 : 0x2a1838);
-    hemi.intensity = inCrib ? 0.9 : 0.55;
+    amb.intensity = inCrib ? 1.25 : 0.32;
+    amb.color.setHex(inCrib ? 0xffe6c8 : 0x1a1028);
+    hemi.intensity = inCrib ? 0.9 : 0.38;
     const camZ = ((portrait ? 15.8 : 14.2) + carCam * 0.55) * zoomMul;
     // Keep on-foot cam lower so billboard soles don't read as floating above the curb.
     const camY = ((portrait ? 2.55 : 2.78) + carCam * 0.28) * (0.92 + zoomMul * 0.08);
@@ -2521,25 +2572,43 @@ export function createWorld(canvas, sprites) {
       sun.position.set(camX + 8.6, 12.8 + skyInfo.sun * 4.2, -28);
       sunGlow.position.copy(sun.position);
       sunGlow.material.opacity = 0.25 + skyInfo.sun * 0.6;
-      hemi.intensity = 0.55 + skyInfo.light * 0.7;
+      hemi.intensity = (skyInfo.sun > 0.35 ? 0.7 : 0.32) + skyInfo.light * 0.45;
       hemi.color.setHex(skyInfo.sun > 0.35 ? 0xc8e0f8 : skyInfo.top);
-      moonLight.intensity = skyInfo.moon * 0.62;
+      moonLight.intensity = skyInfo.moon * 0.5;
       moonLight.color.setHex(0xe8f0ff);
+      moonLight.position.set(camX - 8, 18, 8);
       sunLight.intensity = skyInfo.sun * 1.45;
       sunLight.color.setHex(skyInfo.sun > 0.7 ? 0xfff4d8 : 0xffa060);
       sunLight.position.set(camX + 12, 8 + skyInfo.sun * 14, 8);
-      amb.intensity = 0.7 + skyInfo.light * 0.65;
-      amb.color.setHex(skyInfo.sun > 0.4 ? 0xb0c8e0 : 0x4a3068);
+      // Night stays darker overall so lamp pools pop; day washes up.
+      amb.intensity = skyInfo.sun > 0.35
+        ? 0.7 + skyInfo.light * 0.55
+        : 0.22 + skyInfo.light * 0.2;
+      amb.color.setHex(skyInfo.sun > 0.4 ? 0xb0c8e0 : 0x1a1028);
       neonFill.intensity = 0.08 + skyInfo.star * 0.2;
       const litWin = skyInfo.windows > 0.32;
       winMat.map = litWin ? WIN_LIT : WIN_DIM;
       winMatFar.map = litWin ? WIN_LIT : WIN_DIM;
       if (homePane) homePane.material.color.setHex(litWin ? 0xf0c430 : 0x1a1424);
       lampHeadMat.color.setHex(skyInfo.lamps > 0.35 ? 0xf0c430 : 0x2a2430);
-      lampGlowMat.opacity = skyInfo.lamps > 0.35 ? 0.35 + skyInfo.lamps * 0.65 : 0;
+      lampGlowMat.opacity = skyInfo.lamps > 0.35 ? 0.28 + skyInfo.lamps * 0.55 : 0;
       for (const pl of lampLights) {
         const base = pl.userData.lampBase || 1.2;
-        pl.intensity = skyInfo.lamps > 0.35 ? base * (0.55 + skyInfo.lamps * 0.7) : 0;
+        const on = skyInfo.lamps > 0.35;
+        const dx = Math.abs(wrapDelta(pl.position.x, camX, STREET_LEN));
+        const near = dx < 36;
+        pl.visible = on && near;
+        pl.intensity = on && near ? base * (0.75 + skyInfo.lamps * 0.65) : 0;
+        // Only the closest lamps cast shadows (mobile budget).
+        if (pl.isSpotLight) {
+          pl.castShadow = on && dx < 22;
+          if (pl.castShadow) {
+            pl.shadow.mapSize.set(256, 256);
+            pl.shadow.camera.near = 0.5;
+            pl.shadow.camera.far = 16;
+            pl.shadow.bias = -0.002;
+          }
+        }
       }
       skyline.material.color.setHex(skyInfo.windows > 0.4 ? 0xffffff : 0x8aa4bc);
       skyline.material.opacity = skyInfo.windows > 0.4 ? 1 : 0.78;

@@ -12,49 +12,63 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="BLOCK RUN" />
   <meta name="description" content="2.5D night-street prototype of BLOCK RUN. Hit the plug, serve from the curb, stash at home." />
-  <link rel="manifest" href="manifest.json" />
+  <link rel="manifest" href="manifest.json?v=100" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="icon" type="image/svg+xml" href="../block-run/favicon.svg" />
-  <!-- Nuke stale GH Pages / home-screen caches when the build number changes. -->
+  <!--
+    Home-screen / GH Pages stickiness: never trust this HTML's BUILD alone.
+    Always ask build.json (no-store). Cached shells that still say v98 were
+    rewriting ?v= back to 98 after Safari had already moved localStorage ahead.
+  -->
   <script>
     (function () {
-      var BUILD = "99";
+      var BUILD = "100";
+      function go(v) {
+        var u = new URL(location.href);
+        u.searchParams.set("v", v);
+        u.searchParams.set("fresh", "nuke");
+        u.searchParams.set("play", "1");
+        location.replace(u.href);
+      }
+      function bootSw() {
+        if (!navigator.serviceWorker) return;
+        navigator.serviceWorker.register("./sw.js?v=" + BUILD).catch(function () {});
+      }
       try {
-        var prev = localStorage.getItem("br_build");
-        var urlV = new URL(location.href).searchParams.get("v");
-        // Home-screen start_url can stick on an old ?v= even after deploy — force align.
-        var staleUrl = urlV && urlV !== BUILD;
-        if (prev === BUILD && !staleUrl) return;
         localStorage.setItem("br_build", BUILD);
-        var nuke = [];
-        if (window.caches) nuke.push(caches.keys().then(function (ks) {
-          return Promise.all(ks.map(function (k) { return caches.delete(k); }));
-        }));
-        if (navigator.serviceWorker) nuke.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
-          return Promise.all(rs.map(function (r) { return r.unregister(); }));
-        }));
+        var urlV = new URL(location.href).searchParams.get("v");
         var key = "br_reloaded_" + BUILD;
-        if ((prev && prev !== BUILD) || staleUrl) {
-          if (!sessionStorage.getItem(key)) {
-            sessionStorage.setItem(key, "1");
-            Promise.all(nuke).finally(function () {
-              var u = new URL(location.href);
-              u.searchParams.set("v", BUILD);
-              u.searchParams.set("fresh", "nuke");
-              u.searchParams.set("play", "1");
-              location.replace(u.href);
-            });
-            return;
-          }
-        }
-        Promise.all(nuke).catch(function () {});
-      } catch (e) {}
+        fetch("./build.json?t=" + Date.now(), { cache: "no-store" })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            var live = String((j && j.v) || BUILD);
+            localStorage.setItem("br_build", live);
+            if (live !== BUILD || (urlV && urlV !== live)) {
+              if (!sessionStorage.getItem(key)) {
+                sessionStorage.setItem(key, "1");
+                go(live);
+                return;
+              }
+            }
+            bootSw();
+          })
+          .catch(function () {
+            if (urlV && urlV !== BUILD && !sessionStorage.getItem(key)) {
+              sessionStorage.setItem(key, "1");
+              go(BUILD);
+              return;
+            }
+            bootSw();
+          });
+      } catch (e) {
+        bootSw();
+      }
     })();
   </script>
   <!-- Cold open stays on this drone title. Root ?menu=1 is only for picking 2D. -->
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" />
   <!-- Cache bust: GitHub Pages max-age=600. Bump ?v= here, on js/main.js, and every relative import in js/*.js (see README). -->
-  <link rel="stylesheet" href="style.css?v=99" />
+  <link rel="stylesheet" href="style.css?v=100" />
   <script type="importmap">
   {
     "imports": {
@@ -73,7 +87,7 @@
           <span id="hud-cash">$0130</span>
           <span id="hud-inv"><span class="g-grn">GRN 0</span> <span class="g-wht">WHT 0</span></span>
           <span id="hud-rep">REP 1</span>
-          <span id="hud-build">v99</span>
+          <span id="hud-build">v100</span>
         </div>
         <span id="hud-heat" class="hidden" title="heat"></span>
         <span id="hud-time" class="hud-sr">9:00 PM</span>
@@ -233,7 +247,7 @@
         <div id="overlay">
           <div id="overlay-card">
             <h1 id="overlay-title">BLOCK<br><span>RUN</span></h1>
-            <p id="overlay-sub">2.5D NIGHT BLOCK  v99</p>
+            <p id="overlay-sub">2.5D NIGHT BLOCK  v100</p>
             <div id="overlay-body"></div>
             <p id="overlay-hi"></p>
             <p id="overlay-prompt" class="blink hidden">TAP TO START</p>
@@ -308,11 +322,11 @@
   </div>
   <p id="status" class="sr-only">title</p>
   <script>
-    document.body.dataset.cartLabel = "2.5D NIGHT BLOCK  v99";
+    document.body.dataset.cartLabel = "2.5D NIGHT BLOCK  v100";
     document.getElementById("btn-title")?.addEventListener("click", () => {
       window.__br?.toTitle?.();
     });
   </script>
-  <script type="module" src="js/main.js?v=99"></script>
+  <script type="module" src="js/main.js?v=100"></script>
 </body>
 </html>
