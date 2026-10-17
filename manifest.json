@@ -1,6 +1,8 @@
 {
   "name": "BLOCK RUN",
   "short_name": "BLOCK RUN",
+  "id": "./",
+  "scope": "./",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "any",
